@@ -1,5 +1,10 @@
 # AxonFlow SDK for TypeScript
 
+[![npm version](https://img.shields.io/npm/v/@axonflow/sdk.svg)](https://www.npmjs.com/package/@axonflow/sdk)
+[![npm downloads](https://img.shields.io/npm/dm/@axonflow/sdk.svg)](https://www.npmjs.com/package/@axonflow/sdk)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+
 Add invisible AI governance to your applications in 3 lines of code. No UI changes. No user training. Just drop-in enterprise protection.
 
 ## Installation
