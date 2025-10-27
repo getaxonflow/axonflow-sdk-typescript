@@ -109,7 +109,7 @@ describe('Policy Engine', () => {
 ```typescript
 describe('API Integration', () => {
   const client = new AxonFlow({
-    apiKey: 'demo-key-serko',
+    apiKey: 'demo-key',
     endpoint: 'https://staging-api.getaxonflow.com'
   });
 
@@ -256,11 +256,11 @@ test('bundle size under 50KB', () => {
 
 ### 4.1 Customer Scenarios
 
-#### Serko Travel Booking Flow
+#### TravelCo Travel Booking Flow
 ```typescript
-describe('Serko Travel Booking', () => {
+describe('TravelCo Travel Booking', () => {
   const axonflow = new AxonFlow({
-    apiKey: 'demo-key-serko',
+    apiKey: 'demo-key',
     environment: 'production'
   });
 
@@ -300,11 +300,11 @@ describe('Serko Travel Booking', () => {
 });
 ```
 
-#### Msasa.ai Financial Processing
+#### FinTech Financial Processing
 ```typescript
-describe('Msasa.ai Financial', () => {
+describe('FinTech Financial', () => {
   const axonflow = new AxonFlow({
-    apiKey: 'demo-key-msasa',
+    apiKey: 'demo-key',
     environment: 'production'
   });
 
@@ -337,7 +337,7 @@ describe('API Key Security', () => {
     await axonflow.protect(() => fetch('/api'));
 
     const [url, options] = interceptor.mock.calls[0];
-    expect(options.body).not.toContain('demo-key-serko');
+    expect(options.body).not.toContain('demo-key');
   });
 
   test('uses Authorization header', async () => {
@@ -347,7 +347,7 @@ describe('API Key Security', () => {
     await axonflow.protect(() => fetch('/api'));
 
     const [url, options] = interceptor.mock.calls[0];
-    expect(options.headers.Authorization).toBe('Bearer demo-key-serko');
+    expect(options.headers.Authorization).toBe('Bearer demo-key');
   });
 });
 ```

@@ -1,13 +1,13 @@
 /**
- * Serko Travel Booking AI - AxonFlow Integration Demo
+ * TravelCo Travel Booking AI - AxonFlow Integration Demo
  *
- * This demo shows how to add governance to Serko's travel booking AI
+ * This demo shows how to add governance to TravelCo's travel booking AI
  * with minimal code changes.
  */
 
 import { AxonFlow } from '@axonflow/sdk';
 
-// Simulated Serko travel booking scenarios
+// Simulated TravelCo travel booking scenarios
 const travelScenarios = [
   {
     name: 'Booking with PII',
@@ -52,14 +52,14 @@ class MockOpenAI {
 }
 
 /**
- * Serko's existing travel booking function
+ * TravelCo's existing travel booking function
  */
 async function bookTravel(prompt: string, openai: any) {
   const response = await openai.createChatCompletion({
     model: 'gpt-4',
     messages: [{
       role: 'system',
-      content: 'You are Serko\'s travel booking assistant.'
+      content: 'You are TravelCo\'s travel booking assistant.'
     }, {
       role: 'user',
       content: prompt
@@ -72,7 +72,7 @@ async function bookTravel(prompt: string, openai: any) {
 }
 
 /**
- * Serko's travel booking WITH AxonFlow protection
+ * TravelCo's travel booking WITH AxonFlow protection
  */
 async function bookTravelWithProtection(prompt: string, openai: any, axonflow: AxonFlow) {
   try {
@@ -81,7 +81,7 @@ async function bookTravelWithProtection(prompt: string, openai: any, axonflow: A
         model: 'gpt-4',
         messages: [{
           role: 'system',
-          content: 'You are Serko\'s travel booking assistant.'
+          content: 'You are TravelCo\'s travel booking assistant.'
         }, {
           role: 'user',
           content: prompt
@@ -101,7 +101,7 @@ async function bookTravelWithProtection(prompt: string, openai: any, axonflow: A
  * Run the demo
  */
 async function runDemo() {
-  console.log('🚀 Serko Travel Booking AI - AxonFlow Integration Demo\n');
+  console.log('🚀 TravelCo Travel Booking AI - AxonFlow Integration Demo\n');
   console.log('=' .repeat(60));
 
   // Initialize mock OpenAI
@@ -109,10 +109,10 @@ async function runDemo() {
 
   // Initialize AxonFlow (3 lines of code!)
   console.log('✅ Step 1: Initialize AxonFlow (3 lines)\n');
-  console.log('const axonflow = new AxonFlow({ apiKey: "demo-key-serko" });\n');
+  console.log('const axonflow = new AxonFlow({ apiKey: "demo-key" });\n');
 
   // In sandbox mode for demo
-  const axonflow = AxonFlow.sandbox('demo-key-serko');
+  const axonflow = AxonFlow.sandbox('demo-key');
 
   console.log('=' .repeat(60));
   console.log('\n📝 Testing Travel Booking Scenarios:\n');
@@ -163,7 +163,7 @@ async function runDemo() {
   console.log('⏱️  Performance impact: <10ms (9.5ms P99)');
   console.log('📅 Time to production: 30 days');
   console.log('\n' + '=' .repeat(60));
-  console.log('\n🚀 Ready for production deployment at Serko!\n');
+  console.log('\n🚀 Ready for production deployment at TravelCo!\n');
 }
 
 // Run the demo

@@ -108,7 +108,7 @@ interface AxonFlowConfig {
 3. OpenAI interceptor
 4. Simple policy enforcement
 
-### Phase 2: Serko Demo (Today)
+### Phase 2: TravelCo Demo (Today)
 1. Travel booking example
 2. PII protection demo
 3. Cost control policies

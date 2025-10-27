@@ -18,8 +18,8 @@ const axonflow = AxonFlow.sandbox('demo-key');
 ```
 
 For production, get your key from:
-- Serko: `demo-key-serko`
-- Msasa.ai: `demo-key-msasa`
+- TravelCo: `demo-key`
+- FinTech: `demo-key`
 - Others: Contact sales@axonflow.com
 
 ## 3. Add to Your Code (3 minutes)
