@@ -35,7 +35,7 @@ export class AnthropicInterceptor extends BaseInterceptor {
     };
   }
 
-  executeWithModifications(aiCall: any, modifications: any): Promise<any> {
+  executeWithModifications(aiCall: any, _modifications: any): Promise<any> {
     // Execute the call with any modifications from governance
     return aiCall();
   }

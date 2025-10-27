@@ -28,10 +28,11 @@ describe('AxonFlow SDK Integration Tests', () => {
         const result = await axonflow.protect(mockAICall);
         console.log('✅ Public endpoint test passed:', result);
         expect(result).toBeDefined();
-      } catch (error: any) {
+      } catch (error) {
         // Expected to fail with 401/403 if client doesn't exist
-        console.log('Expected error (client validation):', error.message);
-        expect(error.message).toContain('AxonFlow API error');
+        const err = error as Error;
+        console.log('Expected error (client validation):', err.message);
+        expect(err.message).toContain('AxonFlow API error');
       }
     }, 30000);
   });
@@ -54,10 +55,11 @@ describe('AxonFlow SDK Integration Tests', () => {
         const result = await axonflow.protect(mockAICall);
         console.log('✅ VPC endpoint test passed:', result);
         expect(result).toBeDefined();
-      } catch (error: any) {
+      } catch (error) {
         // Expected to fail with connection error if not in VPC
-        console.log('Expected error (VPC connectivity):', error.message);
-        expect(error.message).toMatch(/AxonFlow API error|fetch/);
+        const err = error as Error;
+        console.log('Expected error (VPC connectivity):', err.message);
+        expect(err.message).toMatch(/AxonFlow API error|fetch/);
       }
     }, 30000);
   });

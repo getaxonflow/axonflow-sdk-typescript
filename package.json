@@ -23,6 +23,11 @@
     "compile": "tsc && tsc --project tsconfig.esm.json && node scripts/fix-esm-imports.js",
     "dev": "tsc --watch",
     "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
+    "lint:fix": "eslint 'src/**/*.ts' 'test/**/*.ts' --fix",
+    "format": "prettier --write 'src/**/*.ts' 'test/**/*.ts'",
+    "format:check": "prettier --check 'src/**/*.ts' 'test/**/*.ts'",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -53,11 +58,15 @@
     "node": ">=14.0.0"
   },
   "devDependencies": {
-    "@types/node": "^18.0.0",
-    "typescript": "^5.0.0",
-    "jest": "^29.0.0",
     "@types/jest": "^29.0.0",
-    "ts-jest": "^29.0.0"
-  },
-  "dependencies": {}
+    "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "jest": "^29.0.0",
+    "prettier": "^3.6.2",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  }
 }
