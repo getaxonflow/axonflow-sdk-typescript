@@ -66,7 +66,7 @@ describe('AxonFlow Client Unit Tests', () => {
       const client = new AxonFlow({
         apiKey: 'test-key',
         tenant: 'test-tenant',
-        endpoint: 'https://10.0.2.67:8443',
+        endpoint: 'https://vpc-private-endpoint.getaxonflow.com:8443',
       });
 
       expect(client).toBeDefined();

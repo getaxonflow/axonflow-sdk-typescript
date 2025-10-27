@@ -90,7 +90,7 @@ async function testVPC() {
   const axonflow = new AxonFlow({
     apiKey: 'healthcare-demo-token',
     tenant: 'healthcare-acme',
-    endpoint: 'https://10.0.2.67:8443',
+    endpoint: 'https://vpc-private-endpoint.getaxonflow.com:8443',
     debug: true
   });
 
@@ -216,7 +216,7 @@ Step 3: Wrap existing AI call with protect()
 ### ✅ End-to-End Test (SDK → Agent → Database)
 
 **Prerequisites:**
-1. Agent running on central instance (63.178.85.84)
+1. Agent running on central instance (staging-eu.getaxonflow.com)
 2. Valid client_id and user_token in database
 3. EU AI Act templates deployed ✅
 

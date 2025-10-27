@@ -11,10 +11,12 @@ npm install @axonflow/sdk
 Set environment variables:
 
 ```bash
-export AXONFLOW_API_KEY="your-api-key"
+export AXONFLOW_API_KEY="AXON-PLUS-yourorg-20351025-signature"  # Your license key
 export AXONFLOW_TENANT="your-tenant-id"
 export AXONFLOW_AGENT_URL="https://staging-eu.getaxonflow.com"  # Optional
 ```
+
+**Note**: `AXONFLOW_API_KEY` should be your AxonFlow license key in the format `AXON-{TIER}-{ORG}-{EXPIRY}-{SIGNATURE}`
 
 ## Examples
 
@@ -87,7 +89,7 @@ node index.js
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `AXONFLOW_API_KEY` | Yes | Your AxonFlow API key |
+| `AXONFLOW_API_KEY` | Yes | Your AxonFlow license key (format: AXON-{TIER}-{ORG}-{EXPIRY}-{SIG}) |
 | `AXONFLOW_TENANT` | Yes | Your tenant identifier |
 | `AXONFLOW_AGENT_URL` | No | Custom endpoint (default: staging) |
 | `AMADEUS_API_KEY` | No | For connector examples |

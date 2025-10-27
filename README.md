@@ -149,7 +149,7 @@ For customers running within AWS VPC, use the private endpoint for sub-10ms late
 ```typescript
 const axonflow = new AxonFlow({
   apiKey: 'your-client-id',
-  endpoint: 'https://10.0.2.67:8443',  // VPC private endpoint (EU)
+  endpoint: 'https://vpc-private-endpoint.getaxonflow.com:8443',  // VPC private endpoint (EU)
   tenant: 'your-client-id',
   mode: 'production'
 });
