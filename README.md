@@ -15,7 +15,7 @@ npm install @axonflow/sdk
 
 ## Quick Start
 
-### Basic Usage
+### Basic Usage (License-Based Auth)
 
 ```typescript
 import { AxonFlow } from '@axonflow/sdk';
@@ -24,8 +24,10 @@ import OpenAI from 'openai';
 // Initialize your AI client as usual
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Add AxonFlow governance (3 lines)
-const axonflow = new AxonFlow({ apiKey: process.env.AXONFLOW_API_KEY });
+// Add AxonFlow governance with license key (recommended)
+const axonflow = new AxonFlow({
+  licenseKey: process.env.AXONFLOW_LICENSE_KEY
+});
 
 // Wrap any AI call with protect()
 const response = await axonflow.protect(async () => {
@@ -43,7 +45,9 @@ import { AxonFlow, wrapOpenAIClient } from '@axonflow/sdk';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const axonflow = new AxonFlow({ apiKey: process.env.AXONFLOW_API_KEY });
+const axonflow = new AxonFlow({
+  licenseKey: process.env.AXONFLOW_LICENSE_KEY
+});
 
 // Wrap the entire client - all calls are now protected
 const protectedOpenAI = wrapOpenAIClient(openai, axonflow);
@@ -55,13 +59,24 @@ const response = await protectedOpenAI.chat.completions.create({
 });
 ```
 
+### Legacy API Key Auth (Deprecated)
+
+> **⚠️ Deprecated**: `apiKey` authentication is deprecated. Please migrate to license-based authentication using `licenseKey`.
+
+```typescript
+// Legacy method (still supported for backward compatibility)
+const axonflow = new AxonFlow({ apiKey: process.env.AXONFLOW_API_KEY });
+```
+
 ## React Example
 
 ```tsx
 import { AxonFlow } from '@axonflow/sdk';
 import { useState } from 'react';
 
-const axonflow = new AxonFlow({ apiKey: 'your-key' });
+const axonflow = new AxonFlow({
+  licenseKey: process.env.REACT_APP_AXONFLOW_LICENSE_KEY
+});
 
 function ChatComponent() {
   const [response, setResponse] = useState('');
@@ -93,7 +108,9 @@ import { AxonFlow } from '@axonflow/sdk';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const axonflow = new AxonFlow({ apiKey: process.env.AXONFLOW_API_KEY });
+const axonflow = new AxonFlow({
+  licenseKey: process.env.AXONFLOW_LICENSE_KEY
+});
 
 export default async function handler(req, res) {
   const { prompt } = req.body;
@@ -356,9 +373,9 @@ if (status.status === 'running') {
 import { AxonFlow } from '@axonflow/sdk';
 
 async function planTrip() {
-  // Initialize client
+  // Initialize client with license key
   const axonflow = new AxonFlow({
-    apiKey: process.env.AXONFLOW_API_KEY,
+    licenseKey: process.env.AXONFLOW_LICENSE_KEY,
     debug: true
   });
 
@@ -385,6 +402,36 @@ async function planTrip() {
 
 planTrip().catch(console.error);
 ```
+
+## Migration Guide
+
+### Migrating from API Key to License Key
+
+If you're currently using `apiKey` authentication, migrate to license-based authentication:
+
+**Before:**
+```typescript
+const axonflow = new AxonFlow({
+  apiKey: process.env.AXONFLOW_API_KEY
+});
+```
+
+**After:**
+```typescript
+const axonflow = new AxonFlow({
+  licenseKey: process.env.AXONFLOW_LICENSE_KEY
+});
+```
+
+**How to get a license key:**
+1. Contact AxonFlow support at [dev@getaxonflow.com](mailto:dev@getaxonflow.com)
+2. License keys are provided as part of your AxonFlow subscription
+3. Store keys securely in environment variables or secrets management systems
+
+**Backward Compatibility:**
+- The SDK maintains full backward compatibility with `apiKey`
+- No breaking changes - existing code continues to work
+- You can migrate at your own pace
 
 ## License
 

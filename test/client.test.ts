@@ -92,10 +92,37 @@ describe('AxonFlow Client Unit Tests', () => {
   });
 
   describe('Configuration Validation', () => {
-    it('should handle empty apiKey', () => {
+    it('should throw error when neither apiKey nor licenseKey is provided', () => {
       expect(() => {
         new AxonFlow({
-          apiKey: '',
+          tenant: 'test-tenant',
+        } as AxonFlowConfig);
+      }).toThrow('Either licenseKey or apiKey must be provided');
+    });
+
+    it('should accept licenseKey without apiKey', () => {
+      expect(() => {
+        new AxonFlow({
+          licenseKey: 'test-license-key',
+          tenant: 'test-tenant',
+        });
+      }).not.toThrow();
+    });
+
+    it('should accept apiKey without licenseKey (backward compatibility)', () => {
+      expect(() => {
+        new AxonFlow({
+          apiKey: 'test-api-key',
+          tenant: 'test-tenant',
+        });
+      }).not.toThrow();
+    });
+
+    it('should accept both licenseKey and apiKey', () => {
+      expect(() => {
+        new AxonFlow({
+          apiKey: 'test-api-key',
+          licenseKey: 'test-license-key',
           tenant: 'test-tenant',
         });
       }).not.toThrow();

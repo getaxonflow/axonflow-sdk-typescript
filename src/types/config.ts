@@ -4,8 +4,15 @@
 export interface AxonFlowConfig {
   /**
    * Your AxonFlow API key
+   * @deprecated Use licenseKey instead for license-based authentication
    */
-  apiKey: string;
+  apiKey?: string;
+
+  /**
+   * Your AxonFlow license key (recommended)
+   * Replaces the deprecated apiKey for license-based authentication
+   */
+  licenseKey?: string;
 
   /**
    * AxonFlow API endpoint (optional)
