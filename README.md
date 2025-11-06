@@ -308,6 +308,97 @@ if (resp.success) {
 }
 ```
 
+### Production Connectors (November 2025)
+
+AxonFlow now supports **7 production-ready connectors**:
+
+#### Salesforce CRM Connector
+
+Query Salesforce data using SOQL:
+
+```typescript
+// Query Salesforce contacts
+const contacts = await axonflow.queryConnector(
+  'salesforce-crm',
+  'Find all contacts for account Acme Corp',
+  {
+    soql: "SELECT Id, Name, Email, Phone FROM Contact WHERE AccountId = '001xx000003DHP0'"
+  }
+);
+
+console.log(`Found ${contacts.data.length} contacts`);
+```
+
+**Authentication:** OAuth 2.0 password grant (configured in AxonFlow dashboard)
+
+#### Snowflake Data Warehouse Connector
+
+Execute analytics queries on Snowflake:
+
+```typescript
+// Query Snowflake for sales analytics
+const analytics = await axonflow.queryConnector(
+  'snowflake-warehouse',
+  'Get monthly revenue for last 12 months',
+  {
+    sql: `SELECT DATE_TRUNC('month', order_date) as month,
+          COUNT(*) as orders,
+          SUM(amount) as revenue
+          FROM orders
+          WHERE order_date >= DATEADD(month, -12, CURRENT_DATE())
+          GROUP BY month
+          ORDER BY month`
+  }
+);
+
+console.log('Revenue data:', analytics.data);
+```
+
+**Authentication:** Key-pair JWT authentication (configured in AxonFlow dashboard)
+
+#### Slack Connector
+
+Send notifications and alerts to Slack channels:
+
+```typescript
+// Send Slack notification
+const result = await axonflow.queryConnector(
+  'slack-workspace',
+  'Send deployment notification to #engineering channel',
+  {
+    channel: '#engineering',
+    text: '🚀 Deployment complete! All systems operational.',
+    blocks: [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Deployment Status*\n✅ All systems operational'
+        }
+      }
+    ]
+  }
+);
+
+console.log('Message sent:', result.success);
+```
+
+**Authentication:** OAuth 2.0 bot token (configured in AxonFlow dashboard)
+
+#### Available Connectors
+
+| Connector | Type | Use Case |
+|-----------|------|----------|
+| PostgreSQL | Database | Relational data access |
+| Redis | Cache | Distributed rate limiting |
+| Slack | Communication | Team notifications |
+| Salesforce | CRM | Customer data, SOQL queries |
+| Snowflake | Data Warehouse | Analytics, reporting |
+| Amadeus GDS | Travel | Flight/hotel booking |
+| Cassandra | NoSQL | Distributed database |
+
+For complete connector documentation, see [https://docs.getaxonflow.com/mcp](https://docs.getaxonflow.com/mcp)
+
 ## Multi-Agent Planning (MAP)
 
 Generate and execute complex multi-step plans using AI agent orchestration:
