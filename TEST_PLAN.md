@@ -254,11 +254,11 @@ test('bundle size under 50KB', () => {
 
 ## 4. End-to-End Tests
 
-### 4.1 Customer Scenarios
+### 4.1 Industry Scenarios
 
-#### TravelCo Travel Booking Flow
+#### Travel Booking Flow
 ```typescript
-describe('TravelCo Travel Booking', () => {
+describe('Travel Booking Industry', () => {
   const axonflow = new AxonFlow({
     apiKey: 'demo-key',
     environment: 'production'
@@ -300,9 +300,9 @@ describe('TravelCo Travel Booking', () => {
 });
 ```
 
-#### FinTech Financial Processing
+#### Financial Processing
 ```typescript
-describe('FinTech Financial', () => {
+describe('Financial Services Industry', () => {
   const axonflow = new AxonFlow({
     apiKey: 'demo-key',
     environment: 'production'

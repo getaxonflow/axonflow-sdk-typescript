@@ -17,10 +17,7 @@ For testing, use sandbox mode:
 const axonflow = AxonFlow.sandbox('demo-key');
 ```
 
-For production, get your key from:
-- TravelCo: `demo-key`
-- FinTech: `demo-key`
-- Others: Contact sales@axonflow.com
+For production, contact sales@axonflow.com to get your API key.
 
 ## 3. Add to Your Code (3 minutes)
 

@@ -367,7 +367,6 @@ Before claiming "3-line integration" in email:
 
 ### ✅ Documentation
 - [ ] README examples work when copy-pasted
-- [ ] TravelCo example is accurate
 - [ ] VPC endpoint documented
 - [ ] Error handling documented
 
