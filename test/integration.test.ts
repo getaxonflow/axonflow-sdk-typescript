@@ -42,7 +42,7 @@ describe('AxonFlow SDK Integration Tests', () => {
       const axonflow = new AxonFlow({
         apiKey: TEST_USER_TOKEN,
         tenant: TEST_CLIENT_ID,
-        endpoint: 'https://vpc-private-endpoint.getaxonflow.com:8443',
+        endpoint: 'https://staging-eu.getaxonflow.com',
         debug: true
       });
 
