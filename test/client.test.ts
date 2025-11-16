@@ -92,12 +92,13 @@ describe('AxonFlow Client Unit Tests', () => {
   });
 
   describe('Configuration Validation', () => {
-    it('should throw error when neither apiKey nor licenseKey is provided', () => {
+    it('should throw error when neither apiKey nor licenseKey is provided for non-localhost', () => {
       expect(() => {
         new AxonFlow({
           tenant: 'test-tenant',
+          endpoint: 'https://api.axonflow.com',
         } as AxonFlowConfig);
-      }).toThrow('Either licenseKey or apiKey must be provided');
+      }).toThrow('Either licenseKey or apiKey must be provided for non-localhost endpoints');
     });
 
     it('should accept licenseKey without apiKey', () => {
@@ -158,6 +159,77 @@ describe('AxonFlow Client Unit Tests', () => {
       });
 
       expect(client).toBeDefined();
+    });
+  });
+
+  describe('Self-Hosted Mode (Localhost)', () => {
+    it('should create client without license key when endpoint is localhost', () => {
+      expect(() => {
+        new AxonFlow({
+          endpoint: 'http://localhost:8080',
+          tenant: 'test-tenant',
+        });
+      }).not.toThrow();
+    });
+
+    it('should create client without license key when endpoint is 127.0.0.1', () => {
+      expect(() => {
+        new AxonFlow({
+          endpoint: 'http://127.0.0.1:8080',
+          tenant: 'test-tenant',
+        });
+      }).not.toThrow();
+    });
+
+    it('should default to sandbox mode for localhost endpoints', () => {
+      const client = new AxonFlow({
+        endpoint: 'http://localhost:8080',
+        tenant: 'test-tenant',
+        debug: true,
+      });
+
+      expect(client).toBeDefined();
+      // In debug mode, it should log 'self-hosted (no auth)'
+    });
+
+    it('should allow explicit mode override for localhost', () => {
+      const client = new AxonFlow({
+        endpoint: 'http://localhost:8080',
+        tenant: 'test-tenant',
+        mode: 'production', // Explicitly set production
+      });
+
+      expect(client).toBeDefined();
+    });
+
+    it('should accept license key for localhost (optional)', () => {
+      expect(() => {
+        new AxonFlow({
+          endpoint: 'http://localhost:8080',
+          licenseKey: 'test-license-key',
+          tenant: 'test-tenant',
+        });
+      }).not.toThrow();
+    });
+
+    it('should work with localhost URL variants', () => {
+      const variants = [
+        'http://localhost:8080',
+        'https://localhost:8443',
+        'http://127.0.0.1:8080',
+        'https://127.0.0.1:8443',
+        'http://localhost',
+        'http://127.0.0.1',
+      ];
+
+      variants.forEach((endpoint) => {
+        expect(() => {
+          new AxonFlow({
+            endpoint,
+            tenant: 'test-tenant',
+          });
+        }).not.toThrow();
+      });
     });
   });
 
