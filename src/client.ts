@@ -32,23 +32,17 @@ export class AxonFlow {
   private interceptors: BaseInterceptor[] = [];
 
   constructor(config: AxonFlowConfig) {
-    // Set defaults first to determine endpoint
-    const endpoint = config.endpoint || 'https://staging-eu.getaxonflow.com';
-
-    // Check if running in self-hosted mode (localhost)
-    const isLocalhost = endpoint.includes('localhost') || endpoint.includes('127.0.0.1');
-
-    // Validate authentication only for non-localhost endpoints
-    if (!isLocalhost && !config.licenseKey && !config.apiKey) {
-      throw new Error('Either licenseKey or apiKey must be provided for non-localhost endpoints');
+    // Validate that either licenseKey or apiKey is provided
+    if (!config.licenseKey && !config.apiKey) {
+      throw new Error('Either licenseKey or apiKey must be provided');
     }
 
-    // Set configuration
+    // Set defaults
     this.config = {
       apiKey: config.apiKey,
       licenseKey: config.licenseKey,
-      endpoint,
-      mode: config.mode || (isLocalhost ? 'sandbox' : 'production'),
+      endpoint: config.endpoint || 'https://staging-eu.getaxonflow.com',
+      mode: config.mode || 'production',
       tenant: config.tenant || 'default',
       debug: config.debug || false,
       timeout: config.timeout || 30000,
@@ -70,11 +64,10 @@ export class AxonFlow {
     ];
 
     if (this.config.debug) {
-      const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
       debugLog('AxonFlow initialized', {
         mode: this.config.mode,
         endpoint: this.config.endpoint,
-        authMethod: isLocalhost ? 'self-hosted (no auth)' : (this.config.licenseKey ? 'license-key' : 'api-key')
+        authMethod: this.config.licenseKey ? 'license-key' : 'api-key'
       });
     }
   }
@@ -183,9 +176,7 @@ export class AxonFlow {
     };
 
     // Add license key header if available (preferred auth method)
-    // Skip auth headers for localhost (self-hosted mode)
-    const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
-    if (!isLocalhost && this.config.licenseKey) {
+    if (this.config.licenseKey) {
       headers['X-License-Key'] = this.config.licenseKey;
     }
 
@@ -294,14 +285,11 @@ export class AxonFlow {
       'Content-Type': 'application/json'
     };
 
-    // Add authentication headers (skip for localhost self-hosted mode)
-    const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
-    if (!isLocalhost) {
-      if (this.config.licenseKey) {
-        headers['X-License-Key'] = this.config.licenseKey;
-      } else if (this.config.apiKey) {
-        headers['X-Client-Secret'] = this.config.apiKey;
-      }
+    // Add authentication headers
+    if (this.config.licenseKey) {
+      headers['X-License-Key'] = this.config.licenseKey;
+    } else if (this.config.apiKey) {
+      headers['X-Client-Secret'] = this.config.apiKey;
     }
 
     const response = await fetch(url, {
@@ -342,9 +330,7 @@ export class AxonFlow {
       'Content-Type': 'application/json'
     };
 
-    // Add auth header for non-localhost endpoints
-    const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
-    if (!isLocalhost && this.config.licenseKey) {
+    if (this.config.licenseKey) {
       headers['X-License-Key'] = this.config.licenseKey;
     }
 
@@ -392,9 +378,7 @@ export class AxonFlow {
       'Content-Type': 'application/json'
     };
 
-    // Add auth header for non-localhost endpoints
-    const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
-    if (!isLocalhost && this.config.licenseKey) {
+    if (this.config.licenseKey) {
       headers['X-License-Key'] = this.config.licenseKey;
     }
 
@@ -448,9 +432,7 @@ export class AxonFlow {
       'Content-Type': 'application/json'
     };
 
-    // Add auth header for non-localhost endpoints
-    const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
-    if (!isLocalhost && this.config.licenseKey) {
+    if (this.config.licenseKey) {
       headers['X-License-Key'] = this.config.licenseKey;
     }
 
