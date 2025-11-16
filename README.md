@@ -59,6 +59,48 @@ const response = await protectedOpenAI.chat.completions.create({
 });
 ```
 
+### Self-Hosted Mode (No License Required)
+
+Connect to a self-hosted AxonFlow instance running via docker-compose:
+
+```typescript
+import { AxonFlow } from '@axonflow/sdk';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Self-hosted (localhost) - no license key needed!
+const axonflow = new AxonFlow({
+  endpoint: 'http://localhost:8081'
+  // That's it - no authentication required for localhost
+});
+
+// Use normally - same features as production
+const response = await axonflow.protect(async () => {
+  return openai.chat.completions.create({
+    model: 'gpt-4',
+    messages: [{ role: 'user', content: 'Test with self-hosted AxonFlow' }]
+  });
+});
+```
+
+**Self-hosted deployment:**
+```bash
+# Clone and start AxonFlow
+git clone https://github.com/getaxonflow/axonflow.git
+cd axonflow
+export OPENAI_API_KEY=sk-your-key-here
+docker-compose up
+
+# SDK connects to http://localhost:8081 - no license needed!
+```
+
+**Features:**
+- ✅ Full AxonFlow features without license
+- ✅ Perfect for local development and testing
+- ✅ Same API as production
+- ✅ Automatically detects localhost and skips authentication
+
 ### Legacy API Key Auth (Deprecated)
 
 > **⚠️ Deprecated**: `apiKey` authentication is deprecated. Please migrate to license-based authentication using `licenseKey`.
