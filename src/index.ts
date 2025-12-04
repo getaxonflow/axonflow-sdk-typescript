@@ -17,6 +17,16 @@ export { AxonFlow } from './client';
 export { wrapOpenAIClient } from './interceptors/openai';
 export { wrapAnthropicClient } from './interceptors/anthropic';
 
+// Export error classes for proper error handling
+export {
+  AxonFlowError,
+  PolicyViolationError,
+  AuthenticationError,
+  RateLimitError,
+  TimeoutError,
+  APIError
+} from './errors';
+
 // Export types for TypeScript users
 export type {
   AxonFlowConfig,
@@ -26,11 +36,18 @@ export type {
   PolicyDecision,
   Violation,
   Policy,
-  PolicyRule
+  PolicyRule,
+  // Gateway Mode types
+  TokenUsage,
+  RateLimitInfo,
+  PolicyApprovalResult,
+  PolicyApprovalOptions,
+  AuditResult,
+  AuditOptions
 } from './types';
 
 // Export version
-export const VERSION = '0.1.0';
+export const VERSION = '1.2.0';
 
 // Default export for convenience
 import { AxonFlow } from './client';
