@@ -7,7 +7,12 @@ import {
   ConnectorInstallRequest,
   ConnectorResponse,
   PlanResponse,
-  PlanExecutionResponse
+  PlanExecutionResponse,
+  PolicyApprovalResult,
+  PolicyApprovalOptions,
+  AuditResult,
+  AuditOptions,
+  TokenUsage
 } from './types';
 import { OpenAIInterceptor } from './interceptors/openai';
 import { AnthropicInterceptor } from './interceptors/anthropic';
@@ -503,5 +508,211 @@ export class AxonFlow {
       error: status.error,
       duration: status.duration
     };
+  }
+
+  // ============================================================================
+  // Gateway Mode Methods
+  // ============================================================================
+
+  /**
+   * Gateway Mode: Get policy-approved context before making a direct LLM call.
+   *
+   * Use this when you want to:
+   * - Make direct LLM calls (not through AxonFlow proxy)
+   * - Have full control over your LLM provider/model selection
+   * - Minimize latency by calling LLM directly
+   *
+   * @example
+   * ```typescript
+   * const ctx = await axonflow.getPolicyApprovedContext({
+   *   userToken: 'user-jwt',
+   *   query: 'Analyze this customer data',
+   *   dataSources: ['postgres']
+   * });
+   *
+   * if (!ctx.approved) {
+   *   throw new Error(`Blocked: ${ctx.blockReason}`);
+   * }
+   *
+   * // Make direct LLM call with approved data
+   * const response = await openai.chat.completions.create({
+   *   model: 'gpt-4',
+   *   messages: [{ role: 'user', content: JSON.stringify(ctx.approvedData) }]
+   * });
+   *
+   * // Audit the call
+   * await axonflow.auditLLMCall({
+   *   contextId: ctx.contextId,
+   *   responseSummary: response.choices[0].message.content.substring(0, 100),
+   *   provider: 'openai',
+   *   model: 'gpt-4',
+   *   tokenUsage: {
+   *     promptTokens: response.usage.prompt_tokens,
+   *     completionTokens: response.usage.completion_tokens,
+   *     totalTokens: response.usage.total_tokens
+   *   },
+   *   latencyMs: 250
+   * });
+   * ```
+   */
+  async getPolicyApprovedContext(options: PolicyApprovalOptions): Promise<PolicyApprovalResult> {
+    const url = `${this.config.endpoint}/api/policy/pre-check`;
+
+    const requestBody = {
+      user_token: options.userToken,
+      client_id: this.config.tenant,
+      query: options.query,
+      data_sources: options.dataSources || [],
+      context: options.context || {}
+    };
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+
+    // Add authentication headers
+    const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
+    if (!isLocalhost) {
+      if (this.config.licenseKey) {
+        headers['X-License-Key'] = this.config.licenseKey;
+      } else if (this.config.apiKey) {
+        headers['X-Client-Secret'] = this.config.apiKey;
+      }
+    }
+
+    if (this.config.debug) {
+      debugLog('Gateway Mode: Pre-check', { query: options.query.substring(0, 50) });
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Policy pre-check failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    // Transform snake_case response to camelCase
+    const result: PolicyApprovalResult = {
+      contextId: data.context_id,
+      approved: data.approved,
+      approvedData: data.approved_data || {},
+      policies: data.policies || [],
+      expiresAt: new Date(data.expires_at),
+      blockReason: data.block_reason
+    };
+
+    // Parse rate limit info if present
+    if (data.rate_limit) {
+      result.rateLimitInfo = {
+        limit: data.rate_limit.limit,
+        remaining: data.rate_limit.remaining,
+        resetAt: new Date(data.rate_limit.reset_at)
+      };
+    }
+
+    if (this.config.debug) {
+      debugLog('Gateway Mode: Pre-check result', {
+        approved: result.approved,
+        contextId: result.contextId,
+        policies: result.policies.length
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Gateway Mode: Audit an LLM call after completion.
+   *
+   * Call this after making a direct LLM call to log the audit trail.
+   * This is required for compliance and monitoring.
+   *
+   * @example
+   * ```typescript
+   * await axonflow.auditLLMCall({
+   *   contextId: ctx.contextId,
+   *   responseSummary: 'Generated report with 5 items',
+   *   provider: 'openai',
+   *   model: 'gpt-4',
+   *   tokenUsage: {
+   *     promptTokens: 100,
+   *     completionTokens: 50,
+   *     totalTokens: 150
+   *   },
+   *   latencyMs: 250
+   * });
+   * ```
+   */
+  async auditLLMCall(options: AuditOptions): Promise<AuditResult> {
+    const url = `${this.config.endpoint}/api/audit/llm-call`;
+
+    const requestBody = {
+      context_id: options.contextId,
+      client_id: this.config.tenant,
+      response_summary: options.responseSummary,
+      provider: options.provider,
+      model: options.model,
+      token_usage: {
+        prompt_tokens: options.tokenUsage.promptTokens,
+        completion_tokens: options.tokenUsage.completionTokens,
+        total_tokens: options.tokenUsage.totalTokens
+      },
+      latency_ms: options.latencyMs,
+      metadata: options.metadata || {}
+    };
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+
+    // Add authentication headers
+    const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
+    if (!isLocalhost) {
+      if (this.config.licenseKey) {
+        headers['X-License-Key'] = this.config.licenseKey;
+      } else if (this.config.apiKey) {
+        headers['X-Client-Secret'] = this.config.apiKey;
+      }
+    }
+
+    if (this.config.debug) {
+      debugLog('Gateway Mode: Audit', {
+        contextId: options.contextId,
+        provider: options.provider,
+        model: options.model
+      });
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Audit logging failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    const result: AuditResult = {
+      success: data.success,
+      auditId: data.audit_id
+    };
+
+    if (this.config.debug) {
+      debugLog('Gateway Mode: Audit logged', { auditId: result.auditId });
+    }
+
+    return result;
   }
 }
