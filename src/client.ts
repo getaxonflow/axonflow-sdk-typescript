@@ -515,6 +515,14 @@ export class AxonFlow {
   // ============================================================================
 
   /**
+   * Gateway Mode: Pre-check policy approval before making a direct LLM call.
+   * Alias for getPolicyApprovedContext() for simpler API.
+   */
+  async preCheck(options: PolicyApprovalOptions): Promise<PolicyApprovalResult> {
+    return this.getPolicyApprovedContext(options);
+  }
+
+  /**
    * Gateway Mode: Get policy-approved context before making a direct LLM call.
    *
    * Use this when you want to:
