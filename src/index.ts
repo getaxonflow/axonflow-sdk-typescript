@@ -17,6 +17,16 @@ export { AxonFlow } from './client';
 export { wrapOpenAIClient } from './interceptors/openai';
 export { wrapAnthropicClient } from './interceptors/anthropic';
 
+// Export error classes for proper error handling
+export {
+  AxonFlowError,
+  PolicyViolationError,
+  AuthenticationError,
+  RateLimitError,
+  TimeoutError,
+  APIError
+} from './errors';
+
 // Export types for TypeScript users
 export type {
   AxonFlowConfig,

@@ -11,9 +11,14 @@ import {
   PolicyApprovalResult,
   PolicyApprovalOptions,
   AuditResult,
-  AuditOptions,
-  TokenUsage
+  AuditOptions
 } from './types';
+import {
+  AxonFlowError,
+  PolicyViolationError,
+  AuthenticationError,
+  APIError
+} from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
 import { AnthropicInterceptor } from './interceptors/anthropic';
 import { BaseInterceptor } from './interceptors/base';
@@ -601,18 +606,26 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Policy pre-check failed: ${response.status} ${response.statusText} - ${errorText}`);
+      if (response.status === 401 || response.status === 403) {
+        throw new AuthenticationError(`Policy pre-check authentication failed: ${errorText}`);
+      }
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     const data = await response.json();
 
     // Transform snake_case response to camelCase
+    // Default expiration to 5 minutes from now if not provided
+    const expiresAt = data.expires_at
+      ? new Date(data.expires_at)
+      : new Date(Date.now() + 5 * 60 * 1000);
+
     const result: PolicyApprovalResult = {
       contextId: data.context_id,
       approved: data.approved,
       approvedData: data.approved_data || {},
       policies: data.policies || [],
-      expiresAt: new Date(data.expires_at),
+      expiresAt,
       blockReason: data.block_reason
     };
 
@@ -707,7 +720,10 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Audit logging failed: ${response.status} ${response.statusText} - ${errorText}`);
+      if (response.status === 401 || response.status === 403) {
+        throw new AuthenticationError(`Audit logging authentication failed: ${errorText}`);
+      }
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     const data = await response.json();
