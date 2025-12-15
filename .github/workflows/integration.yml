@@ -60,14 +60,20 @@ jobs:
       - name: Wait for Agent to be healthy
         run: |
           echo "Waiting for Agent to be ready..."
+          HEALTHY=false
           for i in {1..30}; do
             if curl -s http://localhost:8080/health | grep -q "ok"; then
               echo "Agent is healthy!"
+              HEALTHY=true
               break
             fi
-            echo "Attempt $i: Agent not ready yet..."
+            echo "Attempt $i/30: Agent not ready yet..."
             sleep 2
           done
+          if [ "$HEALTHY" != "true" ]; then
+            echo "ERROR: Agent failed to become healthy within 60 seconds"
+            exit 1
+          fi
 
       - name: Run integration tests
         env:
@@ -121,13 +127,21 @@ jobs:
 
       - name: Wait for Agent
         run: |
+          echo "Waiting for Agent to be ready..."
+          HEALTHY=false
           for i in {1..30}; do
             if curl -s http://localhost:8080/health | grep -q "ok"; then
               echo "Agent is healthy!"
+              HEALTHY=true
               break
             fi
+            echo "Attempt $i/30: Agent not ready yet..."
             sleep 2
           done
+          if [ "$HEALTHY" != "true" ]; then
+            echo "ERROR: Agent failed to become healthy within 60 seconds"
+            exit 1
+          fi
 
       - name: Run basic example
         working-directory: examples

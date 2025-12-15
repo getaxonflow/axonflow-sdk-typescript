@@ -413,7 +413,7 @@ describe('Contract Tests - Agent API Response Parsing', () => {
         policies: agentResponse.policy_info.policies_evaluated,
         audit: {
           timestamp: Date.now(),
-          duration: parseInt(agentResponse.policy_info.processing_time.replace('ms', '')) || 0,
+          duration: parseFloat(agentResponse.policy_info.processing_time.replace('ms', '')) || 0,
           tenant: 'test-tenant',
         },
       };
@@ -421,6 +421,8 @@ describe('Contract Tests - Agent API Response Parsing', () => {
       expect(sdkResponse.allowed).toBe(true);
       expect(sdkResponse.violations).toHaveLength(0);
       expect(sdkResponse.policies).toContain('default-policy');
+      // Verify duration preserves decimal precision
+      expect(sdkResponse.audit.duration).toBeCloseTo(3.456, 3);
     });
 
     it('should transform blocked response with policy name extraction', () => {
@@ -445,7 +447,7 @@ describe('Contract Tests - Agent API Response Parsing', () => {
         policies: agentResponse.policy_info.policies_evaluated,
         audit: {
           timestamp: Date.now(),
-          duration: parseInt(agentResponse.policy_info.processing_time.replace('ms', '')) || 0,
+          duration: parseFloat(agentResponse.policy_info.processing_time.replace('ms', '')) || 0,
           tenant: 'test-tenant',
         },
       };
@@ -454,6 +456,8 @@ describe('Contract Tests - Agent API Response Parsing', () => {
       expect(sdkResponse.violations).toHaveLength(1);
       expect(sdkResponse.violations[0].policy).toBe('pii-detection-ssn');
       expect(sdkResponse.violations[0].description).toContain('PII');
+      // Verify duration preserves decimal precision (5.234789123ms)
+      expect(sdkResponse.audit.duration).toBeCloseTo(5.234789123, 6);
     });
 
     it('should transform pre-check response with datetime handling', () => {
@@ -485,6 +489,102 @@ describe('Contract Tests - Agent API Response Parsing', () => {
       expect(sdkResponse.expiresAt).toBeInstanceOf(Date);
       expect(sdkResponse.rateLimitInfo).toBeDefined();
       expect(sdkResponse.rateLimitInfo!.limit).toBe(1000);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle empty policies_evaluated array gracefully', () => {
+      const mockResponse = {
+        policy_info: {
+          policies_evaluated: [],
+          processing_time: '1ms',
+        },
+      };
+
+      // SDK should fallback to 'agent-policy' when array is empty
+      const policyName = mockResponse.policy_info.policies_evaluated[0] || 'agent-policy';
+      expect(policyName).toBe('agent-policy');
+    });
+
+    it('should handle undefined policy_info gracefully', () => {
+      const mockResponse: { policy_info?: { policies_evaluated?: string[] } } = {};
+
+      // SDK should handle missing policy_info
+      const policyName = mockResponse.policy_info?.policies_evaluated?.[0] || 'agent-policy';
+      expect(policyName).toBe('agent-policy');
+    });
+
+    it('should handle processing_time with 0ms value', () => {
+      const processingTime = '0ms';
+      const numericValue = parseFloat(processingTime.replace('ms', ''));
+      expect(numericValue).toBe(0);
+    });
+
+    it('should handle very large processing_time values', () => {
+      const processingTime = '9999.999999999ms';
+      const numericValue = parseFloat(processingTime.replace('ms', ''));
+      expect(numericValue).toBeCloseTo(9999.999999999, 6);
+    });
+
+    it('should handle timestamps without fractional seconds', () => {
+      const timestamp = '2025-12-15T14:30:45Z';
+      const date = new Date(timestamp);
+      expect(isNaN(date.getTime())).toBe(false);
+      expect(date.getFullYear()).toBe(2025);
+    });
+
+    it('should handle rate_limit being undefined', () => {
+      const mockResponse: {
+        rate_limit?: { limit: number; remaining: number };
+      } = {
+        rate_limit: undefined,
+      };
+
+      const rateLimitInfo = mockResponse.rate_limit
+        ? {
+            limit: mockResponse.rate_limit.limit,
+            remaining: mockResponse.rate_limit.remaining,
+          }
+        : undefined;
+
+      expect(rateLimitInfo).toBeUndefined();
+    });
+
+    it('should handle null data field in blocked response', () => {
+      const mockResponse = {
+        blocked: true,
+        data: null,
+      };
+
+      // SDK transformation should handle null data
+      const modifiedRequest = mockResponse.data;
+      expect(modifiedRequest).toBeNull();
+    });
+  });
+
+  describe('Fixture Validation', () => {
+    const fixtureFiles = [
+      'query_success.json',
+      'query_blocked_pii.json',
+      'query_blocked_sqli.json',
+      'plan_generate.json',
+      'pre_check_approved.json',
+      'pre_check_blocked.json',
+      'audit_success.json',
+    ];
+
+    fixtureFiles.forEach(filename => {
+      it(`should load and parse ${filename} as valid JSON`, () => {
+        expect(() => {
+          loadFixture(filename);
+        }).not.toThrow();
+      });
+    });
+
+    it('should throw error for non-existent fixture', () => {
+      expect(() => {
+        loadFixture('non_existent_fixture.json');
+      }).toThrow();
     });
   });
 });
