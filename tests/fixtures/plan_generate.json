@@ -1,0 +1,60 @@
+{
+  "request_id": "req_plan_gen_001",
+  "success": true,
+  "blocked": false,
+  "plan_id": "plan_abc123xyz789",
+  "data": {
+    "steps": [
+      {
+        "id": "step_1",
+        "name": "search_flights",
+        "type": "mcp-query",
+        "description": "Search for available flights from NYC to LA",
+        "dependsOn": [],
+        "agent": "travel-search-agent",
+        "parameters": {
+          "origin": "NYC",
+          "destination": "LA",
+          "date": "2025-12-20"
+        }
+      },
+      {
+        "id": "step_2",
+        "name": "filter_results",
+        "type": "transform",
+        "description": "Filter and rank flight options",
+        "dependsOn": ["step_1"],
+        "agent": "ranking-agent",
+        "parameters": {
+          "criteria": ["price", "duration", "stops"]
+        }
+      },
+      {
+        "id": "step_3",
+        "name": "format_response",
+        "type": "output",
+        "description": "Format the final response for user",
+        "dependsOn": ["step_2"],
+        "agent": "response-formatter",
+        "parameters": {
+          "format": "markdown"
+        }
+      }
+    ],
+    "domain": "travel",
+    "complexity": 3,
+    "parallel": false
+  },
+  "policy_info": {
+    "policies_evaluated": ["plan-validation", "resource-limits"],
+    "processing_time": "45.678912345ms",
+    "risk_score": 0.1
+  },
+  "metadata": {
+    "version": "1.2.0",
+    "region": "eu-central-1",
+    "timestamp": "2025-12-15T14:35:00.123456789Z",
+    "llm_provider": "anthropic",
+    "llm_model": "claude-3-5-sonnet"
+  }
+}

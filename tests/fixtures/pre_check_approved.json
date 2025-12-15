@@ -1,0 +1,20 @@
+{
+  "context_id": "ctx_pre_check_001",
+  "approved": true,
+  "approved_data": {
+    "query": "Analyze this customer data",
+    "data_sources": ["postgres"],
+    "redacted_fields": []
+  },
+  "policies": ["data-access-policy", "pii-filter"],
+  "expires_at": "2025-12-15T14:40:00.123456789Z",
+  "rate_limit": {
+    "limit": 1000,
+    "remaining": 999,
+    "reset_at": "2025-12-15T15:00:00Z"
+  },
+  "metadata": {
+    "version": "1.2.0",
+    "processing_time_ms": 12.345
+  }
+}

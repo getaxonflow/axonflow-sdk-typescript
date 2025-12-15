@@ -24,7 +24,7 @@ export {
   AuthenticationError,
   RateLimitError,
   TimeoutError,
-  APIError
+  APIError,
 } from './errors';
 
 // Export types for TypeScript users
@@ -43,7 +43,7 @@ export type {
   PolicyApprovalResult,
   PolicyApprovalOptions,
   AuditResult,
-  AuditOptions
+  AuditOptions,
 } from './types';
 
 // Export version

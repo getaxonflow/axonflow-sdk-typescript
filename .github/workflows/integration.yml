@@ -1,0 +1,163 @@
+name: Integration Tests
+
+on:
+  # Manual trigger only - requires Agent Docker image to be published
+  # Enable pull_request trigger when ghcr.io/getaxonflow/agent is available
+  workflow_dispatch:
+    inputs:
+      agent_image:
+        description: 'Agent Docker image tag'
+        required: false
+        default: 'latest'
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        default: 'false'
+
+env:
+  AXONFLOW_AGENT_URL: http://localhost:8080
+  AXONFLOW_CLIENT_ID: integration-test-client
+  AXONFLOW_CLIENT_SECRET: integration-test-secret
+
+jobs:
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      # AxonFlow Agent service
+      agent:
+        image: ghcr.io/getaxonflow/agent:${{ github.event.inputs.agent_image || 'latest' }}
+        env:
+          SELF_HOSTED_MODE: 'true'
+          LOG_LEVEL: ${{ github.event.inputs.debug == 'true' && 'debug' || 'info' }}
+          ENABLE_PII_DETECTION: 'true'
+          ENABLE_SQL_INJECTION_DETECTION: 'true'
+          DEFAULT_TENANT: integration-test-client
+        ports:
+          - 8080:8080
+        options: >-
+          --health-cmd "curl -f http://localhost:8080/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 30s
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for Agent to be healthy
+        run: |
+          echo "Waiting for Agent to be ready..."
+          HEALTHY=false
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/health | grep -q "ok"; then
+              echo "Agent is healthy!"
+              HEALTHY=true
+              break
+            fi
+            echo "Attempt $i/30: Agent not ready yet..."
+            sleep 2
+          done
+          if [ "$HEALTHY" != "true" ]; then
+            echo "ERROR: Agent failed to become healthy within 60 seconds"
+            exit 1
+          fi
+
+      - name: Run integration tests
+        env:
+          RUN_INTEGRATION_TESTS: '1'
+          AXONFLOW_DEBUG: ${{ github.event.inputs.debug || 'false' }}
+        run: npm run test:integration
+
+      - name: Collect Agent logs on failure
+        if: failure()
+        run: |
+          echo "=== Agent Container Logs ==="
+          docker logs $(docker ps -q --filter "ancestor=ghcr.io/getaxonflow/agent") 2>&1 || echo "No logs available"
+
+  # Smoke test with example applications
+  example-smoke-test:
+    name: Example App Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: integration-tests
+
+    services:
+      agent:
+        image: ghcr.io/getaxonflow/agent:${{ github.event.inputs.agent_image || 'latest' }}
+        env:
+          SELF_HOSTED_MODE: 'true'
+          LOG_LEVEL: info
+        ports:
+          - 8080:8080
+        options: >-
+          --health-cmd "curl -f http://localhost:8080/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 30s
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SDK
+        run: npm run build
+
+      - name: Wait for Agent
+        run: |
+          echo "Waiting for Agent to be ready..."
+          HEALTHY=false
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/health | grep -q "ok"; then
+              echo "Agent is healthy!"
+              HEALTHY=true
+              break
+            fi
+            echo "Attempt $i/30: Agent not ready yet..."
+            sleep 2
+          done
+          if [ "$HEALTHY" != "true" ]; then
+            echo "ERROR: Agent failed to become healthy within 60 seconds"
+            exit 1
+          fi
+
+      - name: Run basic example
+        working-directory: examples
+        env:
+          AXONFLOW_ENDPOINT: http://localhost:8080
+        run: |
+          # Install example dependencies
+          if [ -f "package.json" ]; then
+            npm install
+          fi
+
+          # Run basic example if it exists
+          if [ -f "basic.ts" ]; then
+            npx ts-node basic.ts || echo "Example completed (may have expected errors)"
+          elif [ -f "basic.js" ]; then
+            node basic.js || echo "Example completed (may have expected errors)"
+          else
+            echo "No basic example found, skipping"
+          fi

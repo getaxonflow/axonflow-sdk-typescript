@@ -8,10 +8,12 @@ export class OpenAIInterceptor extends BaseInterceptor {
   canHandle(aiCall: any): boolean {
     // Check if this looks like an OpenAI call
     const callString = aiCall.toString();
-    return callString.includes('openai') ||
-           callString.includes('createCompletion') ||
-           callString.includes('createChatCompletion') ||
-           callString.includes('gpt');
+    return (
+      callString.includes('openai') ||
+      callString.includes('createCompletion') ||
+      callString.includes('createChatCompletion') ||
+      callString.includes('gpt')
+    );
   }
 
   extractRequest(aiCall: any): AIRequest {
@@ -33,7 +35,7 @@ export class OpenAIInterceptor extends BaseInterceptor {
       prompt: callString,
       parameters: {
         // Would extract temperature, max_tokens, etc. in production
-      }
+      },
     };
   }
 
@@ -58,9 +60,10 @@ export function wrapOpenAIClient(openaiClient: any, axonflow: any): any {
       const original = Reflect.get(target, prop, receiver);
 
       // If it's a function that makes API calls
-      if (typeof original === 'function' &&
-          ['createCompletion', 'createChatCompletion', 'createEdit'].includes(prop.toString())) {
-
+      if (
+        typeof original === 'function' &&
+        ['createCompletion', 'createChatCompletion', 'createEdit'].includes(prop.toString())
+      ) {
         return async (...args: any[]) => {
           // Protect the call with AxonFlow
           return axonflow.protect(() => original.apply(target, args));
@@ -73,6 +76,6 @@ export function wrapOpenAIClient(openaiClient: any, axonflow: any): any {
       }
 
       return original;
-    }
+    },
   });
 }

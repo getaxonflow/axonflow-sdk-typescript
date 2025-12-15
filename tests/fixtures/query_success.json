@@ -1,0 +1,20 @@
+{
+  "request_id": "req_abc123def456",
+  "success": true,
+  "blocked": false,
+  "data": {
+    "query": "What is the weather in Paris?",
+    "modified": false
+  },
+  "policy_info": {
+    "policies_evaluated": ["default-policy", "content-filter"],
+    "processing_time": "3.456ms",
+    "risk_score": 0.15,
+    "categories": []
+  },
+  "metadata": {
+    "version": "1.2.0",
+    "region": "eu-central-1",
+    "timestamp": "2025-12-15T14:30:45.123456789Z"
+  }
+}

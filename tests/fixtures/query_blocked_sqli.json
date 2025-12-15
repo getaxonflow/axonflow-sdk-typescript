@@ -1,0 +1,27 @@
+{
+  "request_id": "req_sqli_block_001",
+  "success": true,
+  "blocked": true,
+  "block_reason": "SQL injection attack detected: UNION-based injection pattern",
+  "data": null,
+  "policy_info": {
+    "policies_evaluated": ["sql-injection-prevention", "default-policy"],
+    "processing_time": "2.876543210ms",
+    "risk_score": 0.99,
+    "categories": ["security", "sql-injection"],
+    "violations": [
+      {
+        "type": "security",
+        "pattern": "union_select",
+        "confidence": 0.99,
+        "location": "query",
+        "attack_category": "union-based"
+      }
+    ]
+  },
+  "metadata": {
+    "version": "1.2.0",
+    "region": "eu-central-1",
+    "timestamp": "2025-12-15T14:32:10.111222333Z"
+  }
+}
