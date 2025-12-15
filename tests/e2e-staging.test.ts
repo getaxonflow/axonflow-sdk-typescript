@@ -15,7 +15,6 @@ import { AxonFlow } from '../src/client';
 
 // Test configuration
 const STAGING_URL = 'https://staging-eu.getaxonflow.com';
-const LOCAL_URL = 'http://localhost:8080';
 
 function getTestConfig() {
   const endpoint = process.env.AXONFLOW_AGENT_URL || STAGING_URL;
