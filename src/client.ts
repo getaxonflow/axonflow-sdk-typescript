@@ -385,11 +385,14 @@ export class AxonFlow {
 
   /**
    * Generate a multi-agent execution plan from a natural language query
+   * @param query - Natural language query describing the task
+   * @param domain - Optional domain hint (travel, healthcare, etc.)
+   * @param userToken - Optional user token for authentication (defaults to tenant/client_id)
    */
-  async generatePlan(query: string, domain?: string): Promise<PlanResponse> {
+  async generatePlan(query: string, domain?: string, userToken?: string): Promise<PlanResponse> {
     const agentRequest = {
       query,
-      user_token: this.config.apiKey || '',
+      user_token: userToken || this.config.tenant,
       client_id: this.config.tenant,
       request_type: 'multi-agent-plan',
       context: domain ? { domain } : {}
@@ -439,11 +442,13 @@ export class AxonFlow {
 
   /**
    * Execute a previously generated multi-agent plan
+   * @param planId - ID of the plan to execute
+   * @param userToken - Optional user token for authentication (defaults to tenant/client_id)
    */
-  async executePlan(planId: string): Promise<PlanExecutionResponse> {
+  async executePlan(planId: string, userToken?: string): Promise<PlanExecutionResponse> {
     const agentRequest = {
       query: '',
-      user_token: this.config.apiKey || '',
+      user_token: userToken || this.config.tenant,
       client_id: this.config.tenant,
       request_type: 'execute-plan',
       context: { plan_id: planId }
