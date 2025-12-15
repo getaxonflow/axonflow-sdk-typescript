@@ -218,6 +218,8 @@ export class AxonFlow {
     const agentResponse = await response.json();
 
     // Transform Agent API response to SDK format
+    // Extract policy name from policy_info if available
+    const policyName = agentResponse.policy_info?.policies_evaluated?.[0] || 'agent-policy';
     return {
       requestId: request.requestId,
       allowed: !agentResponse.blocked,
@@ -225,11 +227,11 @@ export class AxonFlow {
         type: 'security',
         severity: 'high',
         description: agentResponse.block_reason || 'Request blocked by policy',
-        policy: 'agent-policy',
+        policy: policyName,
         action: 'blocked'
       }] : [],
       modifiedRequest: agentResponse.data,
-      policies: [],
+      policies: agentResponse.policy_info?.policies_evaluated || [],
       audit: {
         timestamp: Date.now(),
         duration: parseInt(agentResponse.policy_info?.processing_time?.replace('ms', '') || '0'),
