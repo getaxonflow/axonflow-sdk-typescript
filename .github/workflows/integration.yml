@@ -1,16 +1,8 @@
 name: Integration Tests
 
 on:
-  # Run on PRs that modify integration-related files
-  pull_request:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'test/**'
-      - 'package.json'
-      - '.github/workflows/integration.yml'
-  # Allow manual triggers
+  # Manual trigger only - requires Agent Docker image to be published
+  # Enable pull_request trigger when ghcr.io/getaxonflow/agent is available
   workflow_dispatch:
     inputs:
       agent_image:
@@ -32,8 +24,6 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Don't block PRs if Agent image not available
-    continue-on-error: true
 
     services:
       # AxonFlow Agent service
