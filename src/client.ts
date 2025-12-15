@@ -11,14 +11,9 @@ import {
   PolicyApprovalResult,
   PolicyApprovalOptions,
   AuditResult,
-  AuditOptions
+  AuditOptions,
 } from './types';
-import {
-  AxonFlowError,
-  PolicyViolationError,
-  AuthenticationError,
-  APIError
-} from './errors';
+import { AuthenticationError, APIError } from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
 import { AnthropicInterceptor } from './interceptors/anthropic';
 import { BaseInterceptor } from './interceptors/base';
@@ -70,25 +65,26 @@ export class AxonFlow {
       retry: {
         enabled: config.retry?.enabled !== false,
         maxAttempts: config.retry?.maxAttempts || 3,
-        delay: config.retry?.delay || 1000
+        delay: config.retry?.delay || 1000,
       },
       cache: {
         enabled: config.cache?.enabled !== false,
-        ttl: config.cache?.ttl || 60000
-      }
+        ttl: config.cache?.ttl || 60000,
+      },
     };
 
     // Initialize interceptors
-    this.interceptors = [
-      new OpenAIInterceptor(),
-      new AnthropicInterceptor()
-    ];
+    this.interceptors = [new OpenAIInterceptor(), new AnthropicInterceptor()];
 
     if (this.config.debug) {
       debugLog('AxonFlow initialized', {
         mode: this.config.mode,
         endpoint: this.config.endpoint,
-        authMethod: isLocalhost ? 'self-hosted (no auth)' : (this.config.licenseKey ? 'license-key' : 'api-key')
+        authMethod: isLocalhost
+          ? 'self-hosted (no auth)'
+          : this.config.licenseKey
+            ? 'license-key'
+            : 'api-key',
       });
     }
   }
@@ -113,7 +109,7 @@ export class AxonFlow {
         timestamp: Date.now(),
         aiRequest,
         mode: this.config.mode,
-        tenant: this.config.tenant
+        tenant: this.config.tenant,
       };
 
       // Check policies with AxonFlow Agent
@@ -122,7 +118,9 @@ export class AxonFlow {
       // If denied, throw error
       if (!governanceResponse.allowed) {
         const violation = governanceResponse.violations?.[0];
-        throw new Error(`Request blocked by AxonFlow: ${violation?.description || 'Policy violation'}`);
+        throw new Error(
+          `Request blocked by AxonFlow: ${violation?.description || 'Policy violation'}`
+        );
       }
 
       // Execute the AI call (possibly with modifications)
@@ -167,7 +165,7 @@ export class AxonFlow {
       provider: 'unknown',
       model: 'unknown',
       prompt: aiCall.toString(),
-      parameters: {}
+      parameters: {},
     };
   }
 
@@ -188,17 +186,18 @@ export class AxonFlow {
         model: request.aiRequest.model,
         parameters: request.aiRequest.parameters,
         requestId: request.requestId,
-        mode: this.config.mode
-      }
+        mode: this.config.mode,
+      },
     };
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     // Add license key header if available (preferred auth method)
     // Skip auth headers for localhost (self-hosted mode)
-    const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
+    const isLocalhost =
+      this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
     if (!isLocalhost && this.config.licenseKey) {
       headers['X-License-Key'] = this.config.licenseKey;
     }
@@ -207,12 +206,14 @@ export class AxonFlow {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`AxonFlow API error: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(
+        `AxonFlow API error: ${response.status} ${response.statusText} - ${errorText}`
+      );
     }
 
     const agentResponse = await response.json();
@@ -223,20 +224,24 @@ export class AxonFlow {
     return {
       requestId: request.requestId,
       allowed: !agentResponse.blocked,
-      violations: agentResponse.blocked ? [{
-        type: 'security',
-        severity: 'high',
-        description: agentResponse.block_reason || 'Request blocked by policy',
-        policy: policyName,
-        action: 'blocked'
-      }] : [],
+      violations: agentResponse.blocked
+        ? [
+            {
+              type: 'security',
+              severity: 'high',
+              description: agentResponse.block_reason || 'Request blocked by policy',
+              policy: policyName,
+              action: 'blocked',
+            },
+          ]
+        : [],
       modifiedRequest: agentResponse.data,
       policies: agentResponse.policy_info?.policies_evaluated || [],
       audit: {
         timestamp: Date.now(),
         duration: parseInt(agentResponse.policy_info?.processing_time?.replace('ms', '') || '0'),
-        tenant: this.config.tenant
-      }
+        tenant: this.config.tenant,
+      },
     };
   }
 
@@ -250,7 +255,7 @@ export class AxonFlow {
       debugLog('Request processed', {
         allowed: response.allowed,
         violations: response.violations?.length || 0,
-        duration: response.audit.duration
+        duration: response.audit.duration,
       });
     }
   }
@@ -259,9 +264,11 @@ export class AxonFlow {
    * Check if an error is from AxonFlow (vs the AI provider)
    */
   private isAxonFlowError(error: any): boolean {
-    return error?.message?.includes('AxonFlow') ||
-           error?.message?.includes('governance') ||
-           error?.message?.includes('fetch');
+    return (
+      error?.message?.includes('AxonFlow') ||
+      error?.message?.includes('governance') ||
+      error?.message?.includes('fetch')
+    );
   }
 
   /**
@@ -272,7 +279,7 @@ export class AxonFlow {
       apiKey,
       mode: 'sandbox',
       endpoint: 'https://staging-eu.getaxonflow.com',
-      debug: true
+      debug: true,
     });
   }
 
@@ -284,7 +291,7 @@ export class AxonFlow {
 
     const response = await fetch(url, {
       method: 'GET',
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -307,7 +314,7 @@ export class AxonFlow {
     const url = `${this.config.endpoint}/api/connectors/install`;
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     // Add authentication headers
@@ -321,12 +328,14 @@ export class AxonFlow {
       method: 'POST',
       headers,
       body: JSON.stringify(request),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to install connector: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(
+        `Failed to install connector: ${response.status} ${response.statusText} - ${errorText}`
+      );
     }
 
     if (this.config.debug) {
@@ -337,7 +346,11 @@ export class AxonFlow {
   /**
    * Execute a query against an installed MCP connector
    */
-  async queryConnector(connectorName: string, query: string, params?: any): Promise<ConnectorResponse> {
+  async queryConnector(
+    connectorName: string,
+    query: string,
+    params?: any
+  ): Promise<ConnectorResponse> {
     const agentRequest = {
       query,
       user_token: this.config.apiKey || '',
@@ -345,14 +358,14 @@ export class AxonFlow {
       request_type: 'mcp-query',
       context: {
         connector: connectorName,
-        params: params || {}
-      }
+        params: params || {},
+      },
     };
 
     const url = `${this.config.endpoint}/api/request`;
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     if (this.config.licenseKey) {
@@ -363,12 +376,14 @@ export class AxonFlow {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Connector query failed: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(
+        `Connector query failed: ${response.status} ${response.statusText} - ${errorText}`
+      );
     }
 
     const agentResponse = await response.json();
@@ -381,7 +396,7 @@ export class AxonFlow {
       success: agentResponse.success,
       data: agentResponse.data,
       error: agentResponse.error,
-      meta: agentResponse.metadata
+      meta: agentResponse.metadata,
     };
   }
 
@@ -397,13 +412,13 @@ export class AxonFlow {
       user_token: userToken || this.config.tenant,
       client_id: this.config.tenant,
       request_type: 'multi-agent-plan',
-      context: domain ? { domain } : {}
+      context: domain ? { domain } : {},
     };
 
     const url = `${this.config.endpoint}/api/request`;
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     if (this.config.licenseKey) {
@@ -414,12 +429,14 @@ export class AxonFlow {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Plan generation failed: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(
+        `Plan generation failed: ${response.status} ${response.statusText} - ${errorText}`
+      );
     }
 
     const agentResponse = await response.json();
@@ -438,7 +455,7 @@ export class AxonFlow {
       domain: agentResponse.data?.domain || domain || 'generic',
       complexity: agentResponse.data?.complexity || 0,
       parallel: agentResponse.data?.parallel || false,
-      metadata: agentResponse.metadata || {}
+      metadata: agentResponse.metadata || {},
     };
   }
 
@@ -453,13 +470,13 @@ export class AxonFlow {
       user_token: userToken || this.config.tenant,
       client_id: this.config.tenant,
       request_type: 'execute-plan',
-      context: { plan_id: planId }
+      context: { plan_id: planId },
     };
 
     const url = `${this.config.endpoint}/api/request`;
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     if (this.config.licenseKey) {
@@ -470,12 +487,14 @@ export class AxonFlow {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Plan execution failed: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(
+        `Plan execution failed: ${response.status} ${response.statusText} - ${errorText}`
+      );
     }
 
     const agentResponse = await response.json();
@@ -490,7 +509,7 @@ export class AxonFlow {
       result: agentResponse.result,
       stepResults: agentResponse.metadata?.step_results,
       error: agentResponse.error,
-      duration: agentResponse.metadata?.duration
+      duration: agentResponse.metadata?.duration,
     };
   }
 
@@ -502,12 +521,14 @@ export class AxonFlow {
 
     const response = await fetch(url, {
       method: 'GET',
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Get plan status failed: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(
+        `Get plan status failed: ${response.status} ${response.statusText} - ${errorText}`
+      );
     }
 
     const status = await response.json();
@@ -518,7 +539,7 @@ export class AxonFlow {
       result: status.result,
       stepResults: status.step_results,
       error: status.error,
-      duration: status.duration
+      duration: status.duration,
     };
   }
 
@@ -583,15 +604,16 @@ export class AxonFlow {
       client_id: this.config.tenant,
       query: options.query,
       data_sources: options.dataSources || [],
-      context: options.context || {}
+      context: options.context || {},
     };
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     // Add authentication headers
-    const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
+    const isLocalhost =
+      this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
     if (!isLocalhost) {
       if (this.config.licenseKey) {
         headers['X-License-Key'] = this.config.licenseKey;
@@ -608,7 +630,7 @@ export class AxonFlow {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -633,7 +655,7 @@ export class AxonFlow {
       approvedData: data.approved_data || {},
       policies: data.policies || [],
       expiresAt,
-      blockReason: data.block_reason
+      blockReason: data.block_reason,
     };
 
     // Parse rate limit info if present
@@ -641,7 +663,7 @@ export class AxonFlow {
       result.rateLimitInfo = {
         limit: data.rate_limit.limit,
         remaining: data.rate_limit.remaining,
-        resetAt: new Date(data.rate_limit.reset_at)
+        resetAt: new Date(data.rate_limit.reset_at),
       };
     }
 
@@ -649,7 +671,7 @@ export class AxonFlow {
       debugLog('Gateway Mode: Pre-check result', {
         approved: result.approved,
         contextId: result.contextId,
-        policies: result.policies.length
+        policies: result.policies.length,
       });
     }
 
@@ -690,18 +712,19 @@ export class AxonFlow {
       token_usage: {
         prompt_tokens: options.tokenUsage.promptTokens,
         completion_tokens: options.tokenUsage.completionTokens,
-        total_tokens: options.tokenUsage.totalTokens
+        total_tokens: options.tokenUsage.totalTokens,
       },
       latency_ms: options.latencyMs,
-      metadata: options.metadata || {}
+      metadata: options.metadata || {},
     };
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     // Add authentication headers
-    const isLocalhost = this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
+    const isLocalhost =
+      this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
     if (!isLocalhost) {
       if (this.config.licenseKey) {
         headers['X-License-Key'] = this.config.licenseKey;
@@ -714,7 +737,7 @@ export class AxonFlow {
       debugLog('Gateway Mode: Audit', {
         contextId: options.contextId,
         provider: options.provider,
-        model: options.model
+        model: options.model,
       });
     }
 
@@ -722,7 +745,7 @@ export class AxonFlow {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -737,7 +760,7 @@ export class AxonFlow {
 
     const result: AuditResult = {
       success: data.success,
-      auditId: data.audit_id
+      auditId: data.audit_id,
     };
 
     if (this.config.debug) {

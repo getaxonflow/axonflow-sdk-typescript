@@ -51,7 +51,9 @@ export class RateLimitError extends AxonFlowError {
   public readonly resetAt: Date;
 
   constructor(limit: number, remaining: number, resetAt: Date) {
-    super(`Rate limit exceeded: ${remaining}/${limit} remaining, resets at ${resetAt.toISOString()}`);
+    super(
+      `Rate limit exceeded: ${remaining}/${limit} remaining, resets at ${resetAt.toISOString()}`
+    );
     this.name = 'RateLimitError';
     this.limit = limit;
     this.remaining = remaining;

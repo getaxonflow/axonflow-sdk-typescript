@@ -8,9 +8,11 @@ export class AnthropicInterceptor extends BaseInterceptor {
   canHandle(aiCall: any): boolean {
     // Check if this looks like an Anthropic call
     const callString = aiCall.toString();
-    return callString.includes('anthropic') ||
-           callString.includes('claude') ||
-           callString.includes('messages.create');
+    return (
+      callString.includes('anthropic') ||
+      callString.includes('claude') ||
+      callString.includes('messages.create')
+    );
   }
 
   extractRequest(aiCall: any): AIRequest {
@@ -31,7 +33,7 @@ export class AnthropicInterceptor extends BaseInterceptor {
       prompt: callString,
       parameters: {
         // Would extract max_tokens, temperature, etc. in production
-      }
+      },
     };
   }
 
@@ -69,11 +71,11 @@ export function wrapAnthropicClient(anthropicClient: any, axonflow: any): any {
             }
 
             return messagesOriginal;
-          }
+          },
         });
       }
 
       return original;
-    }
+    },
   });
 }

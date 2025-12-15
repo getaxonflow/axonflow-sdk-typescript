@@ -16,18 +16,20 @@ async function testSDK() {
     apiKey: 'test-user-token',
     tenant: 'healthcare-acme',
     endpoint: 'https://staging-eu.getaxonflow.com',
-    debug: true
+    debug: true,
   });
 
   // Mock OpenAI-like call
   const mockAICall = async () => {
     return {
-      choices: [{
-        message: {
-          role: 'assistant',
-          content: 'Show me patient demographics'
-        }
-      }]
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: 'Show me patient demographics',
+          },
+        },
+      ],
     };
   };
 

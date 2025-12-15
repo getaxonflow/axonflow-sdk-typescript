@@ -30,7 +30,11 @@ export function isBrowser(): boolean {
  * Check if running in Node.js
  */
 export function isNode(): boolean {
-  return typeof process !== 'undefined' && process.versions !== undefined && process.versions.node !== undefined;
+  return (
+    typeof process !== 'undefined' &&
+    process.versions !== undefined &&
+    process.versions.node !== undefined
+  );
 }
 
 /**

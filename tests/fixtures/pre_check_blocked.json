@@ -1,0 +1,19 @@
+{
+  "context_id": "ctx_pre_check_blocked_001",
+  "approved": false,
+  "approved_data": {},
+  "policies": ["pii-detection"],
+  "expires_at": "2025-12-15T14:40:00.123456789Z",
+  "block_reason": "Request contains personally identifiable information (SSN pattern detected)",
+  "metadata": {
+    "version": "1.2.0",
+    "processing_time_ms": 8.765,
+    "violations": [
+      {
+        "type": "pii",
+        "severity": "high",
+        "pattern": "ssn"
+      }
+    ]
+  }
+}

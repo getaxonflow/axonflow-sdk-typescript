@@ -16,7 +16,7 @@ describe('AxonFlow SDK Integration Tests', () => {
         apiKey: TEST_USER_TOKEN,
         tenant: TEST_CLIENT_ID,
         endpoint: 'https://staging-eu.getaxonflow.com',
-        debug: true
+        debug: true,
       });
 
       // Mock AI call
@@ -43,7 +43,7 @@ describe('AxonFlow SDK Integration Tests', () => {
         apiKey: TEST_USER_TOKEN,
         tenant: TEST_CLIENT_ID,
         endpoint: 'https://staging-eu.getaxonflow.com',
-        debug: true
+        debug: true,
       });
 
       // Mock AI call
