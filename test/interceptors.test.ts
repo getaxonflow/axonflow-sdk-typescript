@@ -8,7 +8,7 @@ import { AxonFlow } from '../src/client';
 // Mock the AxonFlow client
 jest.mock('../src/client', () => ({
   AxonFlow: jest.fn().mockImplementation(() => ({
-    protect: jest.fn().mockImplementation((fn) => fn()),
+    protect: jest.fn().mockImplementation(fn => fn()),
     getPolicyApprovedContext: jest.fn().mockResolvedValue({
       approved: true,
       contextId: 'test-context',

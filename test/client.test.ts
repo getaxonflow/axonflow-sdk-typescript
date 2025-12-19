@@ -397,12 +397,13 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should return healthy status on success', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            status: 'healthy',
-            version: '1.0.0',
-            uptime: '24h',
-            components: { agent: { status: 'healthy' } },
-          }),
+          json: () =>
+            Promise.resolve({
+              status: 'healthy',
+              version: '1.0.0',
+              uptime: '24h',
+              components: { agent: { status: 'healthy' } },
+            }),
         });
 
         const health = await client.healthCheck();
@@ -432,10 +433,11 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should return degraded for degraded status', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            status: 'degraded',
-            components: { agent: { status: 'degraded' } },
-          }),
+          json: () =>
+            Promise.resolve({
+              status: 'degraded',
+              components: { agent: { status: 'degraded' } },
+            }),
         });
 
         const health = await client.healthCheck();
@@ -447,16 +449,17 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should execute query successfully', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            success: true,
-            data: { result: 'test result' },
-            blocked: false,
-            policy_info: {
-              policies_evaluated: ['policy-1'],
-              processing_time: '10ms',
-              tenant_id: 'test-tenant',
-            },
-          }),
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: { result: 'test result' },
+              blocked: false,
+              policy_info: {
+                policies_evaluated: ['policy-1'],
+                processing_time: '10ms',
+                tenant_id: 'test-tenant',
+              },
+            }),
         });
 
         const result = await client.executeQuery({
@@ -473,11 +476,12 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should throw PolicyViolationError when blocked', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            success: false,
-            blocked: true,
-            block_reason: 'Sensitive content',
-          }),
+          json: () =>
+            Promise.resolve({
+              success: false,
+              blocked: true,
+              block_reason: 'Sensitive content',
+            }),
         });
 
         await expect(
@@ -526,11 +530,14 @@ describe('AxonFlow Client Unit Tests', () => {
         mockFetch.mockResolvedValueOnce({
           ok: false,
           status: 403,
-          text: () => Promise.resolve(JSON.stringify({
-            blocked: true,
-            block_reason: 'Policy violation in error',
-            policy_info: { policies_evaluated: ['policy-x'] },
-          })),
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                blocked: true,
+                block_reason: 'Policy violation in error',
+                policy_info: { policies_evaluated: ['policy-x'] },
+              })
+            ),
         });
 
         await expect(
@@ -547,13 +554,14 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should return approved context', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            context_id: 'ctx-123',
-            approved: true,
-            approved_data: { field: 'value' },
-            policies: ['policy-1', 'policy-2'],
-            expires_at: '2025-12-31T23:59:59Z',
-          }),
+          json: () =>
+            Promise.resolve({
+              context_id: 'ctx-123',
+              approved: true,
+              approved_data: { field: 'value' },
+              policies: ['policy-1', 'policy-2'],
+              expires_at: '2025-12-31T23:59:59Z',
+            }),
         });
 
         const result = await client.getPolicyApprovedContext({
@@ -569,12 +577,13 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should return blocked context with reason', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            context_id: 'ctx-456',
-            approved: false,
-            block_reason: 'PII detected',
-            policies: ['pii-protection'],
-          }),
+          json: () =>
+            Promise.resolve({
+              context_id: 'ctx-456',
+              approved: false,
+              block_reason: 'PII detected',
+              policies: ['pii-protection'],
+            }),
         });
 
         const result = await client.getPolicyApprovedContext({
@@ -589,17 +598,18 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should parse rate limit info', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            context_id: 'ctx-789',
-            approved: true,
-            approved_data: {},
-            policies: [],
-            rate_limit: {
-              limit: 100,
-              remaining: 50,
-              reset_at: '2025-01-01T00:00:00Z',
-            },
-          }),
+          json: () =>
+            Promise.resolve({
+              context_id: 'ctx-789',
+              approved: true,
+              approved_data: {},
+              policies: [],
+              rate_limit: {
+                limit: 100,
+                remaining: 50,
+                reset_at: '2025-01-01T00:00:00Z',
+              },
+            }),
         });
 
         const result = await client.getPolicyApprovedContext({
@@ -629,12 +639,13 @@ describe('AxonFlow Client Unit Tests', () => {
       it('preCheck should be alias for getPolicyApprovedContext', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            context_id: 'ctx-alias',
-            approved: true,
-            approved_data: {},
-            policies: [],
-          }),
+          json: () =>
+            Promise.resolve({
+              context_id: 'ctx-alias',
+              approved: true,
+              approved_data: {},
+              policies: [],
+            }),
         });
 
         const result = await client.preCheck({
@@ -650,10 +661,11 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should audit LLM call successfully', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            success: true,
-            audit_id: 'audit-123',
-          }),
+          json: () =>
+            Promise.resolve({
+              success: true,
+              audit_id: 'audit-123',
+            }),
         });
 
         const result = await client.auditLLMCall({
@@ -717,10 +729,11 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should list connectors successfully', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve([
-            { name: 'postgres', version: '1.0.0' },
-            { name: 'mysql', version: '1.0.0' },
-          ]),
+          json: () =>
+            Promise.resolve([
+              { name: 'postgres', version: '1.0.0' },
+              { name: 'mysql', version: '1.0.0' },
+            ]),
         });
 
         const connectors = await client.listConnectors();
@@ -781,11 +794,12 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should query connector successfully', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            success: true,
-            data: { results: [{ id: 1 }] },
-            metadata: { count: 1 },
-          }),
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: { results: [{ id: 1 }] },
+              metadata: { count: 1 },
+            }),
         });
 
         const result = await client.queryConnector('postgres', 'SELECT * FROM users');
@@ -801,9 +815,9 @@ describe('AxonFlow Client Unit Tests', () => {
           text: () => Promise.resolve('Invalid query'),
         });
 
-        await expect(
-          client.queryConnector('postgres', 'INVALID SQL')
-        ).rejects.toThrow('Connector query failed');
+        await expect(client.queryConnector('postgres', 'INVALID SQL')).rejects.toThrow(
+          'Connector query failed'
+        );
       });
     });
 
@@ -811,17 +825,18 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should generate plan successfully', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            success: true,
-            plan_id: 'plan-123',
-            data: {
-              steps: [{ name: 'step1', action: 'do something' }],
-              domain: 'travel',
-              complexity: 2,
-              parallel: false,
-            },
-            metadata: { created_at: '2025-01-01' },
-          }),
+          json: () =>
+            Promise.resolve({
+              success: true,
+              plan_id: 'plan-123',
+              data: {
+                steps: [{ name: 'step1', action: 'do something' }],
+                domain: 'travel',
+                complexity: 2,
+                parallel: false,
+              },
+              metadata: { created_at: '2025-01-01' },
+            }),
         });
 
         const plan = await client.generatePlan('Book a flight', 'travel');
@@ -833,15 +848,14 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should throw error when plan generation fails', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            success: false,
-            error: 'Cannot generate plan',
-          }),
+          json: () =>
+            Promise.resolve({
+              success: false,
+              error: 'Cannot generate plan',
+            }),
         });
 
-        await expect(
-          client.generatePlan('Invalid task')
-        ).rejects.toThrow('Plan generation failed');
+        await expect(client.generatePlan('Invalid task')).rejects.toThrow('Plan generation failed');
       });
 
       it('should throw error on HTTP failure', async () => {
@@ -852,9 +866,7 @@ describe('AxonFlow Client Unit Tests', () => {
           text: () => Promise.resolve('Internal error'),
         });
 
-        await expect(
-          client.generatePlan('Task')
-        ).rejects.toThrow('Plan generation failed');
+        await expect(client.generatePlan('Task')).rejects.toThrow('Plan generation failed');
       });
     });
 
@@ -862,14 +874,15 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should execute plan successfully', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            success: true,
-            result: 'Plan completed successfully',
-            metadata: {
-              step_results: [{ step: 1, status: 'done' }],
-              duration: 1000,
-            },
-          }),
+          json: () =>
+            Promise.resolve({
+              success: true,
+              result: 'Plan completed successfully',
+              metadata: {
+                step_results: [{ step: 1, status: 'done' }],
+                duration: 1000,
+              },
+            }),
         });
 
         const result = await client.executePlan('plan-123');
@@ -880,10 +893,11 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should return failed status on failure', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            success: false,
-            error: 'Step 2 failed',
-          }),
+          json: () =>
+            Promise.resolve({
+              success: false,
+              error: 'Step 2 failed',
+            }),
         });
 
         const result = await client.executePlan('plan-123');
@@ -899,9 +913,7 @@ describe('AxonFlow Client Unit Tests', () => {
           text: () => Promise.resolve('Plan not found'),
         });
 
-        await expect(
-          client.executePlan('invalid-plan')
-        ).rejects.toThrow('Plan execution failed');
+        await expect(client.executePlan('invalid-plan')).rejects.toThrow('Plan execution failed');
       });
     });
 
@@ -909,12 +921,13 @@ describe('AxonFlow Client Unit Tests', () => {
       it('should get plan status successfully', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({
-            status: 'completed',
-            result: { data: 'result' },
-            step_results: [],
-            duration: 500,
-          }),
+          json: () =>
+            Promise.resolve({
+              status: 'completed',
+              result: { data: 'result' },
+              step_results: [],
+              duration: 500,
+            }),
         });
 
         const status = await client.getPlanStatus('plan-123');
@@ -930,9 +943,9 @@ describe('AxonFlow Client Unit Tests', () => {
           text: () => Promise.resolve('Plan not found'),
         });
 
-        await expect(
-          client.getPlanStatus('invalid-plan')
-        ).rejects.toThrow('Get plan status failed');
+        await expect(client.getPlanStatus('invalid-plan')).rejects.toThrow(
+          'Get plan status failed'
+        );
       });
     });
   });
@@ -956,9 +969,7 @@ describe('AxonFlow Client Unit Tests', () => {
         debug: true,
       });
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('No license key provided')
-      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('No license key provided'));
       warnSpy.mockRestore();
     });
 
