@@ -17,6 +17,8 @@ export { AxonFlow } from './client';
 export { wrapOpenAIClient } from './interceptors/openai';
 export { wrapAnthropicClient } from './interceptors/anthropic';
 export { wrapGeminiModel } from './interceptors/gemini';
+export { wrapOllamaClient } from './interceptors/ollama';
+export { wrapBedrockClient } from './interceptors/bedrock';
 
 // Export error classes for proper error handling
 export {
