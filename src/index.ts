@@ -14,10 +14,18 @@
  */
 
 export { AxonFlow } from './client';
+
+// LLM Interceptor Wrappers (DEPRECATED - use Gateway Mode or Proxy Mode instead)
+// These will be removed in v2.0.0. See: https://docs.getaxonflow.com/sdk/gateway-mode
+/** @deprecated Use Gateway Mode or Proxy Mode instead */
 export { wrapOpenAIClient } from './interceptors/openai';
+/** @deprecated Use Gateway Mode or Proxy Mode instead */
 export { wrapAnthropicClient } from './interceptors/anthropic';
+/** @deprecated Use Gateway Mode or Proxy Mode instead */
 export { wrapGeminiModel } from './interceptors/gemini';
+/** @deprecated Use Gateway Mode or Proxy Mode instead */
 export { wrapOllamaClient } from './interceptors/ollama';
+/** @deprecated Use Gateway Mode or Proxy Mode instead */
 export { wrapBedrockClient } from './interceptors/bedrock';
 
 // Export error classes for proper error handling
@@ -56,7 +64,7 @@ export type {
 } from './types';
 
 // Export version
-export const VERSION = '1.3.0';
+export const VERSION = '1.4.0';
 
 // Default export for convenience
 import { AxonFlow } from './client';

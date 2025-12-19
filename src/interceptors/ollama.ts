@@ -141,30 +141,35 @@ export interface OllamaGenerateResponse {
 /**
  * Wraps an Ollama client with AxonFlow governance.
  *
- * @example
+ * @deprecated This function is deprecated and will be removed in v2.0.0.
+ * JavaScript Proxy-based wrapping has compatibility issues with modern SDK versions.
+ *
+ * Use Gateway Mode or Proxy Mode instead:
+ *
+ * Gateway Mode (recommended):
  * ```typescript
- * import Ollama from 'ollama';
- * import { AxonFlow, wrapOllamaClient } from '@axonflow/sdk';
+ * const context = await axonflow.getPolicyApprovedContext({ query, userToken });
+ * const response = await ollama.chat({ model: 'llama2', messages: [...] });
+ * await axonflow.auditLLMCall({ contextId: context.contextId, ... });
+ * ```
  *
- * const ollama = new Ollama({ host: 'http://localhost:11434' });
- * const axonflow = new AxonFlow({ endpoint: 'http://localhost:8080' });
- *
- * const wrapped = wrapOllamaClient(ollama, axonflow);
- *
- * // Chat API
- * const chatResponse = await wrapped.chat({
- *   model: 'llama2',
- *   messages: [{ role: 'user', content: 'What is AI governance?' }]
- * });
- *
- * // Generate API
- * const genResponse = await wrapped.generate({
- *   model: 'llama2',
- *   prompt: 'What is AI governance?'
+ * Proxy Mode:
+ * ```typescript
+ * const response = await axonflow.executeQuery({
+ *   query,
+ *   userToken,
+ *   context: { provider: 'ollama', model: 'llama2' }
  * });
  * ```
+ *
+ * See: https://docs.getaxonflow.com/sdk/gateway-mode
  */
 export function wrapOllamaClient(ollamaClient: any, axonflow: any): any {
+  console.warn(
+    '[AxonFlow] wrapOllamaClient is deprecated and will be removed in v2.0.0. ' +
+      'Use Gateway Mode (getPolicyApprovedContext + auditLLMCall) or Proxy Mode (executeQuery) instead. ' +
+      'See: https://docs.getaxonflow.com/sdk/gateway-mode'
+  );
   return new Proxy(ollamaClient, {
     get(target, prop, receiver) {
       const original = Reflect.get(target, prop, receiver);
