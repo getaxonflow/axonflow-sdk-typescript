@@ -187,7 +187,7 @@ export function wrapBedrockClient(bedrockClient: any, axonflow: any): any {
       return originalSend(command);
     }
 
-    // Extract model ID and body
+    // Extract model ID and prompt for governance context
     const modelId = command.input?.modelId || 'unknown';
     let prompt = '';
 
@@ -215,10 +215,10 @@ export function wrapBedrockClient(bedrockClient: any, axonflow: any): any {
       // If we can't parse the body, continue without prompt extraction
     }
 
-    // Protect the call with AxonFlow
+    // Protect the call with AxonFlow, passing context
     return axonflow.protect(async () => {
       return originalSend(command);
-    });
+    }, { provider: 'bedrock', model: modelId, query: prompt });
   };
 
   return bedrockClient;
