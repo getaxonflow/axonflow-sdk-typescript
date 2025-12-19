@@ -155,29 +155,36 @@ export interface BedrockTitanResponse {
 /**
  * Wraps an AWS Bedrock client with AxonFlow governance.
  *
- * @example
+ * @deprecated This function is deprecated and will be removed in v2.0.0.
+ * JavaScript Proxy-based wrapping has compatibility issues with modern SDK versions.
+ *
+ * Use Gateway Mode or Proxy Mode instead:
+ *
+ * Gateway Mode (recommended):
  * ```typescript
- * import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
- * import { AxonFlow, wrapBedrockClient } from '@axonflow/sdk';
- *
- * const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' });
- * const axonflow = new AxonFlow({ endpoint: 'http://localhost:8080' });
- *
- * const wrapped = wrapBedrockClient(bedrock, axonflow);
- *
- * const command = new InvokeModelCommand({
- *   modelId: 'anthropic.claude-3-sonnet-20240229-v1:0',
- *   body: JSON.stringify({
- *     anthropic_version: 'bedrock-2023-05-31',
- *     max_tokens: 1024,
- *     messages: [{ role: 'user', content: 'Hello!' }]
- *   })
- * });
- *
- * const response = await wrapped.send(command);
+ * const context = await axonflow.getPolicyApprovedContext({ query, userToken });
+ * const response = await bedrockClient.send(new InvokeModelCommand({...}));
+ * await axonflow.auditLLMCall({ contextId: context.contextId, ... });
  * ```
+ *
+ * Proxy Mode:
+ * ```typescript
+ * const response = await axonflow.executeQuery({
+ *   query,
+ *   userToken,
+ *   context: { provider: 'bedrock', model: 'anthropic.claude-3-sonnet' }
+ * });
+ * ```
+ *
+ * See: https://docs.getaxonflow.com/sdk/gateway-mode
  */
 export function wrapBedrockClient(bedrockClient: any, axonflow: any): any {
+  console.warn(
+    '[AxonFlow] wrapBedrockClient is deprecated and will be removed in v2.0.0. ' +
+      'Use Gateway Mode (getPolicyApprovedContext + auditLLMCall) or Proxy Mode (executeQuery) instead. ' +
+      'See: https://docs.getaxonflow.com/sdk/gateway-mode'
+  );
+
   const originalSend = bedrockClient.send.bind(bedrockClient);
 
   bedrockClient.send = async (command: any) => {

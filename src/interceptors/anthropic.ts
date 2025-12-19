@@ -49,8 +49,37 @@ export class AnthropicInterceptor extends BaseInterceptor {
 
 /**
  * Helper to wrap Anthropic client for easier interception
+ *
+ * @deprecated This function is deprecated and will be removed in v2.0.0.
+ * Modern Anthropic SDK versions use private class fields that are incompatible
+ * with JavaScript Proxy-based wrapping.
+ *
+ * Use Gateway Mode or Proxy Mode instead:
+ *
+ * Gateway Mode (recommended):
+ * ```typescript
+ * const context = await axonflow.getPolicyApprovedContext({ query, userToken });
+ * const response = await anthropic.messages.create({ ... });
+ * await axonflow.auditLLMCall({ contextId: context.contextId, ... });
+ * ```
+ *
+ * Proxy Mode:
+ * ```typescript
+ * const response = await axonflow.executeQuery({
+ *   query,
+ *   userToken,
+ *   context: { provider: 'anthropic', model: 'claude-3-sonnet' }
+ * });
+ * ```
+ *
+ * See: https://docs.getaxonflow.com/sdk/gateway-mode
  */
 export function wrapAnthropicClient(anthropicClient: any, axonflow: any): any {
+  console.warn(
+    '[AxonFlow] wrapAnthropicClient is deprecated and will be removed in v2.0.0. ' +
+      'Use Gateway Mode (getPolicyApprovedContext + auditLLMCall) or Proxy Mode (executeQuery) instead. ' +
+      'See: https://docs.getaxonflow.com/sdk/gateway-mode'
+  );
   // Create a proxy that intercepts method calls
   return new Proxy(anthropicClient, {
     get(target, prop, receiver) {

@@ -52,8 +52,37 @@ export class OpenAIInterceptor extends BaseInterceptor {
 
 /**
  * Helper to wrap OpenAI client for easier interception
+ *
+ * @deprecated This function is deprecated and will be removed in v2.0.0.
+ * Modern OpenAI SDK versions (v4+) use private class fields that are incompatible
+ * with JavaScript Proxy-based wrapping.
+ *
+ * Use Gateway Mode or Proxy Mode instead:
+ *
+ * Gateway Mode (recommended):
+ * ```typescript
+ * const context = await axonflow.getPolicyApprovedContext({ query, userToken });
+ * const response = await openai.chat.completions.create({ ... });
+ * await axonflow.auditLLMCall({ contextId: context.contextId, ... });
+ * ```
+ *
+ * Proxy Mode:
+ * ```typescript
+ * const response = await axonflow.executeQuery({
+ *   query,
+ *   userToken,
+ *   context: { provider: 'openai', model: 'gpt-4' }
+ * });
+ * ```
+ *
+ * See: https://docs.getaxonflow.com/sdk/gateway-mode
  */
 export function wrapOpenAIClient(openaiClient: any, axonflow: any): any {
+  console.warn(
+    '[AxonFlow] wrapOpenAIClient is deprecated and will be removed in v2.0.0. ' +
+      'Use Gateway Mode (getPolicyApprovedContext + auditLLMCall) or Proxy Mode (executeQuery) instead. ' +
+      'See: https://docs.getaxonflow.com/sdk/gateway-mode'
+  );
   // Create a proxy that intercepts method calls
   return new Proxy(openaiClient, {
     get(target, prop, receiver) {

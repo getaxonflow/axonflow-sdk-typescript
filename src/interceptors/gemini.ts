@@ -112,22 +112,35 @@ export interface GeminiGenerateContentResponse {
 /**
  * Helper to wrap Gemini GenerativeModel for easier interception
  *
- * @example
+ * @deprecated This function is deprecated and will be removed in v2.0.0.
+ * JavaScript Proxy-based wrapping has compatibility issues with modern SDK versions.
+ *
+ * Use Gateway Mode or Proxy Mode instead:
+ *
+ * Gateway Mode (recommended):
  * ```typescript
- * import { GoogleGenerativeAI } from '@google/generative-ai';
- * import { AxonFlow, wrapGeminiModel } from '@axonflow/sdk';
- *
- * const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
- * const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
- * const axonflow = new AxonFlow({ apiKey: process.env.AXONFLOW_API_KEY });
- *
- * const wrappedModel = wrapGeminiModel(model, axonflow);
- *
- * // Use as normal - governance is automatic
- * const result = await wrappedModel.generateContent('What is AI governance?');
+ * const context = await axonflow.getPolicyApprovedContext({ query, userToken });
+ * const response = await model.generateContent(query);
+ * await axonflow.auditLLMCall({ contextId: context.contextId, ... });
  * ```
+ *
+ * Proxy Mode:
+ * ```typescript
+ * const response = await axonflow.executeQuery({
+ *   query,
+ *   userToken,
+ *   context: { provider: 'gemini', model: 'gemini-2.0-flash' }
+ * });
+ * ```
+ *
+ * See: https://docs.getaxonflow.com/sdk/gateway-mode
  */
 export function wrapGeminiModel(geminiModel: any, axonflow: any): any {
+  console.warn(
+    '[AxonFlow] wrapGeminiModel is deprecated and will be removed in v2.0.0. ' +
+      'Use Gateway Mode (getPolicyApprovedContext + auditLLMCall) or Proxy Mode (executeQuery) instead. ' +
+      'See: https://docs.getaxonflow.com/sdk/gateway-mode'
+  );
   return new Proxy(geminiModel, {
     get(target, prop, receiver) {
       const original = Reflect.get(target, prop, receiver);
