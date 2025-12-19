@@ -122,6 +122,103 @@ describeIntegration('AxonFlow SDK Integration Tests', () => {
     });
   });
 
+  describe('Proxy Mode', () => {
+    test('should perform health check', async () => {
+      const health = await client.healthCheck();
+      expect(health.status).toBeDefined();
+      expect(['healthy', 'degraded', 'unhealthy']).toContain(health.status);
+      console.log(`Health check: status=${health.status}`);
+    });
+
+    test('should execute query successfully', async () => {
+      const result = await client.executeQuery({
+        userToken: 'demo-user',
+        query: 'What is the capital of France?',
+        requestType: 'chat',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.blocked).toBe(false);
+      console.log(`Execute query: success=${result.success}, blocked=${result.blocked}`);
+    });
+
+    test('should execute query with context', async () => {
+      const result = await client.executeQuery({
+        userToken: 'demo-user',
+        query: 'Analyze this data',
+        requestType: 'chat',
+        context: {
+          provider: 'openai',
+          model: 'gpt-4',
+          customKey: 'customValue',
+        },
+      });
+
+      expect(result.success).toBe(true);
+      console.log(`Execute query with context: success=${result.success}`);
+    });
+
+    test('should block SQL injection via executeQuery', async () => {
+      try {
+        await client.executeQuery({
+          userToken: 'demo-user',
+          query: 'SELECT * FROM users; DROP TABLE users;--',
+          requestType: 'sql',
+        });
+        // If we get here without throwing, check if the response indicates blocking
+        fail('Expected PolicyViolationError to be thrown');
+      } catch (error: any) {
+        expect(error.name).toBe('PolicyViolationError');
+        expect(error.blockReason).toBeTruthy();
+        console.log(`SQL injection blocked: ${error.blockReason}`);
+      }
+    });
+
+    test('should block PII via executeQuery', async () => {
+      try {
+        await client.executeQuery({
+          userToken: 'demo-user',
+          query: 'Process this SSN: 123-45-6789',
+          requestType: 'chat',
+        });
+        fail('Expected PolicyViolationError to be thrown');
+      } catch (error: any) {
+        expect(error.name).toBe('PolicyViolationError');
+        console.log(`PII blocked: ${error.blockReason}`);
+      }
+    });
+
+    test('should return policy info in executeQuery response', async () => {
+      const result = await client.executeQuery({
+        userToken: 'demo-user',
+        query: 'Simple query without violations',
+        requestType: 'chat',
+      });
+
+      expect(result.policyInfo).toBeDefined();
+      if (result.policyInfo) {
+        expect(Array.isArray(result.policyInfo.policiesEvaluated)).toBe(true);
+        console.log(
+          `Policy info: evaluated=${result.policyInfo.policiesEvaluated.length} policies`
+        );
+      }
+    });
+
+    test('should support different request types', async () => {
+      const requestTypes = ['chat', 'sql', 'mcp-query'] as const;
+
+      for (const requestType of requestTypes) {
+        const result = await client.executeQuery({
+          userToken: 'demo-user',
+          query: 'Test query',
+          requestType,
+        });
+        expect(result.success).toBe(true);
+        console.log(`Request type ${requestType}: success=${result.success}`);
+      }
+    });
+  });
+
   describe('Plan Generation', () => {
     test('should generate plan with auth fix (backward compatible)', async () => {
       try {

@@ -32,8 +32,7 @@ function getTestConfig() {
 
 // Skip if no license key and not localhost
 const config = getTestConfig();
-const shouldRun =
-  process.env.RUN_E2E_TESTS === '1' || config.licenseKey || config.isLocalhost;
+const shouldRun = process.env.RUN_E2E_TESTS === '1' || config.licenseKey || config.isLocalhost;
 const describeE2E = shouldRun ? describe : describe.skip;
 
 describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
@@ -157,7 +156,7 @@ describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
     test('should block SQL injection attempts', async () => {
       const result = await client.getPolicyApprovedContext({
         userToken: 'e2e-test-user',
-        query: "SELECT * FROM users WHERE id=1; DROP TABLE users;--",
+        query: 'SELECT * FROM users WHERE id=1; DROP TABLE users;--',
       });
 
       // SQL injection should be blocked

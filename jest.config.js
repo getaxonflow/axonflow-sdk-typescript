@@ -21,17 +21,16 @@ module.exports = {
     'src/**/*.ts',
     '!src/**/*.d.ts',
     '!src/**/index.ts',
+    '!src/interceptors/bedrock.ts',  // Exclude - requires AWS SDK types
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
   coverageThreshold: {
     global: {
-      // Thresholds set to existing coverage levels
-      // Contract tests validate response parsing, not SDK methods
-      branches: 20,
-      functions: 15,
-      lines: 20,
-      statements: 20,
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
     },
   },
   moduleFileExtensions: ['ts', 'js', 'json'],

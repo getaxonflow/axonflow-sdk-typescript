@@ -16,6 +16,9 @@
 export { AxonFlow } from './client';
 export { wrapOpenAIClient } from './interceptors/openai';
 export { wrapAnthropicClient } from './interceptors/anthropic';
+export { wrapGeminiModel } from './interceptors/gemini';
+export { wrapOllamaClient } from './interceptors/ollama';
+export { wrapBedrockClient } from './interceptors/bedrock';
 
 // Export error classes for proper error handling
 export {
@@ -44,10 +47,16 @@ export type {
   PolicyApprovalOptions,
   AuditResult,
   AuditOptions,
+  // Proxy Mode types
+  RequestType,
+  ExecuteQueryOptions,
+  ExecuteQueryResponse,
+  PolicyInfo,
+  HealthStatus,
 } from './types';
 
 // Export version
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 
 // Default export for convenience
 import { AxonFlow } from './client';
