@@ -16,6 +16,7 @@
 export { AxonFlow } from './client';
 export { wrapOpenAIClient } from './interceptors/openai';
 export { wrapAnthropicClient } from './interceptors/anthropic';
+export { wrapGeminiModel } from './interceptors/gemini';
 
 // Export error classes for proper error handling
 export {
