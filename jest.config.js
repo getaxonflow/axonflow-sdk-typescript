@@ -21,20 +21,16 @@ module.exports = {
     'src/**/*.ts',
     '!src/**/*.d.ts',
     '!src/**/index.ts',
-    '!src/interceptors/bedrock.ts',  // Exclude until AWS SDK types are added
-    '!src/interceptors/gemini.ts',   // Exclude until tests are added
-    '!src/interceptors/ollama.ts',   // Exclude until tests are added
+    '!src/interceptors/bedrock.ts',  // Exclude - requires AWS SDK types
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
   coverageThreshold: {
     global: {
-      // Thresholds lowered due to new interceptors without tests
-      // TODO: Add tests for gemini, ollama, bedrock interceptors
-      branches: 15,
-      functions: 10,
-      lines: 15,
-      statements: 15,
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
     },
   },
   moduleFileExtensions: ['ts', 'js', 'json'],
