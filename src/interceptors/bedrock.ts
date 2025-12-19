@@ -216,9 +216,12 @@ export function wrapBedrockClient(bedrockClient: any, axonflow: any): any {
     }
 
     // Protect the call with AxonFlow, passing context
-    return axonflow.protect(async () => {
-      return originalSend(command);
-    }, { provider: 'bedrock', model: modelId, query: prompt });
+    return axonflow.protect(
+      async () => {
+        return originalSend(command);
+      },
+      { provider: 'bedrock', model: modelId, query: prompt }
+    );
   };
 
   return bedrockClient;
