@@ -5,6 +5,23 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-12-19
+
+### Added
+- **Proxy Mode**: Full `executeQuery()` implementation for routing requests through AxonFlow (#7)
+  - Supports all request types: `chat`, `sql`, `mcp-query`, `multi-agent-plan`, `execute-plan`
+  - Automatic policy enforcement with `PolicyViolationError` for blocked requests
+  - Rich response with policy info, metadata, and processing details
+- **Health Check**: New `healthCheck()` method to verify agent availability
+  - Returns `HealthStatus` with status, version, uptime, and component health
+- New types: `ExecuteQueryOptions`, `ExecuteQueryResponse`, `PolicyInfo`, `HealthStatus`, `RequestType`
+- Proxy Mode example at `examples/proxy-mode/index.ts`
+- Comprehensive integration tests for Proxy Mode
+
+### Changed
+- Version bumped to 1.3.0
+- SDK now has full parity with Python SDK for both Gateway and Proxy modes
+
 ## [1.2.1] - 2025-12-15
 
 ### Fixed

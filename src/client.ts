@@ -12,8 +12,11 @@ import {
   PolicyApprovalOptions,
   AuditResult,
   AuditOptions,
+  ExecuteQueryOptions,
+  ExecuteQueryResponse,
+  HealthStatus,
 } from './types';
-import { AuthenticationError, APIError } from './errors';
+import { AuthenticationError, APIError, PolicyViolationError } from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
 import { AnthropicInterceptor } from './interceptors/anthropic';
 import { BaseInterceptor } from './interceptors/base';
@@ -281,6 +284,195 @@ export class AxonFlow {
       endpoint: 'https://staging-eu.getaxonflow.com',
       debug: true,
     });
+  }
+
+  // ============================================================================
+  // Proxy Mode Methods
+  // ============================================================================
+
+  /**
+   * Check if AxonFlow Agent is healthy and available.
+   *
+   * @returns HealthStatus object with agent health information
+   *
+   * @example
+   * ```typescript
+   * const health = await axonflow.healthCheck();
+   * if (health.status === 'healthy') {
+   *   console.log('Agent is healthy');
+   * }
+   * ```
+   */
+  async healthCheck(): Promise<HealthStatus> {
+    const url = `${this.config.endpoint}/health`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(this.config.timeout),
+      });
+
+      if (!response.ok) {
+        return {
+          status: 'unhealthy',
+          components: {
+            agent: { status: 'error', message: `HTTP ${response.status}` },
+          },
+        };
+      }
+
+      const data = await response.json();
+
+      return {
+        status: data.status === 'healthy' ? 'healthy' : 'degraded',
+        version: data.version,
+        uptime: data.uptime,
+        components: data.components,
+      };
+    } catch (error) {
+      if (this.config.debug) {
+        debugLog('Health check failed', error);
+      }
+      return {
+        status: 'unhealthy',
+        components: {
+          agent: {
+            status: 'error',
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
+        },
+      };
+    }
+  }
+
+  /**
+   * Execute a query through AxonFlow with policy enforcement (Proxy Mode).
+   *
+   * This is the primary method for Proxy Mode, where AxonFlow handles policy
+   * checking and optionally routes requests to LLM providers.
+   *
+   * @param options - Query execution options
+   * @returns ExecuteQueryResponse with results or error information
+   * @throws PolicyViolationError if request is blocked by policy
+   * @throws AuthenticationError if credentials are invalid
+   * @throws APIError for other API errors
+   *
+   * @example
+   * ```typescript
+   * const response = await axonflow.executeQuery({
+   *   userToken: 'user-123',
+   *   query: 'Explain quantum computing',
+   *   requestType: 'chat',
+   *   context: { provider: 'openai', model: 'gpt-4' }
+   * });
+   *
+   * if (response.success) {
+   *   console.log('Response:', response.data);
+   * }
+   * ```
+   */
+  async executeQuery(options: ExecuteQueryOptions): Promise<ExecuteQueryResponse> {
+    const agentRequest = {
+      query: options.query,
+      user_token: options.userToken,
+      client_id: this.config.tenant,
+      request_type: options.requestType,
+      context: options.context || {},
+    };
+
+    const url = `${this.config.endpoint}/api/request`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add authentication headers
+    const isLocalhost =
+      this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
+    if (!isLocalhost) {
+      if (this.config.licenseKey) {
+        headers['X-License-Key'] = this.config.licenseKey;
+      } else if (this.config.apiKey) {
+        headers['X-Client-Secret'] = this.config.apiKey;
+      }
+    }
+
+    if (this.config.debug) {
+      debugLog('Proxy Mode: executeQuery', {
+        requestType: options.requestType,
+        query: options.query.substring(0, 50),
+      });
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(agentRequest),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 401 || response.status === 403) {
+        // Try to parse as JSON for policy violation info
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.blocked || errorJson.block_reason) {
+            throw new PolicyViolationError(
+              errorJson.block_reason || 'Request blocked by policy',
+              errorJson.policy_info?.policies_evaluated
+            );
+          }
+        } catch (e) {
+          if (e instanceof PolicyViolationError) throw e;
+        }
+        throw new AuthenticationError(`Request failed: ${errorText}`);
+      }
+      throw new APIError(response.status, response.statusText, errorText);
+    }
+
+    const data = await response.json();
+
+    // Check for policy violation in successful response (some blocked responses return 200)
+    if (data.blocked) {
+      throw new PolicyViolationError(
+        data.block_reason || 'Request blocked by policy',
+        data.policy_info?.policies_evaluated
+      );
+    }
+
+    // Transform snake_case response to camelCase
+    const result: ExecuteQueryResponse = {
+      success: data.success,
+      data: data.data,
+      result: data.result,
+      planId: data.plan_id,
+      requestId: data.request_id,
+      metadata: data.metadata || {},
+      error: data.error,
+      blocked: data.blocked || false,
+      blockReason: data.block_reason,
+    };
+
+    // Parse policy info if present
+    if (data.policy_info) {
+      result.policyInfo = {
+        policiesEvaluated: data.policy_info.policies_evaluated || [],
+        staticChecks: data.policy_info.static_checks || [],
+        processingTime: data.policy_info.processing_time || '',
+        tenantId: data.policy_info.tenant_id || '',
+      };
+    }
+
+    if (this.config.debug) {
+      debugLog('Proxy Mode: executeQuery result', {
+        success: result.success,
+        blocked: result.blocked,
+        hasData: !!result.data,
+      });
+    }
+
+    return result;
   }
 
   /**

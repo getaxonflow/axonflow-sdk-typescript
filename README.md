@@ -110,6 +110,125 @@ docker-compose up
 const axonflow = new AxonFlow({ apiKey: process.env.AXONFLOW_API_KEY });
 ```
 
+## Proxy Mode (executeQuery)
+
+Proxy Mode routes all requests through AxonFlow's `/api/request` endpoint, providing a simpler integration pattern with automatic policy enforcement:
+
+### Basic Query Execution
+
+```typescript
+import { AxonFlow, PolicyViolationError } from '@axonflow/sdk';
+
+const axonflow = new AxonFlow({
+  licenseKey: process.env.AXONFLOW_LICENSE_KEY
+});
+
+// Execute a chat query with policy enforcement
+const response = await axonflow.executeQuery({
+  userToken: 'user-123',
+  query: 'Explain quantum computing in simple terms',
+  requestType: 'chat',
+  context: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
+});
+
+if (response.success) {
+  console.log('Response:', response.data);
+  console.log('Policies evaluated:', response.policyInfo?.policiesEvaluated);
+}
+```
+
+### Handling Policy Violations
+
+```typescript
+try {
+  await axonflow.executeQuery({
+    userToken: 'user-123',
+    query: 'Process this SSN: 123-45-6789',
+    requestType: 'chat'
+  });
+} catch (error) {
+  if (error instanceof PolicyViolationError) {
+    console.log('Request blocked:', error.blockReason);
+    console.log('Violating policies:', error.policies);
+  }
+}
+```
+
+### SQL Query Governance
+
+```typescript
+// SQL queries get additional injection detection
+const sqlResponse = await axonflow.executeQuery({
+  userToken: 'analyst-user',
+  query: 'SELECT name, email FROM customers WHERE status = active LIMIT 100',
+  requestType: 'sql'
+});
+```
+
+### Health Check
+
+```typescript
+// Check if AxonFlow agent is healthy
+const health = await axonflow.healthCheck();
+
+if (health.status === 'healthy') {
+  console.log('Agent version:', health.version);
+  console.log('Uptime:', health.uptime);
+} else {
+  console.warn('Agent status:', health.status);
+}
+```
+
+### Request Types
+
+| Request Type | Description |
+|--------------|-------------|
+| `chat` | General chat/LLM queries |
+| `sql` | SQL queries (with injection detection) |
+| `mcp-query` | MCP connector queries |
+| `multi-agent-plan` | Generate multi-agent plans |
+| `execute-plan` | Execute a generated plan |
+
+## Gateway Mode (Direct LLM Calls)
+
+Gateway Mode is for advanced users who want to make direct LLM calls while still getting policy enforcement:
+
+```typescript
+// Step 1: Pre-check policies
+const ctx = await axonflow.getPolicyApprovedContext({
+  userToken: 'user-jwt',
+  query: 'Analyze customer data',
+  dataSources: ['postgres']
+});
+
+if (!ctx.approved) {
+  throw new Error(`Blocked: ${ctx.blockReason}`);
+}
+
+// Step 2: Make direct LLM call with approved data
+const llmResponse = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages: [{ role: 'user', content: JSON.stringify(ctx.approvedData) }]
+});
+
+// Step 3: Audit the call
+await axonflow.auditLLMCall({
+  contextId: ctx.contextId,
+  responseSummary: llmResponse.choices[0].message.content.substring(0, 100),
+  provider: 'openai',
+  model: 'gpt-4',
+  tokenUsage: {
+    promptTokens: llmResponse.usage.prompt_tokens,
+    completionTokens: llmResponse.usage.completion_tokens,
+    totalTokens: llmResponse.usage.total_tokens
+  },
+  latencyMs: 250
+});
+```
+
 ## React Example
 
 ```tsx
