@@ -315,3 +315,120 @@ describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
     console.log('========================================\n');
   });
 });
+
+// ============================================================
+// 7. AUTH HEADERS NOT SENT FOR LOCALHOST (Unit Tests - Always Run)
+// ============================================================
+describe('7. Auth Headers Not Sent for Localhost', () => {
+  test('should not include X-License-Key header for localhost', async () => {
+    // Create a client with credentials configured
+    const client = new AxonFlow({
+      endpoint: 'http://localhost:8080',
+      licenseKey: 'test-license-key',
+      apiKey: 'test-api-key',
+      tenant: 'default',
+      debug: true,
+    });
+
+    // Track what headers are sent
+    const originalFetch = global.fetch;
+    let capturedHeaders: Record<string, string> = {};
+
+    global.fetch = jest.fn().mockImplementation((url: string, options: RequestInit) => {
+      // Capture headers from the request
+      if (options.headers) {
+        const headers = options.headers as Record<string, string>;
+        capturedHeaders = { ...headers };
+      }
+
+      // Return a mock successful response
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            context_id: 'ctx_mock_123',
+            approved: true,
+            policies: [],
+            expires_at: new Date(Date.now() + 300000).toISOString(),
+          }),
+      } as Response);
+    });
+
+    try {
+      await client.getPolicyApprovedContext({
+        userToken: '',
+        query: 'Test query for header verification',
+      });
+
+      // Verify auth headers are NOT present for localhost
+      expect(capturedHeaders['X-License-Key']).toBeUndefined();
+      expect(capturedHeaders['X-Client-Secret']).toBeUndefined();
+
+      // Content-Type should still be present
+      expect(capturedHeaders['Content-Type']).toBe('application/json');
+
+      console.log('✅ Auth headers correctly NOT sent for localhost');
+      console.log(`   Headers sent: ${Object.keys(capturedHeaders).join(', ')}`);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  test('should not include X-Client-Secret header for 127.0.0.1', async () => {
+    const client = new AxonFlow({
+      endpoint: 'http://127.0.0.1:8080',
+      licenseKey: 'test-license-key',
+      apiKey: 'test-api-key',
+      tenant: 'default',
+    });
+
+    const originalFetch = global.fetch;
+    let capturedHeaders: Record<string, string> = {};
+
+    global.fetch = jest.fn().mockImplementation((url: string, options: RequestInit) => {
+      if (options.headers) {
+        capturedHeaders = { ...(options.headers as Record<string, string>) };
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: { answer: 'test' },
+            blocked: false,
+          }),
+      } as Response);
+    });
+
+    try {
+      await client.executeQuery({
+        userToken: '',
+        query: 'Test query',
+        requestType: 'chat',
+      });
+
+      // Verify auth headers are NOT present for 127.0.0.1
+      expect(capturedHeaders['X-License-Key']).toBeUndefined();
+      expect(capturedHeaders['X-Client-Secret']).toBeUndefined();
+
+      console.log('✅ Auth headers correctly NOT sent for 127.0.0.1');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  test('should require credentials for non-localhost endpoints', () => {
+    // Verify that creating a client for non-localhost requires credentials
+    expect(() => {
+      new AxonFlow({
+        endpoint: 'https://api.getaxonflow.com',
+        // No credentials - should throw
+        tenant: 'default',
+      });
+    }).toThrow(/licenseKey|apiKey/i);
+
+    console.log('✅ Non-localhost endpoints require credentials (auth headers would be sent)');
+  });
+});
