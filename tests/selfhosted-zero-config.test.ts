@@ -223,7 +223,7 @@ describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
     test('should still block SQL injection without credentials', async () => {
       const result = await client.getPolicyApprovedContext({
         userToken: '',
-        query: "SELECT * FROM users WHERE id=1; DROP TABLE users;--",
+        query: 'SELECT * FROM users WHERE id=1; DROP TABLE users;--',
       });
 
       // SQL injection should be blocked even without auth
