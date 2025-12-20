@@ -30,7 +30,8 @@ function getSelfHostedConfig() {
 }
 
 const config = getSelfHostedConfig();
-const shouldRun = config.isLocalhost || process.env.RUN_E2E_TESTS === '1';
+// Only run these tests if explicitly enabled - they require a running agent
+const shouldRun = process.env.RUN_E2E_TESTS === '1';
 const describeE2E = shouldRun ? describe : describe.skip;
 
 describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
