@@ -18,6 +18,10 @@
  *   query: 'What is the capital of France?'
  * });
  *
+ * if (!ctx.approved) {
+ *   throw new Error(`Blocked: ${ctx.blockReason}`);
+ * }
+ *
  * // 2. Make your own LLM call
  * const response = await openai.chat.completions.create({
  *   model: 'gpt-4',

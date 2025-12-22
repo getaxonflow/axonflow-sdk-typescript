@@ -112,18 +112,38 @@ const axonflow = new AxonFlow({
 });
 
 // Use Gateway Mode for self-hosted
+const prompt = 'Test with self-hosted AxonFlow';
+
 const ctx = await axonflow.getPolicyApprovedContext({
   userToken: 'user-123',
-  query: 'Test with self-hosted AxonFlow'
+  query: prompt
 });
 
-if (ctx.approved) {
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4',
-    messages: [{ role: 'user', content: 'Test with self-hosted AxonFlow' }]
-  });
-  console.log(response.choices[0].message.content);
+if (!ctx.approved) {
+  throw new Error(`Blocked: ${ctx.blockReason}`);
 }
+
+const startTime = Date.now();
+const response = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages: [{ role: 'user', content: prompt }]
+});
+
+// Don't forget to audit!
+await axonflow.auditLLMCall({
+  contextId: ctx.contextId,
+  responseSummary: response.choices[0].message.content?.substring(0, 100) || '',
+  provider: 'openai',
+  model: 'gpt-4',
+  tokenUsage: {
+    promptTokens: response.usage?.prompt_tokens || 0,
+    completionTokens: response.usage?.completion_tokens || 0,
+    totalTokens: response.usage?.total_tokens || 0
+  },
+  latencyMs: Date.now() - startTime
+});
+
+console.log(response.choices[0].message.content);
 ```
 
 **Self-hosted deployment:**
@@ -284,17 +304,24 @@ const axonflow = new AxonFlow({
 
 function ChatComponent() {
   const [response, setResponse] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (prompt: string) => {
-    // Use Proxy Mode for simple integrations
-    const result = await axonflow.executeQuery({
-      userToken: 'user-123',
-      query: prompt,
-      requestType: 'chat'
-    });
+    setError(null);
+    try {
+      // Use Proxy Mode for simple integrations
+      // Note: In production, get userToken from your auth context
+      const result = await axonflow.executeQuery({
+        userToken: 'user-123', // Replace with actual user token
+        query: prompt,
+        requestType: 'chat'
+      });
 
-    if (result.success) {
-      setResponse(result.data);
+      if (result.success) {
+        setResponse(result.data);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     }
   };
 
@@ -359,7 +386,8 @@ export default async function handler(req, res) {
     if (error instanceof PolicyViolationError) {
       return res.status(403).json({ error: error.blockReason });
     }
-    res.status(500).json({ error: error.message });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: message });
   }
 }
 ```

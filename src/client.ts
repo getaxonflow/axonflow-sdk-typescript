@@ -122,7 +122,7 @@ export class AxonFlow {
    *   responseSummary: response.choices[0].message.content,
    *   provider: 'openai',
    *   model: 'gpt-4',
-   *   tokenUsage: { ... },
+   *   tokenUsage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
    *   latencyMs: 250
    * });
    * ```
