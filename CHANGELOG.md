@@ -5,6 +5,35 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2025-12-22
+
+### Deprecated
+- **`protect()` method**: Now shows deprecation warning at runtime (#14)
+  - Root cause: `extractRequest()` uses `aiCall.toString()` which returns JS source code, not runtime values
+  - This causes `response.choices[0]` to be undefined
+  - Will be removed in v2.0.0
+  - Use Gateway Mode (`getPolicyApprovedContext` + `auditLLMCall`) or Proxy Mode (`executeQuery`) instead
+
+### Changed
+- Updated README with Gateway Mode and Proxy Mode examples (removed all `protect()` examples)
+- Updated module docstring with recommended patterns and approval check example
+
+## [1.4.0] - 2025-12-19
+
+### Deprecated
+- **LLM Interceptor wrappers**: All interceptor functions now show deprecation warnings (#10)
+  - `wrapOpenAIClient()`
+  - `wrapAnthropicClient()`
+  - `wrapGeminiModel()`
+  - `wrapOllamaClient()`
+  - `wrapBedrockClient()`
+  - Will be removed in v2.0.0
+  - Use Gateway Mode or Proxy Mode instead
+
+### Changed
+- Added `@deprecated` JSDoc annotations to all interceptor exports
+- Updated documentation to recommend Gateway/Proxy Mode patterns
+
 ## [1.3.0] - 2025-12-19
 
 ### Added
