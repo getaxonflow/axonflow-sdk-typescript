@@ -1,15 +1,51 @@
 /**
  * AxonFlow SDK - Invisible AI Governance Layer
  *
- * Add enterprise-grade governance to your AI applications with just 3 lines of code.
+ * Add enterprise-grade governance to your AI applications with just a few lines of code.
  * No UI changes. No user training. Just drop-in protection.
  *
- * @example
+ * @example Gateway Mode (recommended)
  * ```typescript
  * import { AxonFlow } from '@axonflow/sdk';
+ * import OpenAI from 'openai';
  *
- * const axonflow = new AxonFlow({ apiKey: 'your-key' });
- * const response = await axonflow.protect(() => openai.complete(prompt));
+ * const axonflow = new AxonFlow({ licenseKey: 'your-key', endpoint: 'http://localhost:8080' });
+ * const openai = new OpenAI();
+ *
+ * // 1. Pre-check policies
+ * const ctx = await axonflow.getPolicyApprovedContext({
+ *   userToken: 'user-123',
+ *   query: 'What is the capital of France?'
+ * });
+ *
+ * if (!ctx.approved) {
+ *   throw new Error(`Blocked: ${ctx.blockReason}`);
+ * }
+ *
+ * // 2. Make your own LLM call
+ * const response = await openai.chat.completions.create({
+ *   model: 'gpt-4',
+ *   messages: [{ role: 'user', content: 'What is the capital of France?' }]
+ * });
+ *
+ * // 3. Audit the call
+ * await axonflow.auditLLMCall({
+ *   contextId: ctx.contextId,
+ *   responseSummary: response.choices[0].message.content,
+ *   provider: 'openai',
+ *   model: 'gpt-4',
+ *   tokenUsage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+ *   latencyMs: 250
+ * });
+ * ```
+ *
+ * @example Proxy Mode
+ * ```typescript
+ * const response = await axonflow.executeQuery({
+ *   userToken: 'user-123',
+ *   query: 'What is the capital of France?',
+ *   requestType: 'chat'
+ * });
  * ```
  */
 
