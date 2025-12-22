@@ -96,8 +96,54 @@ export class AxonFlow {
    * Main method to protect AI calls with governance
    * @param aiCall The AI call to protect
    * @returns The AI response after governance
+   *
+   * @deprecated This method is deprecated and will be removed in v2.0.0.
+   * It cannot correctly extract request details from callback functions.
+   *
+   * Use Gateway Mode or Proxy Mode instead:
+   *
+   * **Gateway Mode (recommended):**
+   * ```typescript
+   * // 1. Pre-check policies
+   * const ctx = await axonflow.getPolicyApprovedContext({
+   *   userToken: 'user-123',
+   *   query: 'Your prompt here'
+   * });
+   *
+   * // 2. Make your own LLM call
+   * const response = await openai.chat.completions.create({
+   *   model: 'gpt-4',
+   *   messages: [{ role: 'user', content: 'Your prompt here' }]
+   * });
+   *
+   * // 3. Audit the call
+   * await axonflow.auditLLMCall({
+   *   contextId: ctx.contextId,
+   *   responseSummary: response.choices[0].message.content,
+   *   provider: 'openai',
+   *   model: 'gpt-4',
+   *   tokenUsage: { ... },
+   *   latencyMs: 250
+   * });
+   * ```
+   *
+   * **Proxy Mode:**
+   * ```typescript
+   * const response = await axonflow.executeQuery({
+   *   userToken: 'user-123',
+   *   query: 'Your prompt here',
+   *   requestType: 'chat'
+   * });
+   * ```
+   *
+   * See: https://docs.getaxonflow.com/sdk/gateway-mode
    */
   async protect<T = any>(aiCall: () => Promise<T>): Promise<T> {
+    console.warn(
+      '[AxonFlow] protect() is deprecated and will be removed in v2.0.0. ' +
+        'Use Gateway Mode (getPolicyApprovedContext + auditLLMCall) or Proxy Mode (executeQuery) instead. ' +
+        'See: https://docs.getaxonflow.com/sdk/gateway-mode'
+    );
     try {
       // Extract request details from the AI call
       const aiRequest = await this.extractRequest(aiCall);

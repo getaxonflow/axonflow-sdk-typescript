@@ -15,48 +15,84 @@ npm install @axonflow/sdk
 
 ## Quick Start
 
-### Basic Usage (License-Based Auth)
+### Gateway Mode (Recommended)
+
+Gateway Mode provides the most reliable integration by explicitly separating policy checks, LLM calls, and audit logging:
 
 ```typescript
 import { AxonFlow } from '@axonflow/sdk';
 import OpenAI from 'openai';
 
-// Initialize your AI client as usual
+// Initialize clients
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-// Add AxonFlow governance with license key (recommended)
 const axonflow = new AxonFlow({
-  licenseKey: process.env.AXONFLOW_LICENSE_KEY
+  licenseKey: process.env.AXONFLOW_LICENSE_KEY,
+  endpoint: process.env.AXONFLOW_ENDPOINT || 'http://localhost:8080'
 });
 
-// Wrap any AI call with protect()
-const response = await axonflow.protect(async () => {
-  return openai.chat.completions.create({
-    model: 'gpt-4',
-    messages: [{ role: 'user', content: 'Process this customer data...' }]
-  });
+const prompt = 'What is the capital of France?';
+
+// Step 1: Pre-check policies
+const ctx = await axonflow.getPolicyApprovedContext({
+  userToken: 'user-123',
+  query: prompt
 });
+
+if (!ctx.approved) {
+  throw new Error(`Blocked: ${ctx.blockReason}`);
+}
+
+// Step 2: Make your own LLM call
+const startTime = Date.now();
+const response = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages: [{ role: 'user', content: prompt }]
+});
+const latencyMs = Date.now() - startTime;
+
+// Step 3: Audit the call
+await axonflow.auditLLMCall({
+  contextId: ctx.contextId,
+  responseSummary: response.choices[0].message.content?.substring(0, 100) || '',
+  provider: 'openai',
+  model: 'gpt-4',
+  tokenUsage: {
+    promptTokens: response.usage?.prompt_tokens || 0,
+    completionTokens: response.usage?.completion_tokens || 0,
+    totalTokens: response.usage?.total_tokens || 0
+  },
+  latencyMs
+});
+
+console.log('Response:', response.choices[0].message.content);
 ```
 
-### Even Easier with Client Wrapping
+### Proxy Mode (Simpler Alternative)
+
+For simpler integrations, Proxy Mode handles policy checking and auditing in a single call:
 
 ```typescript
-import { AxonFlow, wrapOpenAIClient } from '@axonflow/sdk';
-import OpenAI from 'openai';
+import { AxonFlow } from '@axonflow/sdk';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const axonflow = new AxonFlow({
-  licenseKey: process.env.AXONFLOW_LICENSE_KEY
+  licenseKey: process.env.AXONFLOW_LICENSE_KEY,
+  endpoint: 'http://localhost:8080'
 });
 
-// Wrap the entire client - all calls are now protected
-const protectedOpenAI = wrapOpenAIClient(openai, axonflow);
-
-// Use normally - governance happens invisibly
-const response = await protectedOpenAI.chat.completions.create({
-  model: 'gpt-4',
-  messages: [{ role: 'user', content: 'Process this customer data...' }]
+// Single call - policies checked, query processed, audit logged
+const response = await axonflow.executeQuery({
+  userToken: 'user-123',
+  query: 'What is the capital of France?',
+  requestType: 'chat',
+  context: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
 });
+
+if (response.success) {
+  console.log('Response:', response.data);
+}
 ```
 
 ### Self-Hosted Mode (No License Required)
@@ -71,17 +107,23 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Self-hosted (localhost) - no license key needed!
 const axonflow = new AxonFlow({
-  endpoint: 'http://localhost:8081'
+  endpoint: 'http://localhost:8080'
   // That's it - no authentication required for localhost
 });
 
-// Use normally - same features as production
-const response = await axonflow.protect(async () => {
-  return openai.chat.completions.create({
+// Use Gateway Mode for self-hosted
+const ctx = await axonflow.getPolicyApprovedContext({
+  userToken: 'user-123',
+  query: 'Test with self-hosted AxonFlow'
+});
+
+if (ctx.approved) {
+  const response = await openai.chat.completions.create({
     model: 'gpt-4',
     messages: [{ role: 'user', content: 'Test with self-hosted AxonFlow' }]
   });
-});
+  console.log(response.choices[0].message.content);
+}
 ```
 
 **Self-hosted deployment:**
@@ -92,7 +134,7 @@ cd axonflow
 export OPENAI_API_KEY=sk-your-key-here
 docker-compose up
 
-# SDK connects to http://localhost:8081 - no license needed!
+# SDK connects to http://localhost:8080 - no license needed!
 ```
 
 **Features:**
@@ -236,22 +278,24 @@ import { AxonFlow } from '@axonflow/sdk';
 import { useState } from 'react';
 
 const axonflow = new AxonFlow({
-  licenseKey: process.env.REACT_APP_AXONFLOW_LICENSE_KEY
+  licenseKey: process.env.REACT_APP_AXONFLOW_LICENSE_KEY,
+  endpoint: process.env.REACT_APP_AXONFLOW_ENDPOINT || 'http://localhost:8080'
 });
 
 function ChatComponent() {
   const [response, setResponse] = useState('');
 
   const handleSubmit = async (prompt: string) => {
-    // Your existing OpenAI call, now protected
-    const result = await axonflow.protect(async () => {
-      return fetch('/api/openai', {
-        method: 'POST',
-        body: JSON.stringify({ prompt })
-      }).then(r => r.json());
+    // Use Proxy Mode for simple integrations
+    const result = await axonflow.executeQuery({
+      userToken: 'user-123',
+      query: prompt,
+      requestType: 'chat'
     });
 
-    setResponse(result.text);
+    if (result.success) {
+      setResponse(result.data);
+    }
   };
 
   return (
@@ -265,30 +309,57 @@ function ChatComponent() {
 
 ```typescript
 // pages/api/chat.ts
-import { AxonFlow } from '@axonflow/sdk';
+import { AxonFlow, PolicyViolationError } from '@axonflow/sdk';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const axonflow = new AxonFlow({
-  licenseKey: process.env.AXONFLOW_LICENSE_KEY
+  licenseKey: process.env.AXONFLOW_LICENSE_KEY,
+  endpoint: process.env.AXONFLOW_ENDPOINT || 'http://localhost:8080'
 });
 
 export default async function handler(req, res) {
-  const { prompt } = req.body;
+  const { prompt, userToken } = req.body;
 
   try {
-    // Protect the OpenAI call
-    const response = await axonflow.protect(async () => {
-      return openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }]
-      });
+    // Step 1: Pre-check policies
+    const ctx = await axonflow.getPolicyApprovedContext({
+      userToken: userToken || 'anonymous',
+      query: prompt
     });
 
-    res.json({ success: true, response });
+    if (!ctx.approved) {
+      return res.status(403).json({ error: ctx.blockReason });
+    }
+
+    // Step 2: Make the LLM call
+    const startTime = Date.now();
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: prompt }]
+    });
+    const latencyMs = Date.now() - startTime;
+
+    // Step 3: Audit the call
+    await axonflow.auditLLMCall({
+      contextId: ctx.contextId,
+      responseSummary: completion.choices[0].message.content?.substring(0, 100) || '',
+      provider: 'openai',
+      model: 'gpt-4',
+      tokenUsage: {
+        promptTokens: completion.usage?.prompt_tokens || 0,
+        completionTokens: completion.usage?.completion_tokens || 0,
+        totalTokens: completion.usage?.total_tokens || 0
+      },
+      latencyMs
+    });
+
+    res.json({ success: true, response: completion.choices[0].message.content });
   } catch (error) {
-    // AxonFlow will block requests that violate policies
-    res.status(403).json({ error: error.message });
+    if (error instanceof PolicyViolationError) {
+      return res.status(403).json({ error: error.blockReason });
+    }
+    res.status(500).json({ error: error.message });
   }
 }
 ```
@@ -345,16 +416,17 @@ const axonflow = new AxonFlow({
 // Use sandbox mode for testing without affecting production
 const axonflow = AxonFlow.sandbox('demo-key');
 
-// Test with aggressive policies
-const response = await axonflow.protect(async () => {
-  return openai.chat.completions.create({
-    model: 'gpt-4',
-    messages: [{
-      role: 'user',
-      content: 'My SSN is 123-45-6789' // Will be blocked/redacted
-    }]
+// Test with PII detection (will be blocked)
+try {
+  const response = await axonflow.executeQuery({
+    userToken: 'test-user',
+    query: 'My SSN is 123-45-6789',
+    requestType: 'chat'
   });
-});
+} catch (error) {
+  // Expected: PolicyViolationError - PII detected
+  console.log('Correctly blocked:', error.message);
+}
 ```
 
 ## What Gets Protected?
@@ -370,15 +442,28 @@ AxonFlow automatically:
 ## Error Handling
 
 ```typescript
+import { AxonFlow, PolicyViolationError, AuthenticationError, APIError } from '@axonflow/sdk';
+
 try {
-  const response = await axonflow.protect(() => openai.complete(prompt));
+  const response = await axonflow.executeQuery({
+    userToken: 'user-123',
+    query: prompt,
+    requestType: 'chat'
+  });
 } catch (error) {
-  if (error.message.includes('blocked by AxonFlow')) {
+  if (error instanceof PolicyViolationError) {
     // Request violated a policy
-    console.log('Policy violation:', error.message);
+    console.log('Policy violation:', error.blockReason);
+    console.log('Policies:', error.policies);
+  } else if (error instanceof AuthenticationError) {
+    // Authentication failed
+    console.error('Auth error:', error.message);
+  } else if (error instanceof APIError) {
+    // API error (status, statusText, body)
+    console.error(`API error ${error.status}:`, error.body);
   } else {
-    // Other errors (network, API, etc.)
-    console.error('API error:', error);
+    // Other errors
+    console.error('Error:', error);
   }
 }
 ```
