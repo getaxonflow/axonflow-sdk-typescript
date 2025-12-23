@@ -34,6 +34,7 @@ export class AxonFlow {
     tenant: string;
     debug: boolean;
     timeout: number;
+    mapTimeout: number;
     retry: { enabled: boolean; maxAttempts: number; delay: number };
     cache: { enabled: boolean; ttl: number };
   };
@@ -65,6 +66,7 @@ export class AxonFlow {
       tenant: config.tenant || 'default',
       debug: config.debug || false,
       timeout: config.timeout || 30000,
+      mapTimeout: config.mapTimeout || 120000, // 2 minutes for MAP operations
       retry: {
         enabled: config.retry?.enabled !== false,
         maxAttempts: config.retry?.maxAttempts || 3,
@@ -663,11 +665,12 @@ export class AxonFlow {
       headers['X-License-Key'] = this.config.licenseKey;
     }
 
+    // Use mapTimeout for MAP operations (default 2 minutes)
     const response = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
-      signal: AbortSignal.timeout(this.config.timeout),
+      signal: AbortSignal.timeout(this.config.mapTimeout),
     });
 
     if (!response.ok) {
@@ -683,12 +686,15 @@ export class AxonFlow {
       throw new Error(`Plan generation failed: ${agentResponse.error}`);
     }
 
+    // plan_id can be at top level or inside data
+    const planId = agentResponse.plan_id || agentResponse.data?.plan_id;
+
     if (this.config.debug) {
-      debugLog('Plan generated', { planId: agentResponse.plan_id });
+      debugLog('Plan generated', { planId });
     }
 
     return {
-      planId: agentResponse.plan_id,
+      planId,
       steps: agentResponse.data?.steps || [],
       domain: agentResponse.data?.domain || domain || 'generic',
       complexity: agentResponse.data?.complexity || 0,
@@ -721,11 +727,12 @@ export class AxonFlow {
       headers['X-License-Key'] = this.config.licenseKey;
     }
 
+    // Use mapTimeout for MAP operations (default 2 minutes)
     const response = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
-      signal: AbortSignal.timeout(this.config.timeout),
+      signal: AbortSignal.timeout(this.config.mapTimeout),
     });
 
     if (!response.ok) {

@@ -5,6 +5,18 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **MAP Timeout Configuration** - New `mapTimeout` config option (default: 120000ms) for Multi-Agent Planning operations
+  - MAP operations involve multiple LLM calls and can take 30-60+ seconds
+  - `generatePlan()` now uses the longer MAP timeout
+
+### Fixed
+
+- **Plan ID Parsing** - Fixed `plan_id` extraction to check both top-level and nested `data.plan_id`
+
 ## [1.4.1] - 2025-12-22
 
 ### Deprecated
