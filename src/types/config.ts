@@ -46,6 +46,13 @@ export interface AxonFlowConfig {
   timeout?: number;
 
   /**
+   * Timeout for Multi-Agent Planning (MAP) operations in milliseconds.
+   * MAP operations can take longer as they involve multiple LLM calls.
+   * Default: 120000 (2 minutes)
+   */
+  mapTimeout?: number;
+
+  /**
    * Retry configuration
    */
   retry?: {
