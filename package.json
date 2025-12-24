@@ -28,7 +28,7 @@
     "test:integration": "jest tests/integration.test.ts test/integration.test.ts --testTimeout=30000 --testPathIgnorePatterns='/node_modules/'",
     "test:e2e": "jest tests/e2e-staging.test.ts --testTimeout=60000 --runInBand --testPathIgnorePatterns='/node_modules/'",
     "test:all": "jest --testPathIgnorePatterns='/node_modules/' --testTimeout=60000",
-    "lint": "eslint 'src/**/*.ts' 'test/**/*.ts' 'tests/**/*.ts' --max-warnings -1",
+    "lint": "eslint 'src/**/*.ts' 'test/**/*.ts' 'tests/**/*.ts'",
     "lint:fix": "eslint 'src/**/*.ts' 'test/**/*.ts' 'tests/**/*.ts' --fix",
     "format": "prettier --write 'src/**/*.ts' 'test/**/*.ts' 'tests/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts' 'test/**/*.ts' 'tests/**/*.ts'",
