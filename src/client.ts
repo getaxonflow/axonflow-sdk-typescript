@@ -1041,6 +1041,11 @@ export class AxonFlow {
       'Content-Type': 'application/json',
     };
 
+    // Always include tenant ID for policy APIs
+    if (this.config.tenant) {
+      headers['X-Tenant-ID'] = this.config.tenant;
+    }
+
     const isLocalhost =
       this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
 
@@ -1128,7 +1133,9 @@ export class AxonFlow {
       debugLog('Listing static policies', { options });
     }
 
-    return this.policyRequest<StaticPolicy[]>('GET', path);
+    // Backend returns { policies: [], pagination: {} }, extract the array
+    const response = await this.policyRequest<{ policies: StaticPolicy[] }>('GET', path);
+    return response.policies || [];
   }
 
   /**
@@ -1173,7 +1180,13 @@ export class AxonFlow {
       debugLog('Creating static policy', { name: policy.name });
     }
 
-    return this.policyRequest<StaticPolicy>('POST', '/api/v1/static-policies', policy);
+    // Default to 'tenant' tier for custom policies if not specified
+    const policyWithDefaults = {
+      ...policy,
+      tier: policy.tier || 'tenant',
+    };
+
+    return this.policyRequest<StaticPolicy>('POST', '/api/v1/static-policies', policyWithDefaults);
   }
 
   /**
@@ -1276,7 +1289,9 @@ export class AxonFlow {
       debugLog('Getting effective static policies', { options });
     }
 
-    return this.policyRequest<StaticPolicy[]>('GET', path);
+    // Backend returns { static: [], dynamic: [], ... }, extract the static array
+    const response = await this.policyRequest<{ static: StaticPolicy[] }>('GET', path);
+    return response.static || [];
   }
 
   /**
@@ -1304,7 +1319,7 @@ export class AxonFlow {
     return this.policyRequest<TestPatternResult>(
       'POST',
       '/api/v1/static-policies/test',
-      { pattern, test_inputs: testInputs }
+      { pattern, inputs: testInputs }
     );
   }
 

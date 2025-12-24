@@ -42,6 +42,11 @@ export type OverrideAction = 'block' | 'warn' | 'log' | 'redact';
  */
 export type PolicyAction = 'block' | 'warn' | 'log' | 'redact' | 'allow';
 
+/**
+ * Policy severity levels
+ */
+export type PolicySeverity = 'critical' | 'high' | 'medium' | 'low';
+
 // ============================================================================
 // Static Policy Types
 // ============================================================================
@@ -62,8 +67,8 @@ export interface StaticPolicy {
   tier: PolicyTier;
   /** Regex pattern to match against input */
   pattern: string;
-  /** Severity level (1-10, higher = more severe) */
-  severity: number;
+  /** Severity level (critical, high, medium, low) */
+  severity: PolicySeverity;
   /** Whether the policy is enabled */
   enabled: boolean;
   /** Action to take when pattern matches */
@@ -116,10 +121,12 @@ export interface CreateStaticPolicyRequest {
   description?: string;
   /** Policy category */
   category: PolicyCategory;
+  /** Policy tier (defaults to 'tenant' for custom policies) */
+  tier?: PolicyTier;
   /** Regex pattern to match */
   pattern: string;
-  /** Severity level (1-10) */
-  severity?: number;
+  /** Severity level (critical, high, medium, low) */
+  severity?: PolicySeverity;
   /** Whether the policy is enabled */
   enabled?: boolean;
   /** Action to take when pattern matches */
@@ -139,7 +146,7 @@ export interface UpdateStaticPolicyRequest {
   /** Updated pattern */
   pattern?: string;
   /** Updated severity */
-  severity?: number;
+  severity?: PolicySeverity;
   /** Updated enabled status */
   enabled?: boolean;
   /** Updated action */
@@ -310,8 +317,12 @@ export interface TestPatternResult {
   valid: boolean;
   /** Error message if pattern is invalid */
   error?: string;
-  /** Results for each test input */
-  results: TestPatternMatch[];
+  /** The pattern that was tested */
+  pattern: string;
+  /** The inputs that were tested */
+  inputs: string[];
+  /** Match results for each input */
+  matches: TestPatternMatch[];
 }
 
 /**
@@ -322,10 +333,8 @@ export interface TestPatternMatch {
   input: string;
   /** Whether the pattern matched */
   matched: boolean;
-  /** Matched substring if any */
-  matchedText?: string;
-  /** Match position (start index) */
-  position?: number;
+  /** Captured groups if any */
+  groups?: string[];
 }
 
 // ============================================================================

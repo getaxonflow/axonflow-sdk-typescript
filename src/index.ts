@@ -99,6 +99,31 @@ export type {
   HealthStatus,
 } from './types';
 
+// Export policy types
+export type {
+  PolicyCategory,
+  PolicyTier,
+  PolicyAction,
+  PolicySeverity,
+  OverrideAction,
+  StaticPolicy,
+  CreateStaticPolicyRequest,
+  UpdateStaticPolicyRequest,
+  ListStaticPoliciesOptions,
+  PolicyOverride,
+  CreatePolicyOverrideRequest,
+  DynamicPolicy,
+  DynamicPolicyConfig,
+  DynamicPolicyCondition,
+  CreateDynamicPolicyRequest,
+  UpdateDynamicPolicyRequest,
+  ListDynamicPoliciesOptions,
+  TestPatternResult,
+  TestPatternMatch,
+  PolicyVersion,
+  EffectivePoliciesOptions,
+} from './types/policies';
+
 // Export version
 export const VERSION = '1.4.1';
 
