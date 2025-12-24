@@ -434,32 +434,6 @@ describe('Policy CRUD Methods', () => {
       });
     });
 
-    describe('getPolicyOverride', () => {
-      it('should get an existing override', async () => {
-        mockFetch.mockReturnValueOnce(mockResponse(sampleOverride));
-
-        const override = await client.getPolicyOverride('pol_123');
-
-        expect(override).not.toBeNull();
-        expect(override?.action).toBe('warn');
-      });
-
-      it('should return null for non-existent override', async () => {
-        mockFetch.mockReturnValueOnce(
-          Promise.resolve({
-            ok: false,
-            status: 404,
-            statusText: 'Not Found',
-            json: () => Promise.resolve({ error: 'Not found' }),
-            text: () => Promise.resolve('{"error": "Not found"}'),
-          })
-        );
-
-        const override = await client.getPolicyOverride('pol_123');
-
-        expect(override).toBeNull();
-      });
-    });
   });
 
   // ========================================================================
@@ -477,7 +451,7 @@ describe('Policy CRUD Methods', () => {
         expect(policies[0].id).toBe('dpol_456');
         expect(policies[0].name).toBe('Rate Limit API');
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/dynamic-policies',
+          'http://localhost:8080/api/v1/policies',
           expect.objectContaining({ method: 'GET' })
         );
       });
@@ -488,7 +462,7 @@ describe('Policy CRUD Methods', () => {
         await client.listDynamicPolicies({ category: 'dynamic-cost' });
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/dynamic-policies?category=dynamic-cost',
+          'http://localhost:8080/api/v1/policies?category=dynamic-cost',
           expect.any(Object)
         );
       });
@@ -523,7 +497,7 @@ describe('Policy CRUD Methods', () => {
 
         expect(policy.id).toBe('dpol_456');
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/dynamic-policies',
+          'http://localhost:8080/api/v1/policies',
           expect.objectContaining({
             method: 'POST',
             body: expect.stringContaining('Rate Limit API'),
@@ -570,7 +544,7 @@ describe('Policy CRUD Methods', () => {
         await client.deleteDynamicPolicy('dpol_456');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/dynamic-policies/dpol_456',
+          'http://localhost:8080/api/v1/policies/dpol_456',
           expect.objectContaining({ method: 'DELETE' })
         );
       });
@@ -595,7 +569,7 @@ describe('Policy CRUD Methods', () => {
 
         expect(policies).toHaveLength(1);
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/dynamic-policies/effective',
+          'http://localhost:8080/api/v1/policies/effective',
           expect.objectContaining({ method: 'GET' })
         );
       });

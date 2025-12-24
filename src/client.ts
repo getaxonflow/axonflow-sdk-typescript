@@ -1384,39 +1384,6 @@ export class AxonFlow {
     await this.policyRequest<void>('DELETE', `/api/v1/static-policies/${policyId}/override`);
   }
 
-  /**
-   * Get the override for a specific policy.
-   *
-   * @param policyId - ID of the policy
-   * @returns The override if one exists
-   *
-   * @example
-   * ```typescript
-   * const override = await axonflow.getPolicyOverride('pol_123');
-   * if (override) {
-   *   console.log('Override action:', override.action);
-   * }
-   * ```
-   */
-  async getPolicyOverride(policyId: string): Promise<PolicyOverride | null> {
-    if (this.config.debug) {
-      debugLog('Getting policy override', { policyId });
-    }
-
-    try {
-      return await this.policyRequest<PolicyOverride>(
-        'GET',
-        `/api/v1/static-policies/${policyId}/override`
-      );
-    } catch (error) {
-      // Return null if no override exists (404)
-      if (error instanceof APIError && error.statusCode === 404) {
-        return null;
-      }
-      throw error;
-    }
-  }
-
   // ============================================================================
   // Dynamic Policy Methods
   // ============================================================================
@@ -1448,7 +1415,7 @@ export class AxonFlow {
     if (options?.search) params.set('search', options.search);
 
     const queryString = params.toString();
-    const path = `/api/v1/dynamic-policies${queryString ? `?${queryString}` : ''}`;
+    const path = `/api/v1/policies${queryString ? `?${queryString}` : ''}`;
 
     if (this.config.debug) {
       debugLog('Listing dynamic policies', { options });
@@ -1468,7 +1435,7 @@ export class AxonFlow {
       debugLog('Getting dynamic policy', { id });
     }
 
-    return this.policyRequest<DynamicPolicy>('GET', `/api/v1/dynamic-policies/${id}`);
+    return this.policyRequest<DynamicPolicy>('GET', `/api/v1/policies/${id}`);
   }
 
   /**
@@ -1495,7 +1462,7 @@ export class AxonFlow {
       debugLog('Creating dynamic policy', { name: policy.name });
     }
 
-    return this.policyRequest<DynamicPolicy>('POST', '/api/v1/dynamic-policies', policy);
+    return this.policyRequest<DynamicPolicy>('POST', '/api/v1/policies', policy);
   }
 
   /**
@@ -1513,7 +1480,7 @@ export class AxonFlow {
       debugLog('Updating dynamic policy', { id, updates: Object.keys(policy) });
     }
 
-    return this.policyRequest<DynamicPolicy>('PUT', `/api/v1/dynamic-policies/${id}`, policy);
+    return this.policyRequest<DynamicPolicy>('PUT', `/api/v1/policies/${id}`, policy);
   }
 
   /**
@@ -1526,7 +1493,7 @@ export class AxonFlow {
       debugLog('Deleting dynamic policy', { id });
     }
 
-    await this.policyRequest<void>('DELETE', `/api/v1/dynamic-policies/${id}`);
+    await this.policyRequest<void>('DELETE', `/api/v1/policies/${id}`);
   }
 
   /**
@@ -1543,7 +1510,7 @@ export class AxonFlow {
 
     return this.policyRequest<DynamicPolicy>(
       'PATCH',
-      `/api/v1/dynamic-policies/${id}`,
+      `/api/v1/policies/${id}`,
       { enabled }
     );
   }
@@ -1563,7 +1530,7 @@ export class AxonFlow {
     if (options?.includeDisabled) params.set('include_disabled', 'true');
 
     const queryString = params.toString();
-    const path = `/api/v1/dynamic-policies/effective${queryString ? `?${queryString}` : ''}`;
+    const path = `/api/v1/policies/effective${queryString ? `?${queryString}` : ''}`;
 
     if (this.config.debug) {
       debugLog('Getting effective dynamic policies', { options });
