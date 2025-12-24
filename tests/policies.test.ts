@@ -661,5 +661,249 @@ describe('Policy CRUD Methods', () => {
       // Check that the call was made (headers will be included but not auth ones)
       expect(mockFetch).toHaveBeenCalled();
     });
+
+    it('should use apiKey for X-Client-Secret when licenseKey not set', async () => {
+      const apiKeyClient = new AxonFlow({
+        endpoint: 'https://api.example.com',
+        apiKey: 'test-api-key',
+        tenant: 'test',
+      });
+
+      mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
+
+      await apiKeyClient.listStaticPolicies();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Client-Secret': 'test-api-key',
+          }),
+        })
+      );
+    });
+
+    it('should prefer licenseKey over apiKey when both are set', async () => {
+      const dualAuthClient = new AxonFlow({
+        endpoint: 'https://api.example.com',
+        licenseKey: 'test-license-key',
+        apiKey: 'test-api-key',
+        tenant: 'test',
+      });
+
+      mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
+
+      await dualAuthClient.listStaticPolicies();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-License-Key': 'test-license-key',
+          }),
+        })
+      );
+    });
+
+    it('should not include auth headers for 127.0.0.1', async () => {
+      const localClient = new AxonFlow({
+        endpoint: 'http://127.0.0.1:8080',
+        licenseKey: 'test-license-key',
+        tenant: 'test',
+      });
+
+      mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
+
+      await localClient.listStaticPolicies();
+
+      // Auth headers should not be included for localhost
+      const callArgs = mockFetch.mock.calls[0];
+      const headers = callArgs[1].headers;
+      expect(headers['X-License-Key']).toBeUndefined();
+    });
+  });
+
+  // ========================================================================
+  // Additional Branch Coverage Tests
+  // ========================================================================
+
+  describe('Additional Branch Coverage', () => {
+    it('should list policies with all filters combined', async () => {
+      mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
+
+      await client.listStaticPolicies({
+        category: 'security-sqli',
+        tier: 'system',
+        enabled: true,
+        sortBy: 'severity',
+        sortOrder: 'desc',
+        limit: 10,
+        offset: 0,
+      });
+
+      const url = mockFetch.mock.calls[0][0];
+      expect(url).toContain('category=security-sqli');
+      expect(url).toContain('tier=system');
+      expect(url).toContain('enabled=true');
+      expect(url).toContain('sort_by=severity');
+      expect(url).toContain('sort_order=desc');
+      expect(url).toContain('limit=10');
+      // offset=0 is not included when it equals 0
+    });
+
+    it('should list policies with enabled=false', async () => {
+      mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
+
+      await client.listStaticPolicies({ enabled: false });
+
+      const url = mockFetch.mock.calls[0][0];
+      expect(url).toContain('enabled=false');
+    });
+
+    it('should handle list dynamic policies with all options', async () => {
+      const dynamicPolicy = {
+        id: 'dpol_456',
+        name: 'Rate Limit',
+        description: 'Rate limiting',
+        category: 'dynamic-cost',
+        tier: 'tenant',
+        type: 'rate-limit',
+        config: { max_requests: 100 },
+        enabled: true,
+        createdAt: '2025-01-01T00:00:00Z',
+        updatedAt: '2025-01-01T00:00:00Z',
+      };
+      mockFetch.mockReturnValueOnce(mockResponse([dynamicPolicy]));
+
+      await client.listDynamicPolicies({
+        category: 'dynamic-cost',
+        tier: 'organization',
+        enabled: true,
+        sortBy: 'name',
+        sortOrder: 'asc',
+        limit: 20,
+        offset: 5,
+      });
+
+      const url = mockFetch.mock.calls[0][0];
+      expect(url).toContain('category=dynamic-cost');
+      expect(url).toContain('tier=organization');
+      expect(url).toContain('enabled=true');
+    });
+
+    it('should handle effective policies with options', async () => {
+      mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
+
+      await client.getEffectiveStaticPolicies({
+        category: 'security-sqli',
+        includeDisabled: true,
+        includeOverridden: true,
+      });
+
+      const url = mockFetch.mock.calls[0][0];
+      expect(url).toContain('category=security-sqli');
+      expect(url).toContain('include_disabled=true');
+      expect(url).toContain('include_overridden=true');
+    });
+
+    it('should handle effective dynamic policies with options', async () => {
+      const dynamicPolicy = {
+        id: 'dpol_456',
+        name: 'Rate Limit',
+        description: 'Rate limiting',
+        category: 'dynamic-cost',
+        tier: 'tenant',
+        type: 'rate-limit',
+        config: { max_requests: 100 },
+        enabled: true,
+        createdAt: '2025-01-01T00:00:00Z',
+        updatedAt: '2025-01-01T00:00:00Z',
+      };
+      mockFetch.mockReturnValueOnce(mockResponse([dynamicPolicy]));
+
+      await client.getEffectiveDynamicPolicies({
+        category: 'dynamic-cost',
+        includeDisabled: true,
+      });
+
+      const url = mockFetch.mock.calls[0][0];
+      expect(url).toContain('category=dynamic-cost');
+      expect(url).toContain('include_disabled=true');
+    });
+
+    it('should handle test pattern with matches', async () => {
+      const testResult: TestPatternResult = {
+        valid: true,
+        results: [
+          { input: 'SELECT * FROM users', matched: true },
+          { input: 'Hello world', matched: false },
+        ],
+      };
+      mockFetch.mockReturnValueOnce(mockResponse(testResult));
+
+      const result = await client.testPattern('SELECT', ['SELECT * FROM users', 'Hello world']);
+
+      expect(result.valid).toBe(true);
+      expect(result.results).toHaveLength(2);
+    });
+
+    it('should handle 403 authentication error', async () => {
+      mockFetch.mockReturnValueOnce(
+        Promise.resolve({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+          json: () => Promise.resolve({ error: 'Access denied' }),
+          text: () => Promise.resolve('Access denied'),
+        })
+      );
+
+      await expect(client.listStaticPolicies()).rejects.toThrow('Request failed');
+    });
+
+    it('should handle create policy override with all fields', async () => {
+      const override: PolicyOverride = {
+        policyId: 'pol_123',
+        action: 'warn',
+        reason: 'Test reason',
+        active: true,
+        createdAt: '2025-01-01T00:00:00Z',
+        createdBy: 'admin',
+      };
+      mockFetch.mockReturnValueOnce(mockResponse(override));
+
+      const request: CreatePolicyOverrideRequest = {
+        action: 'warn',
+        reason: 'Test reason',
+      };
+      const result = await client.createPolicyOverride('pol_123', request);
+
+      expect(result.action).toBe('warn');
+      expect(result.reason).toBe('Test reason');
+    });
+
+    it('should get policy versions', async () => {
+      const versions: PolicyVersion[] = [
+        {
+          version: 2,
+          changeType: 'updated',
+          changeDescription: 'Updated severity from 8 to 9',
+          changedAt: '2025-01-02T00:00:00Z',
+          changedBy: 'admin',
+        },
+        {
+          version: 1,
+          changeType: 'created',
+          changedAt: '2025-01-01T00:00:00Z',
+          changedBy: 'system',
+        },
+      ];
+      mockFetch.mockReturnValueOnce(mockResponse(versions));
+
+      const result = await client.getStaticPolicyVersions('pol_123');
+
+      expect(result).toHaveLength(2);
+      expect(result[0].version).toBe(2);
+    });
   });
 });
