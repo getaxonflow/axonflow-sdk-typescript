@@ -54,7 +54,7 @@ describe('Policy CRUD Methods', () => {
     category: 'security-sqli',
     tier: 'system',
     pattern: '(?i)(union\\s+select|drop\\s+table)',
-    severity: 9,
+    severity: 'critical',
     enabled: true,
     action: 'block',
     createdAt: '2025-01-01T00:00:00Z',
@@ -94,7 +94,7 @@ describe('Policy CRUD Methods', () => {
   describe('Static Policies', () => {
     describe('listStaticPolicies', () => {
       it('should list all static policies', async () => {
-        mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
+        mockFetch.mockReturnValueOnce(mockResponse({ policies: [sampleStaticPolicy] }));
 
         const policies = await client.listStaticPolicies();
 
@@ -108,7 +108,7 @@ describe('Policy CRUD Methods', () => {
       });
 
       it('should filter by category', async () => {
-        mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
+        mockFetch.mockReturnValueOnce(mockResponse({ policies: [sampleStaticPolicy] }));
 
         await client.listStaticPolicies({ category: 'security-sqli' });
 
@@ -194,7 +194,7 @@ describe('Policy CRUD Methods', () => {
           name: 'Block SQL Injection',
           category: 'security-sqli',
           pattern: '(?i)(union\\s+select|drop\\s+table)',
-          severity: 9,
+          severity: 'critical',
           action: 'block',
         };
 
@@ -213,17 +213,17 @@ describe('Policy CRUD Methods', () => {
 
     describe('updateStaticPolicy', () => {
       it('should update an existing policy', async () => {
-        const updatedPolicy = { ...sampleStaticPolicy, severity: 10 };
+        const updatedPolicy = { ...sampleStaticPolicy, severity: 'high' as const };
         mockFetch.mockReturnValueOnce(mockResponse(updatedPolicy));
 
-        const policy = await client.updateStaticPolicy('pol_123', { severity: 10 });
+        const policy = await client.updateStaticPolicy('pol_123', { severity: 'high' });
 
-        expect(policy.severity).toBe(10);
+        expect(policy.severity).toBe('high');
         expect(mockFetch).toHaveBeenCalledWith(
           'http://localhost:8080/api/v1/static-policies/pol_123',
           expect.objectContaining({
             method: 'PUT',
-            body: expect.stringContaining('"severity":10'),
+            body: expect.stringContaining('"severity":"high"'),
           })
         );
       });
@@ -270,7 +270,7 @@ describe('Policy CRUD Methods', () => {
 
     describe('getEffectiveStaticPolicies', () => {
       it('should get effective policies with inheritance', async () => {
-        mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
+        mockFetch.mockReturnValueOnce(mockResponse({ static: [sampleStaticPolicy], dynamic: [] }));
 
         const policies = await client.getEffectiveStaticPolicies();
 
@@ -282,7 +282,7 @@ describe('Policy CRUD Methods', () => {
       });
 
       it('should filter effective policies by category', async () => {
-        mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
+        mockFetch.mockReturnValueOnce(mockResponse({ static: [sampleStaticPolicy], dynamic: [] }));
 
         await client.getEffectiveStaticPolicies({ category: 'security-sqli' });
 
@@ -297,8 +297,10 @@ describe('Policy CRUD Methods', () => {
       it('should test a regex pattern', async () => {
         const testResult: TestPatternResult = {
           valid: true,
-          results: [
-            { input: 'SELECT * FROM users', matched: true, matchedText: 'SELECT' },
+          pattern: '(?i)select',
+          inputs: ['SELECT * FROM users', 'Hello world'],
+          matches: [
+            { input: 'SELECT * FROM users', matched: true },
             { input: 'Hello world', matched: false },
           ],
         };
@@ -310,14 +312,14 @@ describe('Policy CRUD Methods', () => {
         ]);
 
         expect(result.valid).toBe(true);
-        expect(result.results).toHaveLength(2);
-        expect(result.results[0].matched).toBe(true);
-        expect(result.results[1].matched).toBe(false);
+        expect(result.matches).toHaveLength(2);
+        expect(result.matches[0].matched).toBe(true);
+        expect(result.matches[1].matched).toBe(false);
         expect(mockFetch).toHaveBeenCalledWith(
           'http://localhost:8080/api/v1/static-policies/test',
           expect.objectContaining({
             method: 'POST',
-            body: expect.stringContaining('test_inputs'),
+            body: expect.stringContaining('inputs'),
           })
         );
       });
@@ -326,7 +328,9 @@ describe('Policy CRUD Methods', () => {
         const testResult: TestPatternResult = {
           valid: false,
           error: 'Invalid regex: unmatched parenthesis',
-          results: [],
+          pattern: '(invalid[',
+          inputs: ['test'],
+          matches: [],
         };
         mockFetch.mockReturnValueOnce(mockResponse(testResult));
 
@@ -835,7 +839,9 @@ describe('Policy CRUD Methods', () => {
     it('should handle test pattern with matches', async () => {
       const testResult: TestPatternResult = {
         valid: true,
-        results: [
+        pattern: 'SELECT',
+        inputs: ['SELECT * FROM users', 'Hello world'],
+        matches: [
           { input: 'SELECT * FROM users', matched: true },
           { input: 'Hello world', matched: false },
         ],
@@ -845,7 +851,7 @@ describe('Policy CRUD Methods', () => {
       const result = await client.testPattern('SELECT', ['SELECT * FROM users', 'Hello world']);
 
       expect(result.valid).toBe(true);
-      expect(result.results).toHaveLength(2);
+      expect(result.matches).toHaveLength(2);
     });
 
     it('should handle 403 authentication error', async () => {
