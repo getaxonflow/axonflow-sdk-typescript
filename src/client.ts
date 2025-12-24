@@ -15,6 +15,20 @@ import {
   ExecuteQueryOptions,
   ExecuteQueryResponse,
   HealthStatus,
+  // Policy CRUD types
+  StaticPolicy,
+  DynamicPolicy,
+  PolicyOverride,
+  ListStaticPoliciesOptions,
+  ListDynamicPoliciesOptions,
+  CreateStaticPolicyRequest,
+  UpdateStaticPolicyRequest,
+  CreateDynamicPolicyRequest,
+  UpdateDynamicPolicyRequest,
+  CreatePolicyOverrideRequest,
+  TestPatternResult,
+  PolicyVersion,
+  EffectivePoliciesOptions,
 } from './types';
 import { AuthenticationError, APIError, PolicyViolationError } from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
@@ -1013,5 +1027,510 @@ export class AxonFlow {
     }
 
     return result;
+  }
+
+  // ============================================================================
+  // Policy CRUD Methods - Static Policies
+  // ============================================================================
+
+  /**
+   * Build authentication headers for API requests
+   */
+  private buildAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Always include tenant ID for policy APIs
+    if (this.config.tenant) {
+      headers['X-Tenant-ID'] = this.config.tenant;
+    }
+
+    const isLocalhost =
+      this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
+
+    if (!isLocalhost) {
+      if (this.config.licenseKey) {
+        headers['X-License-Key'] = this.config.licenseKey;
+      } else if (this.config.apiKey) {
+        headers['X-Client-Secret'] = this.config.apiKey;
+      }
+    }
+
+    return headers;
+  }
+
+  /**
+   * Generic HTTP request helper for policy APIs
+   */
+  private async policyRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const url = `${this.config.endpoint}${path}`;
+    const headers = this.buildAuthHeaders();
+
+    const options: RequestInit = {
+      method,
+      headers,
+      signal: AbortSignal.timeout(this.config.timeout),
+    };
+
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 401 || response.status === 403) {
+        throw new AuthenticationError(`Request failed: ${errorText}`);
+      }
+      throw new APIError(response.status, response.statusText, errorText);
+    }
+
+    // Handle DELETE responses with no body
+    if (response.status === 204 || method === 'DELETE') {
+      return undefined as T;
+    }
+
+    return response.json();
+  }
+
+  /**
+   * List all static policies with optional filtering.
+   *
+   * @param options - Filtering and pagination options
+   * @returns Array of static policies
+   *
+   * @example
+   * ```typescript
+   * // List all enabled SQL injection policies
+   * const policies = await axonflow.listStaticPolicies({
+   *   category: 'security-sqli',
+   *   enabled: true
+   * });
+   * ```
+   */
+  async listStaticPolicies(options?: ListStaticPoliciesOptions): Promise<StaticPolicy[]> {
+    const params = new URLSearchParams();
+
+    if (options?.category) params.set('category', options.category);
+    if (options?.tier) params.set('tier', options.tier);
+    if (options?.enabled !== undefined) params.set('enabled', String(options.enabled));
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.sortBy) params.set('sort_by', options.sortBy);
+    if (options?.sortOrder) params.set('sort_order', options.sortOrder);
+    if (options?.search) params.set('search', options.search);
+
+    const queryString = params.toString();
+    const path = `/api/v1/static-policies${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Listing static policies', { options });
+    }
+
+    // Backend returns { policies: [], pagination: {} }, extract the array
+    const response = await this.policyRequest<{ policies: StaticPolicy[] }>('GET', path);
+    return response.policies || [];
+  }
+
+  /**
+   * Get a specific static policy by ID.
+   *
+   * @param id - Policy ID
+   * @returns The static policy
+   *
+   * @example
+   * ```typescript
+   * const policy = await axonflow.getStaticPolicy('pol_123');
+   * console.log(policy.name, policy.pattern);
+   * ```
+   */
+  async getStaticPolicy(id: string): Promise<StaticPolicy> {
+    if (this.config.debug) {
+      debugLog('Getting static policy', { id });
+    }
+
+    return this.policyRequest<StaticPolicy>('GET', `/api/v1/static-policies/${id}`);
+  }
+
+  /**
+   * Create a new static policy.
+   *
+   * @param policy - Policy creation request
+   * @returns The created policy
+   *
+   * @example
+   * ```typescript
+   * const policy = await axonflow.createStaticPolicy({
+   *   name: 'Block Credit Card Numbers',
+   *   category: 'pii-global',
+   *   pattern: '\\b(?:\\d{4}[- ]?){3}\\d{4}\\b',
+   *   severity: 8,
+   *   action: 'block'
+   * });
+   * ```
+   */
+  async createStaticPolicy(policy: CreateStaticPolicyRequest): Promise<StaticPolicy> {
+    if (this.config.debug) {
+      debugLog('Creating static policy', { name: policy.name });
+    }
+
+    // Default to 'tenant' tier for custom policies if not specified
+    const policyWithDefaults = {
+      ...policy,
+      tier: policy.tier || 'tenant',
+    };
+
+    return this.policyRequest<StaticPolicy>('POST', '/api/v1/static-policies', policyWithDefaults);
+  }
+
+  /**
+   * Update an existing static policy.
+   *
+   * @param id - Policy ID
+   * @param policy - Fields to update
+   * @returns The updated policy
+   *
+   * @example
+   * ```typescript
+   * const updated = await axonflow.updateStaticPolicy('pol_123', {
+   *   severity: 10,
+   *   description: 'Updated description'
+   * });
+   * ```
+   */
+  async updateStaticPolicy(id: string, policy: UpdateStaticPolicyRequest): Promise<StaticPolicy> {
+    if (this.config.debug) {
+      debugLog('Updating static policy', { id, updates: Object.keys(policy) });
+    }
+
+    return this.policyRequest<StaticPolicy>('PUT', `/api/v1/static-policies/${id}`, policy);
+  }
+
+  /**
+   * Delete a static policy.
+   *
+   * @param id - Policy ID
+   *
+   * @example
+   * ```typescript
+   * await axonflow.deleteStaticPolicy('pol_123');
+   * ```
+   */
+  async deleteStaticPolicy(id: string): Promise<void> {
+    if (this.config.debug) {
+      debugLog('Deleting static policy', { id });
+    }
+
+    await this.policyRequest<void>('DELETE', `/api/v1/static-policies/${id}`);
+  }
+
+  /**
+   * Toggle a static policy's enabled status.
+   *
+   * @param id - Policy ID
+   * @param enabled - Whether the policy should be enabled
+   * @returns The updated policy
+   *
+   * @example
+   * ```typescript
+   * // Disable a policy
+   * await axonflow.toggleStaticPolicy('pol_123', false);
+   * ```
+   */
+  async toggleStaticPolicy(id: string, enabled: boolean): Promise<StaticPolicy> {
+    if (this.config.debug) {
+      debugLog('Toggling static policy', { id, enabled });
+    }
+
+    return this.policyRequest<StaticPolicy>('PATCH', `/api/v1/static-policies/${id}`, { enabled });
+  }
+
+  /**
+   * Get effective static policies with tier inheritance applied.
+   * This returns the policies that would actually be enforced, taking into
+   * account system, organization, and tenant policies with proper inheritance.
+   *
+   * @param options - Filtering options
+   * @returns Array of effective policies
+   *
+   * @example
+   * ```typescript
+   * const effective = await axonflow.getEffectiveStaticPolicies({
+   *   category: 'security-sqli'
+   * });
+   * ```
+   */
+  async getEffectiveStaticPolicies(options?: EffectivePoliciesOptions): Promise<StaticPolicy[]> {
+    const params = new URLSearchParams();
+
+    if (options?.category) params.set('category', options.category);
+    if (options?.includeDisabled) params.set('include_disabled', 'true');
+    if (options?.includeOverridden) params.set('include_overridden', 'true');
+
+    const queryString = params.toString();
+    const path = `/api/v1/static-policies/effective${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Getting effective static policies', { options });
+    }
+
+    // Backend returns { static: [], dynamic: [], ... }, extract the static array
+    const response = await this.policyRequest<{ static: StaticPolicy[] }>('GET', path);
+    return response.static || [];
+  }
+
+  /**
+   * Test a regex pattern against sample inputs.
+   * Use this to validate patterns before creating policies.
+   *
+   * @param pattern - Regex pattern to test
+   * @param testInputs - Array of strings to test against
+   * @returns Test results showing matches
+   *
+   * @example
+   * ```typescript
+   * const result = await axonflow.testPattern(
+   *   '\\b\\d{3}-\\d{2}-\\d{4}\\b',
+   *   ['My SSN is 123-45-6789', 'No SSN here', 'Another: 987-65-4321']
+   * );
+   * console.log(result.results); // Shows which inputs matched
+   * ```
+   */
+  async testPattern(pattern: string, testInputs: string[]): Promise<TestPatternResult> {
+    if (this.config.debug) {
+      debugLog('Testing pattern', { pattern, inputCount: testInputs.length });
+    }
+
+    return this.policyRequest<TestPatternResult>('POST', '/api/v1/static-policies/test', {
+      pattern,
+      inputs: testInputs,
+    });
+  }
+
+  /**
+   * Get version history for a static policy.
+   *
+   * @param id - Policy ID
+   * @returns Array of version history entries
+   *
+   * @example
+   * ```typescript
+   * const versions = await axonflow.getStaticPolicyVersions('pol_123');
+   * versions.forEach(v => console.log(v.version, v.changeType, v.changedAt));
+   * ```
+   */
+  async getStaticPolicyVersions(id: string): Promise<PolicyVersion[]> {
+    if (this.config.debug) {
+      debugLog('Getting static policy versions', { id });
+    }
+
+    return this.policyRequest<PolicyVersion[]>('GET', `/api/v1/static-policies/${id}/versions`);
+  }
+
+  // ============================================================================
+  // Policy Override Methods (Enterprise)
+  // ============================================================================
+
+  /**
+   * Create an override for a static policy.
+   * Overrides allow changing how a system policy behaves at the organization level.
+   *
+   * @param policyId - ID of the policy to override
+   * @param override - Override configuration
+   * @returns The created override
+   *
+   * @example
+   * ```typescript
+   * // Change a blocking policy to warn-only
+   * const override = await axonflow.createPolicyOverride('pol_123', {
+   *   action: 'warn',
+   *   reason: 'Temporarily reducing strictness for migration',
+   *   expiresAt: '2025-01-31T23:59:59Z'
+   * });
+   * ```
+   */
+  async createPolicyOverride(
+    policyId: string,
+    override: CreatePolicyOverrideRequest
+  ): Promise<PolicyOverride> {
+    if (this.config.debug) {
+      debugLog('Creating policy override', { policyId, action: override.action });
+    }
+
+    return this.policyRequest<PolicyOverride>(
+      'POST',
+      `/api/v1/static-policies/${policyId}/override`,
+      override
+    );
+  }
+
+  /**
+   * Delete an override for a static policy.
+   * This restores the policy to its default behavior.
+   *
+   * @param policyId - ID of the policy whose override to delete
+   *
+   * @example
+   * ```typescript
+   * await axonflow.deletePolicyOverride('pol_123');
+   * ```
+   */
+  async deletePolicyOverride(policyId: string): Promise<void> {
+    if (this.config.debug) {
+      debugLog('Deleting policy override', { policyId });
+    }
+
+    await this.policyRequest<void>('DELETE', `/api/v1/static-policies/${policyId}/override`);
+  }
+
+  // ============================================================================
+  // Dynamic Policy Methods
+  // ============================================================================
+
+  /**
+   * List all dynamic policies with optional filtering.
+   *
+   * @param options - Filtering and pagination options
+   * @returns Array of dynamic policies
+   *
+   * @example
+   * ```typescript
+   * const policies = await axonflow.listDynamicPolicies({
+   *   category: 'dynamic-cost',
+   *   enabled: true
+   * });
+   * ```
+   */
+  async listDynamicPolicies(options?: ListDynamicPoliciesOptions): Promise<DynamicPolicy[]> {
+    const params = new URLSearchParams();
+
+    if (options?.category) params.set('category', options.category);
+    if (options?.tier) params.set('tier', options.tier);
+    if (options?.enabled !== undefined) params.set('enabled', String(options.enabled));
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.sortBy) params.set('sort_by', options.sortBy);
+    if (options?.sortOrder) params.set('sort_order', options.sortOrder);
+    if (options?.search) params.set('search', options.search);
+
+    const queryString = params.toString();
+    const path = `/api/v1/policies${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Listing dynamic policies', { options });
+    }
+
+    return this.policyRequest<DynamicPolicy[]>('GET', path);
+  }
+
+  /**
+   * Get a specific dynamic policy by ID.
+   *
+   * @param id - Policy ID
+   * @returns The dynamic policy
+   */
+  async getDynamicPolicy(id: string): Promise<DynamicPolicy> {
+    if (this.config.debug) {
+      debugLog('Getting dynamic policy', { id });
+    }
+
+    return this.policyRequest<DynamicPolicy>('GET', `/api/v1/policies/${id}`);
+  }
+
+  /**
+   * Create a new dynamic policy.
+   *
+   * @param policy - Policy creation request
+   * @returns The created policy
+   *
+   * @example
+   * ```typescript
+   * const policy = await axonflow.createDynamicPolicy({
+   *   name: 'Rate Limit API Calls',
+   *   category: 'dynamic-cost',
+   *   config: {
+   *     type: 'rate-limit',
+   *     rules: { maxRequestsPerMinute: 100 },
+   *     action: 'block'
+   *   }
+   * });
+   * ```
+   */
+  async createDynamicPolicy(policy: CreateDynamicPolicyRequest): Promise<DynamicPolicy> {
+    if (this.config.debug) {
+      debugLog('Creating dynamic policy', { name: policy.name });
+    }
+
+    return this.policyRequest<DynamicPolicy>('POST', '/api/v1/policies', policy);
+  }
+
+  /**
+   * Update an existing dynamic policy.
+   *
+   * @param id - Policy ID
+   * @param policy - Fields to update
+   * @returns The updated policy
+   */
+  async updateDynamicPolicy(
+    id: string,
+    policy: UpdateDynamicPolicyRequest
+  ): Promise<DynamicPolicy> {
+    if (this.config.debug) {
+      debugLog('Updating dynamic policy', { id, updates: Object.keys(policy) });
+    }
+
+    return this.policyRequest<DynamicPolicy>('PUT', `/api/v1/policies/${id}`, policy);
+  }
+
+  /**
+   * Delete a dynamic policy.
+   *
+   * @param id - Policy ID
+   */
+  async deleteDynamicPolicy(id: string): Promise<void> {
+    if (this.config.debug) {
+      debugLog('Deleting dynamic policy', { id });
+    }
+
+    await this.policyRequest<void>('DELETE', `/api/v1/policies/${id}`);
+  }
+
+  /**
+   * Toggle a dynamic policy's enabled status.
+   *
+   * @param id - Policy ID
+   * @param enabled - Whether the policy should be enabled
+   * @returns The updated policy
+   */
+  async toggleDynamicPolicy(id: string, enabled: boolean): Promise<DynamicPolicy> {
+    if (this.config.debug) {
+      debugLog('Toggling dynamic policy', { id, enabled });
+    }
+
+    return this.policyRequest<DynamicPolicy>('PATCH', `/api/v1/policies/${id}`, { enabled });
+  }
+
+  /**
+   * Get effective dynamic policies with tier inheritance applied.
+   *
+   * @param options - Filtering options
+   * @returns Array of effective dynamic policies
+   */
+  async getEffectiveDynamicPolicies(options?: EffectivePoliciesOptions): Promise<DynamicPolicy[]> {
+    const params = new URLSearchParams();
+
+    if (options?.category) params.set('category', options.category);
+    if (options?.includeDisabled) params.set('include_disabled', 'true');
+
+    const queryString = params.toString();
+    const path = `/api/v1/policies/effective${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Getting effective dynamic policies', { options });
+    }
+
+    return this.policyRequest<DynamicPolicy[]>('GET', path);
   }
 }
