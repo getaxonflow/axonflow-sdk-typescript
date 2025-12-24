@@ -5,6 +5,30 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-12-25
+
+### Added
+
+- **Policy CRUD Methods**: Full policy management support for Unified Policy Architecture v2.0.0
+  - `listStaticPolicies()` - List policies with filtering by tier, category, enabled status
+  - `getStaticPolicy()` - Get single policy by ID
+  - `createStaticPolicy()` - Create custom policy
+  - `updateStaticPolicy()` - Update existing policy
+  - `deleteStaticPolicy()` - Delete policy
+  - `toggleStaticPolicy()` - Enable/disable policy
+  - `getEffectiveStaticPolicies()` - Get merged hierarchy for tenant
+  - `testPattern()` - Test regex pattern against input
+
+- **Policy Override Methods** (Enterprise):
+  - `createPolicyOverride()`, `getPolicyOverride()`, `deletePolicyOverride()`
+
+- **Dynamic Policy Methods**:
+  - `listDynamicPolicies()`, `getDynamicPolicy()`, `createDynamicPolicy()`
+  - `updateDynamicPolicy()`, `deleteDynamicPolicy()`, `toggleDynamicPolicy()`
+  - `getEffectiveDynamicPolicies()`
+
+- **New Types**: `StaticPolicy`, `DynamicPolicy`, `PolicyOverride`, `PolicyCategory`, `PolicyTier`, `PolicyAction`
+
 ## [1.4.2] - 2025-12-23
 
 ### Added
