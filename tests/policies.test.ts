@@ -304,10 +304,10 @@ describe('Policy CRUD Methods', () => {
         };
         mockFetch.mockReturnValueOnce(mockResponse(testResult));
 
-        const result = await client.testPattern(
-          '(?i)select',
-          ['SELECT * FROM users', 'Hello world']
-        );
+        const result = await client.testPattern('(?i)select', [
+          'SELECT * FROM users',
+          'Hello world',
+        ]);
 
         expect(result.valid).toBe(true);
         expect(result.results).toHaveLength(2);
@@ -433,7 +433,6 @@ describe('Policy CRUD Methods', () => {
         );
       });
     });
-
   });
 
   // ========================================================================
@@ -606,11 +605,13 @@ describe('Policy CRUD Methods', () => {
         })
       );
 
-      await expect(client.createStaticPolicy({
-        name: 'Test',
-        category: 'pii-global',
-        pattern: '.*',
-      })).rejects.toThrow('Request failed');
+      await expect(
+        client.createStaticPolicy({
+          name: 'Test',
+          category: 'pii-global',
+          pattern: '.*',
+        })
+      ).rejects.toThrow('Request failed');
     });
 
     it('should throw APIError on other errors', async () => {

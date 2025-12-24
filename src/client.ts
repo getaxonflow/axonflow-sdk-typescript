@@ -1063,11 +1063,7 @@ export class AxonFlow {
   /**
    * Generic HTTP request helper for policy APIs
    */
-  private async policyRequest<T>(
-    method: string,
-    path: string,
-    body?: unknown
-  ): Promise<T> {
+  private async policyRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.config.endpoint}${path}`;
     const headers = this.buildAuthHeaders();
 
@@ -1204,10 +1200,7 @@ export class AxonFlow {
    * });
    * ```
    */
-  async updateStaticPolicy(
-    id: string,
-    policy: UpdateStaticPolicyRequest
-  ): Promise<StaticPolicy> {
+  async updateStaticPolicy(id: string, policy: UpdateStaticPolicyRequest): Promise<StaticPolicy> {
     if (this.config.debug) {
       debugLog('Updating static policy', { id, updates: Object.keys(policy) });
     }
@@ -1251,11 +1244,7 @@ export class AxonFlow {
       debugLog('Toggling static policy', { id, enabled });
     }
 
-    return this.policyRequest<StaticPolicy>(
-      'PATCH',
-      `/api/v1/static-policies/${id}`,
-      { enabled }
-    );
+    return this.policyRequest<StaticPolicy>('PATCH', `/api/v1/static-policies/${id}`, { enabled });
   }
 
   /**
@@ -1273,9 +1262,7 @@ export class AxonFlow {
    * });
    * ```
    */
-  async getEffectiveStaticPolicies(
-    options?: EffectivePoliciesOptions
-  ): Promise<StaticPolicy[]> {
+  async getEffectiveStaticPolicies(options?: EffectivePoliciesOptions): Promise<StaticPolicy[]> {
     const params = new URLSearchParams();
 
     if (options?.category) params.set('category', options.category);
@@ -1316,11 +1303,10 @@ export class AxonFlow {
       debugLog('Testing pattern', { pattern, inputCount: testInputs.length });
     }
 
-    return this.policyRequest<TestPatternResult>(
-      'POST',
-      '/api/v1/static-policies/test',
-      { pattern, inputs: testInputs }
-    );
+    return this.policyRequest<TestPatternResult>('POST', '/api/v1/static-policies/test', {
+      pattern,
+      inputs: testInputs,
+    });
   }
 
   /**
@@ -1523,11 +1509,7 @@ export class AxonFlow {
       debugLog('Toggling dynamic policy', { id, enabled });
     }
 
-    return this.policyRequest<DynamicPolicy>(
-      'PATCH',
-      `/api/v1/policies/${id}`,
-      { enabled }
-    );
+    return this.policyRequest<DynamicPolicy>('PATCH', `/api/v1/policies/${id}`, { enabled });
   }
 
   /**
@@ -1536,9 +1518,7 @@ export class AxonFlow {
    * @param options - Filtering options
    * @returns Array of effective dynamic policies
    */
-  async getEffectiveDynamicPolicies(
-    options?: EffectivePoliciesOptions
-  ): Promise<DynamicPolicy[]> {
+  async getEffectiveDynamicPolicies(options?: EffectivePoliciesOptions): Promise<DynamicPolicy[]> {
     const params = new URLSearchParams();
 
     if (options?.category) params.set('category', options.category);

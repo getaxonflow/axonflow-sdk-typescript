@@ -246,7 +246,16 @@ export interface DynamicPolicyCondition {
   /** Field to evaluate */
   field: string;
   /** Comparison operator */
-  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'in' | 'not_in' | 'regex';
+  operator:
+    | 'equals'
+    | 'not_equals'
+    | 'contains'
+    | 'not_contains'
+    | 'greater_than'
+    | 'less_than'
+    | 'in'
+    | 'not_in'
+    | 'regex';
   /** Value to compare against */
   value: unknown;
 }
