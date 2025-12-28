@@ -96,6 +96,7 @@ export type {
   ExecuteQueryOptions,
   ExecuteQueryResponse,
   PolicyInfo,
+  CodeArtifact,
   HealthStatus,
 } from './types';
 
@@ -125,7 +126,7 @@ export type {
 } from './types/policies';
 
 // Export version
-export const VERSION = '1.4.1';
+export const VERSION = '1.6.0';
 
 // Default export for convenience
 import { AxonFlow } from './client';

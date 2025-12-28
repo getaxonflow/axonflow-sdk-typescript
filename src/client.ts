@@ -523,6 +523,7 @@ export class AxonFlow {
         staticChecks: data.policy_info.static_checks || [],
         processingTime: data.policy_info.processing_time || '',
         tenantId: data.policy_info.tenant_id || '',
+        codeArtifact: data.policy_info.code_artifact,
       };
     }
 
