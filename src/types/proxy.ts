@@ -25,6 +25,31 @@ export interface ExecuteQueryOptions {
 }
 
 /**
+ * Code artifact metadata detected in LLM responses.
+ *
+ * When an LLM generates code, AxonFlow automatically detects and analyzes it.
+ * This metadata is included in policyInfo for audit and compliance.
+ */
+export interface CodeArtifact {
+  /** Whether the response contains code */
+  is_code_output: boolean;
+  /** Detected programming language */
+  language: string;
+  /** Code category (function, class, script, config, snippet, module) */
+  code_type: string;
+  /** Size of detected code in bytes */
+  size_bytes: number;
+  /** Number of lines of code */
+  line_count: number;
+  /** Count of potential secrets found */
+  secrets_detected: number;
+  /** Count of unsafe code patterns */
+  unsafe_patterns: number;
+  /** Code governance policies evaluated */
+  policies_checked?: string[];
+}
+
+/**
  * Policy evaluation information from the agent
  */
 export interface PolicyInfo {
@@ -36,6 +61,8 @@ export interface PolicyInfo {
   processingTime: string;
   /** Tenant ID associated with the request */
   tenantId: string;
+  /** Code artifact metadata if code was detected in the response */
+  codeArtifact?: CodeArtifact;
 }
 
 /**
