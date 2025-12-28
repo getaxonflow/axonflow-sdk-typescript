@@ -34,13 +34,24 @@ export type PolicyTier = 'system' | 'organization' | 'tenant';
 
 /**
  * Override action for policy overrides
+ * - block: Immediately block the request
+ * - require_approval: Pause for human approval (HITL)
+ * - redact: Mask sensitive content
+ * - warn: Log warning, allow request
+ * - log: Audit only
  */
-export type OverrideAction = 'block' | 'warn' | 'log' | 'redact';
+export type OverrideAction = 'block' | 'require_approval' | 'redact' | 'warn' | 'log';
 
 /**
  * Action to take when policy matches
+ * - block: Immediately block the request
+ * - require_approval: Pause for human approval (HITL)
+ * - redact: Mask sensitive content
+ * - warn: Log warning, allow request
+ * - log: Audit only
+ * - allow: Explicitly allow (for overrides)
  */
-export type PolicyAction = 'block' | 'warn' | 'log' | 'redact' | 'allow';
+export type PolicyAction = 'block' | 'require_approval' | 'redact' | 'warn' | 'log' | 'allow';
 
 /**
  * Policy severity levels
