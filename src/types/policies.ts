@@ -177,17 +177,17 @@ export interface UpdateStaticPolicyRequest {
  */
 export interface PolicyOverride {
   /** Policy ID this override applies to */
-  policyId: string;
+  policy_id: string;
   /** Override action */
-  action: OverrideAction;
+  action_override: OverrideAction;
   /** Reason for the override */
-  reason: string;
+  override_reason: string;
   /** Who created the override */
-  createdBy?: string;
+  created_by?: string;
   /** When the override was created */
-  createdAt: string;
+  created_at: string;
   /** When the override expires (optional) */
-  expiresAt?: string;
+  expires_at?: string;
   /** Whether the override is currently active */
   active: boolean;
 }
@@ -197,11 +197,11 @@ export interface PolicyOverride {
  */
 export interface CreatePolicyOverrideRequest {
   /** Override action */
-  action: OverrideAction;
+  action_override: OverrideAction;
   /** Reason for the override */
-  reason: string;
+  override_reason: string;
   /** Optional expiration date (ISO 8601 format) */
-  expiresAt?: string;
+  expires_at?: string;
 }
 
 // ============================================================================

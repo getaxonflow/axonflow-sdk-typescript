@@ -1343,7 +1343,11 @@ export class AxonFlow {
       debugLog('Getting static policy versions', { id });
     }
 
-    return this.policyRequest<PolicyVersion[]>('GET', `/api/v1/static-policies/${id}/versions`);
+    const response = await this.policyRequest<{ policy_id: string; versions: PolicyVersion[]; count: number }>(
+      'GET',
+      `/api/v1/static-policies/${id}/versions`
+    );
+    return response.versions;
   }
 
   // ============================================================================
@@ -1362,9 +1366,9 @@ export class AxonFlow {
    * ```typescript
    * // Change a blocking policy to warn-only
    * const override = await axonflow.createPolicyOverride('pol_123', {
-   *   action: 'warn',
-   *   reason: 'Temporarily reducing strictness for migration',
-   *   expiresAt: '2025-01-31T23:59:59Z'
+   *   action_override: 'warn',
+   *   override_reason: 'Temporarily reducing strictness for migration',
+   *   expires_at: '2025-01-31T23:59:59Z'
    * });
    * ```
    */
@@ -1373,7 +1377,7 @@ export class AxonFlow {
     override: CreatePolicyOverrideRequest
   ): Promise<PolicyOverride> {
     if (this.config.debug) {
-      debugLog('Creating policy override', { policyId, action: override.action });
+      debugLog('Creating policy override', { policyId, action: override.action_override });
     }
 
     return this.policyRequest<PolicyOverride>(
