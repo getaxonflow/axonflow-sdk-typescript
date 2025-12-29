@@ -169,6 +169,19 @@ describe('Policy CRUD Methods', () => {
           expect.any(Object)
         );
       });
+
+      it('should filter by organization ID (Enterprise)', async () => {
+        mockFetch.mockReturnValueOnce(mockResponse({ policies: [sampleStaticPolicy] }));
+
+        await client.listStaticPolicies({
+          tier: 'organization',
+          organizationId: 'org_12345',
+        });
+
+        const url = mockFetch.mock.calls[0][0];
+        expect(url).toContain('tier=organization');
+        expect(url).toContain('organization_id=org_12345');
+      });
     });
 
     describe('getStaticPolicy', () => {
@@ -376,6 +389,30 @@ describe('Policy CRUD Methods', () => {
   // ========================================================================
 
   describe('Policy Overrides', () => {
+    describe('listPolicyOverrides', () => {
+      it('should list all policy overrides', async () => {
+        mockFetch.mockReturnValueOnce(mockResponse({ overrides: [sampleOverride] }));
+
+        const overrides = await client.listPolicyOverrides();
+
+        expect(overrides).toHaveLength(1);
+        expect(overrides[0].policyId).toBe('pol_123');
+        expect(overrides[0].action).toBe('warn');
+        expect(mockFetch).toHaveBeenCalledWith(
+          'http://localhost:8080/api/v1/policies/overrides',
+          expect.objectContaining({ method: 'GET' })
+        );
+      });
+
+      it('should return empty array when no overrides exist', async () => {
+        mockFetch.mockReturnValueOnce(mockResponse({ overrides: [] }));
+
+        const overrides = await client.listPolicyOverrides();
+
+        expect(overrides).toHaveLength(0);
+      });
+    });
+
     describe('createPolicyOverride', () => {
       it('should create an override', async () => {
         mockFetch.mockReturnValueOnce(mockResponse(sampleOverride));

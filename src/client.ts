@@ -1131,6 +1131,7 @@ export class AxonFlow {
 
     if (options?.category) params.set('category', options.category);
     if (options?.tier) params.set('tier', options.tier);
+    if (options?.organizationId) params.set('organization_id', options.organizationId);
     if (options?.enabled !== undefined) params.set('enabled', String(options.enabled));
     if (options?.limit) params.set('limit', String(options.limit));
     if (options?.offset) params.set('offset', String(options.offset));
@@ -1399,6 +1400,32 @@ export class AxonFlow {
     }
 
     await this.policyRequest<void>('DELETE', `/api/v1/static-policies/${policyId}/override`);
+  }
+
+  /**
+   * List all active policy overrides (Enterprise).
+   * Returns all overrides that are currently active across all policies.
+   *
+   * @returns Array of policy overrides
+   *
+   * @example
+   * ```typescript
+   * const overrides = await axonflow.listPolicyOverrides();
+   * for (const override of overrides) {
+   *   console.log(`Policy ${override.policyId}: ${override.action} - ${override.reason}`);
+   * }
+   * ```
+   */
+  async listPolicyOverrides(): Promise<PolicyOverride[]> {
+    if (this.config.debug) {
+      debugLog('Listing policy overrides');
+    }
+
+    const response = await this.policyRequest<{ overrides: PolicyOverride[] }>(
+      'GET',
+      '/api/v1/policies/overrides'
+    );
+    return response.overrides || [];
   }
 
   // ============================================================================

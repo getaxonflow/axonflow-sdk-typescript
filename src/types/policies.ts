@@ -108,6 +108,8 @@ export interface ListStaticPoliciesOptions {
   category?: PolicyCategory;
   /** Filter by tier */
   tier?: PolicyTier;
+  /** Filter by organization ID (Enterprise) */
+  organizationId?: string;
   /** Filter by enabled status */
   enabled?: boolean;
   /** Maximum number of results to return */
@@ -134,6 +136,8 @@ export interface CreateStaticPolicyRequest {
   category: PolicyCategory;
   /** Policy tier (defaults to 'tenant' for custom policies) */
   tier?: PolicyTier;
+  /** Organization ID for organization-tier policies (Enterprise) */
+  organizationId?: string;
   /** Regex pattern to match */
   pattern: string;
   /** Severity level (critical, high, medium, low) */
