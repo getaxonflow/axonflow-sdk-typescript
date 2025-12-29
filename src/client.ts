@@ -1976,12 +1976,12 @@ export class AxonFlow {
    *
    * @example
    * ```typescript
-   * const metrics = await axonflow.getMetrics();
+   * const metrics = await axonflow.getCodeGovernanceMetrics();
    * console.log(`Total PRs: ${metrics.totalPrs}`);
    * console.log(`Secrets Detected: ${metrics.totalSecretsDetected}`);
    * ```
    */
-  async getMetrics(): Promise<CodeGovernanceMetrics> {
+  async getCodeGovernanceMetrics(): Promise<CodeGovernanceMetrics> {
     if (this.config.debug) {
       debugLog('Getting code governance metrics');
     }
@@ -2023,17 +2023,17 @@ export class AxonFlow {
    * @example
    * ```typescript
    * // Export all data
-   * const { records, count } = await axonflow.exportData();
+   * const { records, count } = await axonflow.exportCodeGovernanceData();
    *
    * // Export with date filter
-   * const { records } = await axonflow.exportData({
+   * const { records } = await axonflow.exportCodeGovernanceData({
    *   startDate: '2024-01-01T00:00:00Z',
    *   endDate: '2024-12-31T23:59:59Z',
    *   state: 'merged'
    * });
    * ```
    */
-  async exportData(options?: ExportOptions): Promise<ExportResponse> {
+  async exportCodeGovernanceData(options?: ExportOptions): Promise<ExportResponse> {
     const params = new URLSearchParams();
     params.set('format', 'json');
 
