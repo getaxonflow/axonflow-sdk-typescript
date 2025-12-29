@@ -170,3 +170,48 @@ export interface ListPRsResponse {
   /** Total count */
   count: number;
 }
+
+// Metrics and Export Types
+
+export interface CodeGovernanceMetrics {
+  /** Tenant identifier */
+  tenantId: string;
+  /** Total number of PRs created */
+  totalPrs: number;
+  /** Number of open PRs */
+  openPrs: number;
+  /** Number of merged PRs */
+  mergedPrs: number;
+  /** Number of closed (not merged) PRs */
+  closedPrs: number;
+  /** Total files modified across all PRs */
+  totalFiles: number;
+  /** Total secrets detected across all PRs */
+  totalSecretsDetected: number;
+  /** Total unsafe patterns detected */
+  totalUnsafePatterns: number;
+  /** Timestamp of the first PR */
+  firstPrAt?: string;
+  /** Timestamp of the most recent PR */
+  lastPrAt?: string;
+}
+
+export interface ExportOptions {
+  /** Export format: 'json' or 'csv' */
+  format?: 'json' | 'csv';
+  /** Filter PRs created on or after this date (ISO 8601) */
+  startDate?: string;
+  /** Filter PRs created on or before this date (ISO 8601) */
+  endDate?: string;
+  /** Filter by PR state: open, merged, closed */
+  state?: string;
+}
+
+export interface ExportResponse {
+  /** Exported PR records */
+  records: PRRecord[];
+  /** Number of records */
+  count: number;
+  /** When the export was generated */
+  exportedAt: string;
+}
