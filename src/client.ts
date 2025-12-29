@@ -29,6 +29,18 @@ import {
   TestPatternResult,
   PolicyVersion,
   EffectivePoliciesOptions,
+  // Code Governance types (Enterprise)
+  GitProviderType,
+  ConfigureGitProviderRequest,
+  ConfigureGitProviderResponse,
+  ValidateGitProviderRequest,
+  ValidateGitProviderResponse,
+  ListGitProvidersResponse,
+  CreatePRRequest,
+  CreatePRResponse,
+  PRRecord,
+  ListPRsOptions,
+  ListPRsResponse,
 } from './types';
 import { AuthenticationError, APIError, PolicyViolationError } from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
@@ -1533,5 +1545,419 @@ export class AxonFlow {
     }
 
     return this.policyRequest<DynamicPolicy[]>('GET', path);
+  }
+
+  // ============================================================================
+  // Code Governance Methods (Enterprise)
+  // ============================================================================
+
+  /**
+   * Validate Git provider credentials before configuration.
+   * Use this to verify tokens and connectivity before saving.
+   *
+   * @param request - Validation request with provider type and credentials
+   * @returns Validation result indicating if credentials are valid
+   *
+   * @example
+   * ```typescript
+   * const result = await axonflow.validateGitProvider({
+   *   type: 'github',
+   *   token: 'ghp_xxxxxxxxxxxx'
+   * });
+   *
+   * if (result.valid) {
+   *   console.log('Credentials are valid');
+   * } else {
+   *   console.log('Invalid:', result.message);
+   * }
+   * ```
+   */
+  async validateGitProvider(
+    request: ValidateGitProviderRequest
+  ): Promise<ValidateGitProviderResponse> {
+    if (this.config.debug) {
+      debugLog('Validating Git provider', { type: request.type });
+    }
+
+    // Transform camelCase to snake_case for API
+    const apiRequest: Record<string, unknown> = {
+      type: request.type,
+    };
+    if (request.token) apiRequest.token = request.token;
+    if (request.baseUrl) apiRequest.base_url = request.baseUrl;
+    if (request.appId) apiRequest.app_id = request.appId;
+    if (request.installationId) apiRequest.installation_id = request.installationId;
+    if (request.privateKey) apiRequest.private_key = request.privateKey;
+
+    return this.policyRequest<ValidateGitProviderResponse>(
+      'POST',
+      '/api/v1/code-governance/git-providers/validate',
+      apiRequest
+    );
+  }
+
+  /**
+   * Configure a Git provider for code governance.
+   * Supports GitHub, GitLab, and Bitbucket (cloud and self-hosted).
+   *
+   * @param request - Configuration request with provider type and credentials
+   * @returns Configuration result
+   *
+   * @example
+   * ```typescript
+   * // Configure GitHub with personal access token
+   * await axonflow.configureGitProvider({
+   *   type: 'github',
+   *   token: 'ghp_xxxxxxxxxxxx'
+   * });
+   *
+   * // Configure GitLab self-hosted
+   * await axonflow.configureGitProvider({
+   *   type: 'gitlab',
+   *   token: 'glpat-xxxxxxxxxxxx',
+   *   baseUrl: 'https://gitlab.mycompany.com'
+   * });
+   *
+   * // Configure GitHub App
+   * await axonflow.configureGitProvider({
+   *   type: 'github',
+   *   appId: 12345,
+   *   installationId: 67890,
+   *   privateKey: '-----BEGIN RSA PRIVATE KEY-----\n...'
+   * });
+   * ```
+   */
+  async configureGitProvider(
+    request: ConfigureGitProviderRequest
+  ): Promise<ConfigureGitProviderResponse> {
+    if (this.config.debug) {
+      debugLog('Configuring Git provider', { type: request.type });
+    }
+
+    // Transform camelCase to snake_case for API
+    const apiRequest: Record<string, unknown> = {
+      type: request.type,
+    };
+    if (request.token) apiRequest.token = request.token;
+    if (request.baseUrl) apiRequest.base_url = request.baseUrl;
+    if (request.appId) apiRequest.app_id = request.appId;
+    if (request.installationId) apiRequest.installation_id = request.installationId;
+    if (request.privateKey) apiRequest.private_key = request.privateKey;
+
+    return this.policyRequest<ConfigureGitProviderResponse>(
+      'POST',
+      '/api/v1/code-governance/git-providers',
+      apiRequest
+    );
+  }
+
+  /**
+   * List all configured Git providers for the tenant.
+   *
+   * @returns List of configured providers
+   *
+   * @example
+   * ```typescript
+   * const { providers, count } = await axonflow.listGitProviders();
+   * console.log(`${count} providers configured:`);
+   * providers.forEach(p => console.log(`  - ${p.type}`));
+   * ```
+   */
+  async listGitProviders(): Promise<ListGitProvidersResponse> {
+    if (this.config.debug) {
+      debugLog('Listing Git providers');
+    }
+
+    return this.policyRequest<ListGitProvidersResponse>(
+      'GET',
+      '/api/v1/code-governance/git-providers'
+    );
+  }
+
+  /**
+   * Delete a configured Git provider.
+   *
+   * @param type - Provider type to delete (github, gitlab, or bitbucket)
+   *
+   * @example
+   * ```typescript
+   * await axonflow.deleteGitProvider('github');
+   * ```
+   */
+  async deleteGitProvider(type: GitProviderType): Promise<void> {
+    if (this.config.debug) {
+      debugLog('Deleting Git provider', { type });
+    }
+
+    await this.policyRequest<void>('DELETE', `/api/v1/code-governance/git-providers/${type}`);
+  }
+
+  /**
+   * Create a Pull Request from LLM-generated code.
+   * This creates a PR with full audit trail linking back to the AI request.
+   *
+   * @param request - PR creation request with repository info and files
+   * @returns Created PR details including URL and number
+   *
+   * @example
+   * ```typescript
+   * const pr = await axonflow.createPR({
+   *   owner: 'myorg',
+   *   repo: 'myrepo',
+   *   title: 'feat: add user validation utilities',
+   *   description: 'LLM-generated validation functions',
+   *   files: [
+   *     {
+   *       path: 'src/utils/validation.ts',
+   *       content: generatedCode,
+   *       language: 'typescript',
+   *       action: 'create'
+   *     }
+   *   ],
+   *   agentRequestId: 'req_123',
+   *   model: 'gpt-4',
+   *   policiesChecked: ['code-secrets', 'code-unsafe'],
+   *   secretsDetected: 0,
+   *   unsafePatterns: 0
+   * });
+   *
+   * console.log(`PR created: ${pr.prUrl}`);
+   * ```
+   */
+  async createPR(request: CreatePRRequest): Promise<CreatePRResponse> {
+    if (this.config.debug) {
+      debugLog('Creating PR', { owner: request.owner, repo: request.repo, title: request.title });
+    }
+
+    // Transform camelCase to snake_case for API
+    const apiRequest: Record<string, unknown> = {
+      owner: request.owner,
+      repo: request.repo,
+      title: request.title,
+      files: request.files.map((f) => ({
+        path: f.path,
+        content: f.content,
+        language: f.language,
+        action: f.action,
+      })),
+    };
+    if (request.description) apiRequest.description = request.description;
+    if (request.baseBranch) apiRequest.base_branch = request.baseBranch;
+    if (request.branchName) apiRequest.branch_name = request.branchName;
+    if (request.draft !== undefined) apiRequest.draft = request.draft;
+    if (request.agentRequestId) apiRequest.agent_request_id = request.agentRequestId;
+    if (request.model) apiRequest.model = request.model;
+    if (request.policiesChecked) apiRequest.policies_checked = request.policiesChecked;
+    if (request.secretsDetected !== undefined) apiRequest.secrets_detected = request.secretsDetected;
+    if (request.unsafePatterns !== undefined) apiRequest.unsafe_patterns = request.unsafePatterns;
+
+    const response = await this.policyRequest<{
+      pr_id: string;
+      pr_number: number;
+      pr_url: string;
+      state: string;
+      head_branch: string;
+      created_at: string;
+    }>('POST', '/api/v1/code-governance/prs', apiRequest);
+
+    // Transform snake_case response to camelCase
+    return {
+      prId: response.pr_id,
+      prNumber: response.pr_number,
+      prUrl: response.pr_url,
+      state: response.state,
+      headBranch: response.head_branch,
+      createdAt: response.created_at,
+    };
+  }
+
+  /**
+   * List Pull Requests created through code governance.
+   *
+   * @param options - Filtering and pagination options
+   * @returns List of PR records
+   *
+   * @example
+   * ```typescript
+   * const { prs, count } = await axonflow.listPRs({
+   *   state: 'open',
+   *   limit: 10
+   * });
+   *
+   * prs.forEach(pr => {
+   *   console.log(`#${pr.prNumber}: ${pr.title} (${pr.state})`);
+   *   if (pr.secretsDetected > 0) {
+   *     console.log(`  Warning: ${pr.secretsDetected} secrets detected`);
+   *   }
+   * });
+   * ```
+   */
+  async listPRs(options?: ListPRsOptions): Promise<ListPRsResponse> {
+    const params = new URLSearchParams();
+
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.state) params.set('state', options.state);
+
+    const queryString = params.toString();
+    const path = `/api/v1/code-governance/prs${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Listing PRs', { options });
+    }
+
+    const response = await this.policyRequest<{
+      prs: Array<{
+        id: string;
+        pr_number: number;
+        pr_url: string;
+        title: string;
+        state: string;
+        owner: string;
+        repo: string;
+        head_branch: string;
+        base_branch: string;
+        files_count: number;
+        secrets_detected: number;
+        unsafe_patterns: number;
+        created_at: string;
+        created_by?: string;
+        provider_type?: string;
+      }>;
+      count: number;
+    }>('GET', path);
+
+    // Transform snake_case response to camelCase
+    return {
+      prs: response.prs.map((pr) => ({
+        id: pr.id,
+        prNumber: pr.pr_number,
+        prUrl: pr.pr_url,
+        title: pr.title,
+        state: pr.state,
+        owner: pr.owner,
+        repo: pr.repo,
+        headBranch: pr.head_branch,
+        baseBranch: pr.base_branch,
+        filesCount: pr.files_count,
+        secretsDetected: pr.secrets_detected,
+        unsafePatterns: pr.unsafe_patterns,
+        createdAt: pr.created_at,
+        createdBy: pr.created_by,
+        providerType: pr.provider_type,
+      })),
+      count: response.count,
+    };
+  }
+
+  /**
+   * Get a specific PR record by ID.
+   *
+   * @param prId - PR record ID (internal ID, not GitHub PR number)
+   * @returns PR record details
+   *
+   * @example
+   * ```typescript
+   * const pr = await axonflow.getPR('pr_123');
+   * console.log(`PR #${pr.prNumber}: ${pr.title}`);
+   * ```
+   */
+  async getPR(prId: string): Promise<PRRecord> {
+    if (this.config.debug) {
+      debugLog('Getting PR', { prId });
+    }
+
+    const response = await this.policyRequest<{
+      id: string;
+      pr_number: number;
+      pr_url: string;
+      title: string;
+      state: string;
+      owner: string;
+      repo: string;
+      head_branch: string;
+      base_branch: string;
+      files_count: number;
+      secrets_detected: number;
+      unsafe_patterns: number;
+      created_at: string;
+      created_by?: string;
+      provider_type?: string;
+    }>('GET', `/api/v1/code-governance/prs/${prId}`);
+
+    // Transform snake_case response to camelCase
+    return {
+      id: response.id,
+      prNumber: response.pr_number,
+      prUrl: response.pr_url,
+      title: response.title,
+      state: response.state,
+      owner: response.owner,
+      repo: response.repo,
+      headBranch: response.head_branch,
+      baseBranch: response.base_branch,
+      filesCount: response.files_count,
+      secretsDetected: response.secrets_detected,
+      unsafePatterns: response.unsafe_patterns,
+      createdAt: response.created_at,
+      createdBy: response.created_by,
+      providerType: response.provider_type,
+    };
+  }
+
+  /**
+   * Sync PR status with the Git provider.
+   * This updates the local record with the current state from GitHub/GitLab/Bitbucket.
+   *
+   * @param prId - PR record ID
+   * @returns Updated PR record
+   *
+   * @example
+   * ```typescript
+   * const pr = await axonflow.syncPRStatus('pr_123');
+   * console.log(`PR is now ${pr.state}`);
+   * ```
+   */
+  async syncPRStatus(prId: string): Promise<PRRecord> {
+    if (this.config.debug) {
+      debugLog('Syncing PR status', { prId });
+    }
+
+    const response = await this.policyRequest<{
+      id: string;
+      pr_number: number;
+      pr_url: string;
+      title: string;
+      state: string;
+      owner: string;
+      repo: string;
+      head_branch: string;
+      base_branch: string;
+      files_count: number;
+      secrets_detected: number;
+      unsafe_patterns: number;
+      created_at: string;
+      created_by?: string;
+      provider_type?: string;
+    }>('POST', `/api/v1/code-governance/prs/${prId}/sync`);
+
+    // Transform snake_case response to camelCase
+    return {
+      id: response.id,
+      prNumber: response.pr_number,
+      prUrl: response.pr_url,
+      title: response.title,
+      state: response.state,
+      owner: response.owner,
+      repo: response.repo,
+      headBranch: response.head_branch,
+      baseBranch: response.base_branch,
+      filesCount: response.files_count,
+      secretsDetected: response.secrets_detected,
+      unsafePatterns: response.unsafe_patterns,
+      createdAt: response.created_at,
+      createdBy: response.created_by,
+      providerType: response.provider_type,
+    };
   }
 }

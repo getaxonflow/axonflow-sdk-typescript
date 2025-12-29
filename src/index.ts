@@ -125,8 +125,26 @@ export type {
   EffectivePoliciesOptions,
 } from './types/policies';
 
+// Export Code Governance types (Enterprise)
+export type {
+  GitProviderType,
+  FileAction,
+  CodeFile,
+  ConfigureGitProviderRequest,
+  ConfigureGitProviderResponse,
+  ValidateGitProviderRequest,
+  ValidateGitProviderResponse,
+  GitProviderInfo,
+  ListGitProvidersResponse,
+  CreatePRRequest,
+  CreatePRResponse,
+  PRRecord,
+  ListPRsOptions,
+  ListPRsResponse,
+} from './types/code-governance';
+
 // Export version
-export const VERSION = '1.6.0';
+export const VERSION = '1.7.0';
 
 // Default export for convenience
 import { AxonFlow } from './client';

@@ -7,3 +7,4 @@ export * from './connector';
 export * from './planning';
 export * from './gateway';
 export * from './proxy';
+export * from './code-governance';
