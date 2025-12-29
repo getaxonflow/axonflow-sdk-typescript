@@ -5,6 +5,19 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2025-12-30
+
+### Fixed
+
+- Fixed `PolicyOverride` interface to use correct field names (`policy_id`, `action_override`, `override_reason`)
+- Fixed `listPolicyOverrides()` endpoint path
+- Fixed response parsing for `getStaticPolicyVersions()`
+- Fixed `createStaticPolicy()` to use correct field names
+
+> **Note:** These changes affect Enterprise users only. Community users can skip this release.
+
+---
+
 ## [1.9.0] - 2025-12-29
 
 ### Added
