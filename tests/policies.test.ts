@@ -80,10 +80,10 @@ describe('Policy CRUD Methods', () => {
   };
 
   const sampleOverride: PolicyOverride = {
-    policyId: 'pol_123',
-    action: 'warn',
-    reason: 'Testing override',
-    createdAt: '2025-01-01T00:00:00Z',
+    policy_id: 'pol_123',
+    action_override: 'warn',
+    override_reason: 'Testing override',
+    created_at: '2025-01-01T00:00:00Z',
     active: true,
   };
 
@@ -369,7 +369,7 @@ describe('Policy CRUD Methods', () => {
             changeType: 'created',
           },
         ];
-        mockFetch.mockReturnValueOnce(mockResponse(versions));
+        mockFetch.mockReturnValueOnce(mockResponse({ policy_id: 'pol_123', versions, count: 2 }));
 
         const result = await client.getStaticPolicyVersions('pol_123');
 
@@ -396,8 +396,8 @@ describe('Policy CRUD Methods', () => {
         const overrides = await client.listPolicyOverrides();
 
         expect(overrides).toHaveLength(1);
-        expect(overrides[0].policyId).toBe('pol_123');
-        expect(overrides[0].action).toBe('warn');
+        expect(overrides[0].policy_id).toBe('pol_123');
+        expect(overrides[0].action_override).toBe('warn');
         expect(mockFetch).toHaveBeenCalledWith(
           'http://localhost:8080/api/v1/policies/overrides',
           expect.objectContaining({ method: 'GET' })
@@ -418,19 +418,19 @@ describe('Policy CRUD Methods', () => {
         mockFetch.mockReturnValueOnce(mockResponse(sampleOverride));
 
         const request: CreatePolicyOverrideRequest = {
-          action: 'warn',
-          reason: 'Testing override',
+          action_override: 'warn',
+          override_reason: 'Testing override',
         };
 
         const override = await client.createPolicyOverride('pol_123', request);
 
-        expect(override.action).toBe('warn');
-        expect(override.reason).toBe('Testing override');
+        expect(override.action_override).toBe('warn');
+        expect(override.override_reason).toBe('Testing override');
         expect(mockFetch).toHaveBeenCalledWith(
           'http://localhost:8080/api/v1/static-policies/pol_123/override',
           expect.objectContaining({
             method: 'POST',
-            body: expect.stringContaining('"action":"warn"'),
+            body: expect.stringContaining('"action_override":"warn"'),
           })
         );
       });
@@ -438,19 +438,19 @@ describe('Policy CRUD Methods', () => {
       it('should create an override with expiration', async () => {
         const overrideWithExpiry = {
           ...sampleOverride,
-          expiresAt: '2025-12-31T23:59:59Z',
+          expires_at: '2025-12-31T23:59:59Z',
         };
         mockFetch.mockReturnValueOnce(mockResponse(overrideWithExpiry));
 
         const request: CreatePolicyOverrideRequest = {
-          action: 'warn',
-          reason: 'Temporary override',
-          expiresAt: '2025-12-31T23:59:59Z',
+          action_override: 'warn',
+          override_reason: 'Temporary override',
+          expires_at: '2025-12-31T23:59:59Z',
         };
 
         const override = await client.createPolicyOverride('pol_123', request);
 
-        expect(override.expiresAt).toBe('2025-12-31T23:59:59Z');
+        expect(override.expires_at).toBe('2025-12-31T23:59:59Z');
       });
     });
 
@@ -907,23 +907,23 @@ describe('Policy CRUD Methods', () => {
 
     it('should handle create policy override with all fields', async () => {
       const override: PolicyOverride = {
-        policyId: 'pol_123',
-        action: 'warn',
-        reason: 'Test reason',
+        policy_id: 'pol_123',
+        action_override: 'warn',
+        override_reason: 'Test reason',
         active: true,
-        createdAt: '2025-01-01T00:00:00Z',
-        createdBy: 'admin',
+        created_at: '2025-01-01T00:00:00Z',
+        created_by: 'admin',
       };
       mockFetch.mockReturnValueOnce(mockResponse(override));
 
       const request: CreatePolicyOverrideRequest = {
-        action: 'warn',
-        reason: 'Test reason',
+        action_override: 'warn',
+        override_reason: 'Test reason',
       };
       const result = await client.createPolicyOverride('pol_123', request);
 
-      expect(result.action).toBe('warn');
-      expect(result.reason).toBe('Test reason');
+      expect(result.action_override).toBe('warn');
+      expect(result.override_reason).toBe('Test reason');
     });
 
     it('should get policy versions', async () => {
@@ -942,7 +942,7 @@ describe('Policy CRUD Methods', () => {
           changedBy: 'system',
         },
       ];
-      mockFetch.mockReturnValueOnce(mockResponse(versions));
+      mockFetch.mockReturnValueOnce(mockResponse({ policy_id: 'pol_123', versions, count: 2 }));
 
       const result = await client.getStaticPolicyVersions('pol_123');
 

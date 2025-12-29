@@ -1194,12 +1194,24 @@ export class AxonFlow {
     }
 
     // Default to 'tenant' tier for custom policies if not specified
-    const policyWithDefaults = {
-      ...policy,
+    // Convert camelCase to snake_case for API compatibility
+    const requestBody: Record<string, unknown> = {
+      name: policy.name,
+      description: policy.description,
+      category: policy.category,
+      pattern: policy.pattern,
+      severity: policy.severity,
+      enabled: policy.enabled,
+      action: policy.action,
       tier: policy.tier || 'tenant',
     };
 
-    return this.policyRequest<StaticPolicy>('POST', '/api/v1/static-policies', policyWithDefaults);
+    // Add organization_id for organization tier policies
+    if (policy.organizationId) {
+      requestBody.organization_id = policy.organizationId;
+    }
+
+    return this.policyRequest<StaticPolicy>('POST', '/api/v1/static-policies', requestBody);
   }
 
   /**
@@ -1343,7 +1355,11 @@ export class AxonFlow {
       debugLog('Getting static policy versions', { id });
     }
 
-    return this.policyRequest<PolicyVersion[]>('GET', `/api/v1/static-policies/${id}/versions`);
+    const response = await this.policyRequest<{ policy_id: string; versions: PolicyVersion[]; count: number }>(
+      'GET',
+      `/api/v1/static-policies/${id}/versions`
+    );
+    return response.versions;
   }
 
   // ============================================================================
@@ -1362,9 +1378,9 @@ export class AxonFlow {
    * ```typescript
    * // Change a blocking policy to warn-only
    * const override = await axonflow.createPolicyOverride('pol_123', {
-   *   action: 'warn',
-   *   reason: 'Temporarily reducing strictness for migration',
-   *   expiresAt: '2025-01-31T23:59:59Z'
+   *   action_override: 'warn',
+   *   override_reason: 'Temporarily reducing strictness for migration',
+   *   expires_at: '2025-01-31T23:59:59Z'
    * });
    * ```
    */
@@ -1373,7 +1389,7 @@ export class AxonFlow {
     override: CreatePolicyOverrideRequest
   ): Promise<PolicyOverride> {
     if (this.config.debug) {
-      debugLog('Creating policy override', { policyId, action: override.action });
+      debugLog('Creating policy override', { policyId, action: override.action_override });
     }
 
     return this.policyRequest<PolicyOverride>(
@@ -1423,7 +1439,7 @@ export class AxonFlow {
 
     const response = await this.policyRequest<{ overrides: PolicyOverride[] }>(
       'GET',
-      '/api/v1/policies/overrides'
+      '/api/v1/static-policies/overrides'
     );
     return response.overrides || [];
   }
