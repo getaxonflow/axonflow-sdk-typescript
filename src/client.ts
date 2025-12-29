@@ -41,6 +41,9 @@ import {
   PRRecord,
   ListPRsOptions,
   ListPRsResponse,
+  CodeGovernanceMetrics,
+  ExportOptions,
+  ExportResponse,
 } from './types';
 import { AuthenticationError, APIError, PolicyViolationError } from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
@@ -1958,6 +1961,135 @@ export class AxonFlow {
       createdAt: response.created_at,
       createdBy: response.created_by,
       providerType: response.provider_type,
+    };
+  }
+
+  // ============================================================================
+  // Code Governance Metrics and Export Methods (Enterprise)
+  // ============================================================================
+
+  /**
+   * Get aggregated code governance metrics for the tenant.
+   * Returns PR counts, file totals, and security findings.
+   *
+   * @returns Code governance metrics
+   *
+   * @example
+   * ```typescript
+   * const metrics = await axonflow.getMetrics();
+   * console.log(`Total PRs: ${metrics.totalPrs}`);
+   * console.log(`Secrets Detected: ${metrics.totalSecretsDetected}`);
+   * ```
+   */
+  async getMetrics(): Promise<CodeGovernanceMetrics> {
+    if (this.config.debug) {
+      debugLog('Getting code governance metrics');
+    }
+
+    const response = await this.policyRequest<{
+      tenant_id: string;
+      total_prs: number;
+      open_prs: number;
+      merged_prs: number;
+      closed_prs: number;
+      total_files: number;
+      total_secrets_detected: number;
+      total_unsafe_patterns: number;
+      first_pr_at?: string;
+      last_pr_at?: string;
+    }>('GET', '/api/v1/code-governance/metrics');
+
+    return {
+      tenantId: response.tenant_id,
+      totalPrs: response.total_prs,
+      openPrs: response.open_prs,
+      mergedPrs: response.merged_prs,
+      closedPrs: response.closed_prs,
+      totalFiles: response.total_files,
+      totalSecretsDetected: response.total_secrets_detected,
+      totalUnsafePatterns: response.total_unsafe_patterns,
+      firstPrAt: response.first_pr_at,
+      lastPrAt: response.last_pr_at,
+    };
+  }
+
+  /**
+   * Export code governance data for compliance reporting.
+   * Supports JSON format with optional date filtering.
+   *
+   * @param options - Export options
+   * @returns Export response with PR records
+   *
+   * @example
+   * ```typescript
+   * // Export all data
+   * const { records, count } = await axonflow.exportData();
+   *
+   * // Export with date filter
+   * const { records } = await axonflow.exportData({
+   *   startDate: '2024-01-01T00:00:00Z',
+   *   endDate: '2024-12-31T23:59:59Z',
+   *   state: 'merged'
+   * });
+   * ```
+   */
+  async exportData(options?: ExportOptions): Promise<ExportResponse> {
+    const params = new URLSearchParams();
+    params.set('format', 'json');
+
+    if (options?.startDate) params.set('start_date', options.startDate);
+    if (options?.endDate) params.set('end_date', options.endDate);
+    if (options?.state) params.set('state', options.state);
+
+    const query = params.toString();
+    const path = `/api/v1/code-governance/export${query ? '?' + query : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Exporting code governance data', { path });
+    }
+
+    const response = await this.policyRequest<{
+      records: Array<{
+        id: string;
+        pr_number: number;
+        pr_url: string;
+        title: string;
+        state: string;
+        owner: string;
+        repo: string;
+        head_branch: string;
+        base_branch: string;
+        files_count: number;
+        secrets_detected: number;
+        unsafe_patterns: number;
+        created_at: string;
+        created_by?: string;
+        provider_type?: string;
+      }>;
+      count: number;
+      exported_at: string;
+    }>('GET', path);
+
+    return {
+      records: response.records.map(r => ({
+        id: r.id,
+        prNumber: r.pr_number,
+        prUrl: r.pr_url,
+        title: r.title,
+        state: r.state,
+        owner: r.owner,
+        repo: r.repo,
+        headBranch: r.head_branch,
+        baseBranch: r.base_branch,
+        filesCount: r.files_count,
+        secretsDetected: r.secrets_detected,
+        unsafePatterns: r.unsafe_patterns,
+        createdAt: r.created_at,
+        createdBy: r.created_by,
+        providerType: r.provider_type,
+      })),
+      count: response.count,
+      exportedAt: response.exported_at,
     };
   }
 }
