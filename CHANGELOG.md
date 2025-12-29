@@ -5,6 +5,29 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2025-12-29
+
+### Added
+
+- **Code Governance Git Provider APIs** (Enterprise): Create PRs from LLM-generated code
+  - `validateGitProvider()` - Validate credentials before saving
+  - `configureGitProvider()` - Configure GitHub, GitLab, or Bitbucket
+  - `listGitProviders()` - List configured providers
+  - `deleteGitProvider()` - Remove a provider
+  - `createPR()` - Create PR from generated code with audit trail
+  - `listPRs()` - List PRs with filtering
+  - `getPR()` - Get PR details
+  - `syncPRStatus()` - Sync status from Git provider
+
+- **New Types**: `GitProviderType`, `FileAction`, `CodeFile`, `CreatePRRequest`, `CreatePRResponse`, `PRRecord`, `ListPRsOptions`, `ListPRsResponse`
+
+- **Supported Git Providers**:
+  - GitHub (Cloud and Enterprise Server)
+  - GitLab (Cloud and Self-Managed)
+  - Bitbucket (Cloud and Server/Data Center)
+
+---
+
 ## [1.6.0] - 2025-12-28
 
 ### Added
