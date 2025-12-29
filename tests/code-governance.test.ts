@@ -254,9 +254,7 @@ describe('Code Governance Methods', () => {
 
     describe('deleteGitProvider', () => {
       it('should delete a configured provider', async () => {
-        mockFetch.mockReturnValueOnce(
-          mockResponse(undefined, 204)
-        );
+        mockFetch.mockReturnValueOnce(mockResponse(undefined, 204));
 
         await client.deleteGitProvider('github');
 
@@ -603,36 +601,33 @@ describe('Code Governance Methods', () => {
 
   describe('Error Handling', () => {
     it('should throw AuthenticationError on 401', async () => {
-      mockFetch.mockReturnValueOnce(
-        mockResponse({ error: 'Unauthorized' }, 401)
-      );
+      mockFetch.mockReturnValueOnce(mockResponse({ error: 'Unauthorized' }, 401));
 
-      await expect(client.validateGitProvider({
-        type: 'github',
-        token: 'bad-token',
-      })).rejects.toThrow('Request failed');
+      await expect(
+        client.validateGitProvider({
+          type: 'github',
+          token: 'bad-token',
+        })
+      ).rejects.toThrow('Request failed');
     });
 
     it('should throw AuthenticationError on 403', async () => {
-      mockFetch.mockReturnValueOnce(
-        mockResponse({ error: 'Forbidden' }, 403)
-      );
+      mockFetch.mockReturnValueOnce(mockResponse({ error: 'Forbidden' }, 403));
 
-      await expect(client.createPR({
-        owner: 'org',
-        repo: 'repo',
-        title: 'test',
-        files: [],
-      })).rejects.toThrow('Request failed');
+      await expect(
+        client.createPR({
+          owner: 'org',
+          repo: 'repo',
+          title: 'test',
+          files: [],
+        })
+      ).rejects.toThrow('Request failed');
     });
 
     it('should throw APIError on server error', async () => {
-      mockFetch.mockReturnValueOnce(
-        mockResponse({ error: 'Internal server error' }, 500)
-      );
+      mockFetch.mockReturnValueOnce(mockResponse({ error: 'Internal server error' }, 500));
 
-      await expect(client.getCodeGovernanceMetrics())
-        .rejects.toThrow();
+      await expect(client.getCodeGovernanceMetrics()).rejects.toThrow();
     });
   });
 });
