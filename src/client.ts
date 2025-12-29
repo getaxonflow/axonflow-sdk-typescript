@@ -1194,12 +1194,24 @@ export class AxonFlow {
     }
 
     // Default to 'tenant' tier for custom policies if not specified
-    const policyWithDefaults = {
-      ...policy,
+    // Convert camelCase to snake_case for API compatibility
+    const requestBody: Record<string, unknown> = {
+      name: policy.name,
+      description: policy.description,
+      category: policy.category,
+      pattern: policy.pattern,
+      severity: policy.severity,
+      enabled: policy.enabled,
+      action: policy.action,
       tier: policy.tier || 'tenant',
     };
 
-    return this.policyRequest<StaticPolicy>('POST', '/api/v1/static-policies', policyWithDefaults);
+    // Add organization_id for organization tier policies
+    if (policy.organizationId) {
+      requestBody.organization_id = policy.organizationId;
+    }
+
+    return this.policyRequest<StaticPolicy>('POST', '/api/v1/static-policies', requestBody);
   }
 
   /**
@@ -1427,7 +1439,7 @@ export class AxonFlow {
 
     const response = await this.policyRequest<{ overrides: PolicyOverride[] }>(
       'GET',
-      '/api/v1/policies/overrides'
+      '/api/v1/static-policies/overrides'
     );
     return response.overrides || [];
   }
