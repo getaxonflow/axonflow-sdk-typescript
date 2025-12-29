@@ -1737,7 +1737,7 @@ export class AxonFlow {
       owner: request.owner,
       repo: request.repo,
       title: request.title,
-      files: request.files.map((f) => ({
+      files: request.files.map(f => ({
         path: f.path,
         content: f.content,
         language: f.language,
@@ -1751,7 +1751,8 @@ export class AxonFlow {
     if (request.agentRequestId) apiRequest.agent_request_id = request.agentRequestId;
     if (request.model) apiRequest.model = request.model;
     if (request.policiesChecked) apiRequest.policies_checked = request.policiesChecked;
-    if (request.secretsDetected !== undefined) apiRequest.secrets_detected = request.secretsDetected;
+    if (request.secretsDetected !== undefined)
+      apiRequest.secrets_detected = request.secretsDetected;
     if (request.unsafePatterns !== undefined) apiRequest.unsafe_patterns = request.unsafePatterns;
 
     const response = await this.policyRequest<{
@@ -1832,7 +1833,7 @@ export class AxonFlow {
 
     // Transform snake_case response to camelCase
     return {
-      prs: response.prs.map((pr) => ({
+      prs: response.prs.map(pr => ({
         id: pr.id,
         prNumber: pr.pr_number,
         prUrl: pr.pr_url,
