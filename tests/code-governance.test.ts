@@ -4,22 +4,6 @@
  */
 
 import { AxonFlow } from '../src/client';
-import type {
-  GitProviderType,
-  ConfigureGitProviderRequest,
-  ConfigureGitProviderResponse,
-  ValidateGitProviderRequest,
-  ValidateGitProviderResponse,
-  ListGitProvidersResponse,
-  CreatePRRequest,
-  CreatePRResponse,
-  PRRecord,
-  ListPRsOptions,
-  ListPRsResponse,
-  CodeGovernanceMetrics,
-  ExportOptions,
-  ExportResponse,
-} from '../src/types';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
