@@ -399,7 +399,7 @@ describe('Policy CRUD Methods', () => {
         expect(overrides[0].policy_id).toBe('pol_123');
         expect(overrides[0].action_override).toBe('warn');
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/policies/overrides',
+          'http://localhost:8080/api/v1/static-policies/overrides',
           expect.objectContaining({ method: 'GET' })
         );
       });
