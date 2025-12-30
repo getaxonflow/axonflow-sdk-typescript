@@ -1355,10 +1355,11 @@ export class AxonFlow {
       debugLog('Getting static policy versions', { id });
     }
 
-    const response = await this.policyRequest<{ policy_id: string; versions: PolicyVersion[]; count: number }>(
-      'GET',
-      `/api/v1/static-policies/${id}/versions`
-    );
+    const response = await this.policyRequest<{
+      policy_id: string;
+      versions: PolicyVersion[];
+      count: number;
+    }>('GET', `/api/v1/static-policies/${id}/versions`);
     return response.versions;
   }
 
