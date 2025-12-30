@@ -73,25 +73,16 @@ export class AxonFlow {
     // Set defaults first to determine endpoint
     const endpoint = config.endpoint || 'https://staging-eu.getaxonflow.com';
 
-    // Check if running in self-hosted mode (localhost)
-    const isLocalhost = endpoint.includes('localhost') || endpoint.includes('127.0.0.1');
-
-    // License key is optional for self-hosted deployments
-    // When not provided, agent must have SELF_HOSTED_MODE=true
-    if (!isLocalhost && !config.licenseKey && !config.apiKey) {
-      throw new Error('Either licenseKey or apiKey must be provided for non-localhost endpoints');
-    }
-
-    if (isLocalhost && !config.licenseKey && !config.apiKey && config.debug) {
-      console.warn('[AxonFlow] No license key provided - ensure agent has SELF_HOSTED_MODE=true');
-    }
+    // Credentials are optional for community/self-hosted deployments
+    // Enterprise features (Gateway Mode, Policy CRUD) require credentials
+    const hasCredentials = !!(config.licenseKey || config.apiKey);
 
     // Set configuration
     this.config = {
       apiKey: config.apiKey,
       licenseKey: config.licenseKey,
       endpoint,
-      mode: config.mode || (isLocalhost ? 'sandbox' : 'production'),
+      mode: config.mode || (hasCredentials ? 'production' : 'sandbox'),
       tenant: config.tenant || 'default',
       debug: config.debug || false,
       timeout: config.timeout || 30000,
@@ -114,11 +105,11 @@ export class AxonFlow {
       debugLog('AxonFlow initialized', {
         mode: this.config.mode,
         endpoint: this.config.endpoint,
-        authMethod: isLocalhost
-          ? 'self-hosted (no auth)'
-          : this.config.licenseKey
+        authMethod: hasCredentials
+          ? this.config.licenseKey
             ? 'license-key'
-            : 'api-key',
+            : 'api-key'
+          : 'community (no auth)',
       });
     }
   }
@@ -274,11 +265,9 @@ export class AxonFlow {
       'Content-Type': 'application/json',
     };
 
-    // Add license key header if available (preferred auth method)
-    // Skip auth headers for localhost (self-hosted mode)
-    const isLocalhost =
-      this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
-    if (!isLocalhost && this.config.licenseKey) {
+    // Add auth headers only when credentials are provided
+    // Community/self-hosted mode works without credentials
+    if (this.config.licenseKey) {
       headers['X-License-Key'] = this.config.licenseKey;
     }
 
@@ -463,15 +452,12 @@ export class AxonFlow {
       'Content-Type': 'application/json',
     };
 
-    // Add authentication headers
-    const isLocalhost =
-      this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
-    if (!isLocalhost) {
-      if (this.config.licenseKey) {
-        headers['X-License-Key'] = this.config.licenseKey;
-      } else if (this.config.apiKey) {
-        headers['X-Client-Secret'] = this.config.apiKey;
-      }
+    // Add auth headers only when credentials are provided
+    // Community/self-hosted mode works without credentials
+    if (this.config.licenseKey) {
+      headers['X-License-Key'] = this.config.licenseKey;
+    } else if (this.config.apiKey) {
+      headers['X-Client-Secret'] = this.config.apiKey;
     }
 
     if (this.config.debug) {
@@ -872,6 +858,13 @@ export class AxonFlow {
    * ```
    */
   async getPolicyApprovedContext(options: PolicyApprovalOptions): Promise<PolicyApprovalResult> {
+    // Gateway Mode requires credentials (enterprise feature)
+    if (!this.config.licenseKey && !this.config.apiKey) {
+      throw new AuthenticationError(
+        'Gateway Mode (getPolicyApprovedContext) requires credentials. Set licenseKey or apiKey in config.'
+      );
+    }
+
     const url = `${this.config.endpoint}/api/policy/pre-check`;
 
     const requestBody = {
@@ -886,15 +879,11 @@ export class AxonFlow {
       'Content-Type': 'application/json',
     };
 
-    // Add authentication headers
-    const isLocalhost =
-      this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
-    if (!isLocalhost) {
-      if (this.config.licenseKey) {
-        headers['X-License-Key'] = this.config.licenseKey;
-      } else if (this.config.apiKey) {
-        headers['X-Client-Secret'] = this.config.apiKey;
-      }
+    // Add auth headers (credentials are required for Gateway Mode)
+    if (this.config.licenseKey) {
+      headers['X-License-Key'] = this.config.licenseKey;
+    } else if (this.config.apiKey) {
+      headers['X-Client-Secret'] = this.config.apiKey;
     }
 
     if (this.config.debug) {
@@ -976,6 +965,13 @@ export class AxonFlow {
    * ```
    */
   async auditLLMCall(options: AuditOptions): Promise<AuditResult> {
+    // Gateway Mode requires credentials (enterprise feature)
+    if (!this.config.licenseKey && !this.config.apiKey) {
+      throw new AuthenticationError(
+        'Gateway Mode (auditLLMCall) requires credentials. Set licenseKey or apiKey in config.'
+      );
+    }
+
     const url = `${this.config.endpoint}/api/audit/llm-call`;
 
     const requestBody = {
@@ -997,15 +993,11 @@ export class AxonFlow {
       'Content-Type': 'application/json',
     };
 
-    // Add authentication headers
-    const isLocalhost =
-      this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
-    if (!isLocalhost) {
-      if (this.config.licenseKey) {
-        headers['X-License-Key'] = this.config.licenseKey;
-      } else if (this.config.apiKey) {
-        headers['X-Client-Secret'] = this.config.apiKey;
-      }
+    // Add auth headers (credentials are required for Gateway Mode)
+    if (this.config.licenseKey) {
+      headers['X-License-Key'] = this.config.licenseKey;
+    } else if (this.config.apiKey) {
+      headers['X-Client-Secret'] = this.config.apiKey;
     }
 
     if (this.config.debug) {
@@ -1062,15 +1054,12 @@ export class AxonFlow {
       headers['X-Tenant-ID'] = this.config.tenant;
     }
 
-    const isLocalhost =
-      this.config.endpoint.includes('localhost') || this.config.endpoint.includes('127.0.0.1');
-
-    if (!isLocalhost) {
-      if (this.config.licenseKey) {
-        headers['X-License-Key'] = this.config.licenseKey;
-      } else if (this.config.apiKey) {
-        headers['X-Client-Secret'] = this.config.apiKey;
-      }
+    // Add auth headers only when credentials are provided
+    // Community/self-hosted mode works without credentials
+    if (this.config.licenseKey) {
+      headers['X-License-Key'] = this.config.licenseKey;
+    } else if (this.config.apiKey) {
+      headers['X-Client-Secret'] = this.config.apiKey;
     }
 
     return headers;

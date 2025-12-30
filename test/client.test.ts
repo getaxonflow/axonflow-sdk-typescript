@@ -104,12 +104,12 @@ describe('AxonFlow Client Unit Tests', () => {
   });
 
   describe('Configuration Validation', () => {
-    it('should throw error when neither apiKey nor licenseKey is provided', () => {
+    it('should allow client creation without credentials (community mode)', () => {
       expect(() => {
         new AxonFlow({
           tenant: 'test-tenant',
         } as AxonFlowConfig);
-      }).toThrow('Either licenseKey or apiKey must be provided');
+      }).not.toThrow();
     });
 
     it('should accept licenseKey without apiKey', () => {
@@ -950,8 +950,8 @@ describe('AxonFlow Client Unit Tests', () => {
     });
   });
 
-  describe('Self-hosted Mode (localhost)', () => {
-    it('should create client without auth for localhost', () => {
+  describe('Community Mode (no credentials)', () => {
+    it('should create client without credentials for any endpoint', () => {
       expect(() => {
         new AxonFlow({
           endpoint: 'http://localhost:8080',
@@ -960,7 +960,7 @@ describe('AxonFlow Client Unit Tests', () => {
       }).not.toThrow();
     });
 
-    it('should warn in debug mode without license key for localhost', () => {
+    it('should not warn in debug mode without credentials (community mode)', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       new AxonFlow({
@@ -969,14 +969,22 @@ describe('AxonFlow Client Unit Tests', () => {
         debug: true,
       });
 
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('No license key provided'));
+      // No warning should be produced - credentials are optional
+      expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
     });
 
-    it('should work with 127.0.0.1', () => {
+    it('should work with any endpoint without credentials', () => {
       expect(() => {
         new AxonFlow({
           endpoint: 'http://127.0.0.1:8080',
+          tenant: 'test',
+        });
+      }).not.toThrow();
+
+      expect(() => {
+        new AxonFlow({
+          endpoint: 'https://my-custom-host.local',
           tenant: 'test',
         });
       }).not.toThrow();

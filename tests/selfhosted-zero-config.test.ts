@@ -77,15 +77,16 @@ describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
       console.log('✅ Client created with undefined credentials');
     });
 
-    test('should require credentials for non-localhost endpoints', () => {
+    test('should allow client creation without credentials for any endpoint (community mode)', () => {
+      // Community mode works without credentials for any endpoint
       expect(() => {
         new AxonFlow({
           endpoint: 'https://staging-eu.getaxonflow.com',
-          // No credentials provided
+          // No credentials provided - community mode
           tenant: 'default',
         });
-      }).toThrow(/licenseKey|apiKey/i);
-      console.log('✅ Non-localhost correctly requires credentials');
+      }).not.toThrow();
+      console.log('✅ Community mode works without credentials for any endpoint');
     });
   });
 
@@ -317,10 +318,10 @@ describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
 });
 
 // ============================================================
-// 7. AUTH HEADERS NOT SENT FOR LOCALHOST (Unit Tests - Always Run)
+// 7. AUTH HEADERS BASED ON CREDENTIALS (Unit Tests - Always Run)
 // ============================================================
-describe('7. Auth Headers Not Sent for Localhost', () => {
-  test('should not include X-License-Key header for localhost', async () => {
+describe('7. Auth Headers Based on Credentials', () => {
+  test('should include auth headers when credentials are provided', async () => {
     // Create a client with credentials configured
     const client = new AxonFlow({
       endpoint: 'http://localhost:8080',
@@ -347,39 +348,37 @@ describe('7. Auth Headers Not Sent for Localhost', () => {
         status: 200,
         json: () =>
           Promise.resolve({
-            context_id: 'ctx_mock_123',
-            approved: true,
-            policies: [],
-            expires_at: new Date(Date.now() + 300000).toISOString(),
+            success: true,
+            data: { answer: 'test' },
+            blocked: false,
           }),
       } as Response);
     });
 
     try {
-      await client.getPolicyApprovedContext({
+      await client.executeQuery({
         userToken: '',
         query: 'Test query for header verification',
+        requestType: 'chat',
       });
 
-      // Verify auth headers are NOT present for localhost
-      expect(capturedHeaders['X-License-Key']).toBeUndefined();
-      expect(capturedHeaders['X-Client-Secret']).toBeUndefined();
+      // Auth headers SHOULD be present when credentials are provided
+      expect(capturedHeaders['X-License-Key']).toBe('test-license-key');
 
       // Content-Type should still be present
       expect(capturedHeaders['Content-Type']).toBe('application/json');
 
-      console.log('✅ Auth headers correctly NOT sent for localhost');
+      console.log('✅ Auth headers correctly sent when credentials are provided');
       console.log(`   Headers sent: ${Object.keys(capturedHeaders).join(', ')}`);
     } finally {
       global.fetch = originalFetch;
     }
   });
 
-  test('should not include X-Client-Secret header for 127.0.0.1', async () => {
+  test('should not include auth headers when no credentials are provided', async () => {
     const client = new AxonFlow({
       endpoint: 'http://127.0.0.1:8080',
-      licenseKey: 'test-license-key',
-      apiKey: 'test-api-key',
+      // No credentials - community mode
       tenant: 'default',
     });
 
@@ -409,26 +408,26 @@ describe('7. Auth Headers Not Sent for Localhost', () => {
         requestType: 'chat',
       });
 
-      // Verify auth headers are NOT present for 127.0.0.1
+      // Verify auth headers are NOT present when no credentials configured
       expect(capturedHeaders['X-License-Key']).toBeUndefined();
       expect(capturedHeaders['X-Client-Secret']).toBeUndefined();
 
-      console.log('✅ Auth headers correctly NOT sent for 127.0.0.1');
+      console.log('✅ Auth headers correctly NOT sent in community mode (no credentials)');
     } finally {
       global.fetch = originalFetch;
     }
   });
 
-  test('should require credentials for non-localhost endpoints', () => {
-    // Verify that creating a client for non-localhost requires credentials
+  test('should allow client creation without credentials for any endpoint', () => {
+    // Community mode works without credentials for any endpoint
     expect(() => {
       new AxonFlow({
         endpoint: 'https://api.getaxonflow.com',
-        // No credentials - should throw
+        // No credentials - community mode
         tenant: 'default',
       });
-    }).toThrow(/licenseKey|apiKey/i);
+    }).not.toThrow();
 
-    console.log('✅ Non-localhost endpoints require credentials (auth headers would be sent)');
+    console.log('✅ Community mode works without credentials for any endpoint');
   });
 });
