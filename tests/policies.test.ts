@@ -747,7 +747,7 @@ describe('Policy CRUD Methods', () => {
       );
     });
 
-    it('should not include auth headers for 127.0.0.1', async () => {
+    it('should include auth headers when credentials are provided', async () => {
       const localClient = new AxonFlow({
         endpoint: 'http://127.0.0.1:8080',
         licenseKey: 'test-license-key',
@@ -758,10 +758,10 @@ describe('Policy CRUD Methods', () => {
 
       await localClient.listStaticPolicies();
 
-      // Auth headers should not be included for localhost
+      // Auth headers SHOULD be included when credentials are provided
       const callArgs = mockFetch.mock.calls[0];
       const headers = callArgs[1].headers;
-      expect(headers['X-License-Key']).toBeUndefined();
+      expect(headers['X-License-Key']).toBe('test-license-key');
     });
   });
 
