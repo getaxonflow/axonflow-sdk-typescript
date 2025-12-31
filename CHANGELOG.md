@@ -5,6 +5,17 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.1] - 2025-12-31
+
+### Fixed
+
+- **Gateway Mode Community Support**: `getPolicyApprovedContext()` and `auditLLMCall()` now work without credentials
+  - Removed SDK-level credential check that blocked community mode usage
+  - Server decides whether to require authentication based on `DEPLOYMENT_MODE`
+  - Consistent with Go/Python SDKs behavior
+
+---
+
 ## [1.11.0] - 2025-12-30
 
 ### Changed
@@ -21,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Gateway Mode methods now throw `AuthenticationError` when called without credentials
+
+> **Note:** v1.11.0 credential validation for Gateway Mode was too restrictive for community deployments. Use v1.11.1 for full community mode support.
 
 ---
 

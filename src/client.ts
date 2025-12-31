@@ -858,13 +858,8 @@ export class AxonFlow {
    * ```
    */
   async getPolicyApprovedContext(options: PolicyApprovalOptions): Promise<PolicyApprovalResult> {
-    // Gateway Mode requires credentials (enterprise feature)
-    if (!this.config.licenseKey && !this.config.apiKey) {
-      throw new AuthenticationError(
-        'Gateway Mode (getPolicyApprovedContext) requires credentials. Set licenseKey or apiKey in config.'
-      );
-    }
-
+    // Gateway Mode - credentials optional for community/self-hosted mode
+    // Server decides whether to require authentication based on DEPLOYMENT_MODE
     const url = `${this.config.endpoint}/api/policy/pre-check`;
 
     const requestBody = {
@@ -879,7 +874,8 @@ export class AxonFlow {
       'Content-Type': 'application/json',
     };
 
-    // Add auth headers (credentials are required for Gateway Mode)
+    // Add auth headers only when credentials are provided
+    // Community/self-hosted mode works without credentials
     if (this.config.licenseKey) {
       headers['X-License-Key'] = this.config.licenseKey;
     } else if (this.config.apiKey) {
@@ -965,13 +961,8 @@ export class AxonFlow {
    * ```
    */
   async auditLLMCall(options: AuditOptions): Promise<AuditResult> {
-    // Gateway Mode requires credentials (enterprise feature)
-    if (!this.config.licenseKey && !this.config.apiKey) {
-      throw new AuthenticationError(
-        'Gateway Mode (auditLLMCall) requires credentials. Set licenseKey or apiKey in config.'
-      );
-    }
-
+    // Gateway Mode - credentials optional for community/self-hosted mode
+    // Server decides whether to require authentication based on DEPLOYMENT_MODE
     const url = `${this.config.endpoint}/api/audit/llm-call`;
 
     const requestBody = {
@@ -993,7 +984,8 @@ export class AxonFlow {
       'Content-Type': 'application/json',
     };
 
-    // Add auth headers (credentials are required for Gateway Mode)
+    // Add auth headers only when credentials are provided
+    // Community/self-hosted mode works without credentials
     if (this.config.licenseKey) {
       headers['X-License-Key'] = this.config.licenseKey;
     } else if (this.config.apiKey) {
