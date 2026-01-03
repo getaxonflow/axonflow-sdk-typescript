@@ -154,6 +154,32 @@ export type {
   ExecutionExportOptions,
 } from './types/execution-replay';
 
+// Export Cost Controls types
+export type {
+  BudgetScope,
+  BudgetPeriod,
+  BudgetOnExceed,
+  CreateBudgetRequest,
+  UpdateBudgetRequest,
+  ListBudgetsOptions,
+  Budget,
+  BudgetsResponse,
+  BudgetStatus,
+  BudgetAlert,
+  BudgetAlertsResponse,
+  BudgetCheckRequest,
+  BudgetDecision,
+  UsageSummary,
+  UsageBreakdownItem,
+  UsageBreakdown,
+  ListUsageRecordsOptions,
+  UsageRecord,
+  UsageRecordsResponse,
+  ModelPricing,
+  PricingInfo,
+  PricingListResponse,
+} from './types/cost-controls';
+
 // Export version
 export const VERSION = '1.7.0';
 

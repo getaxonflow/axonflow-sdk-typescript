@@ -51,6 +51,26 @@ import {
   ListExecutionsResponse,
   ListExecutionsOptions,
   ExecutionExportOptions,
+  // Cost Controls types
+  Budget,
+  BudgetsResponse,
+  BudgetStatus,
+  BudgetAlert,
+  BudgetAlertsResponse,
+  BudgetDecision,
+  UsageSummary,
+  UsageBreakdown,
+  UsageBreakdownItem,
+  UsageRecord,
+  UsageRecordsResponse,
+  PricingInfo,
+  PricingListResponse,
+  ModelPricing,
+  CreateBudgetRequest,
+  UpdateBudgetRequest,
+  ListBudgetsOptions,
+  BudgetCheckRequest,
+  ListUsageRecordsOptions,
 } from './types';
 import { AuthenticationError, APIError, PolicyViolationError } from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
@@ -2552,5 +2572,321 @@ export class AxonFlow {
     }
 
     await this.orchestratorRequest<void>('DELETE', `/api/v1/executions/${executionId}`);
+  }
+
+  // ========================================
+  // COST CONTROLS - BUDGETS
+  // ========================================
+
+  /**
+   * Create a new budget.
+   *
+   * @param request - Budget creation request
+   * @returns Created budget
+   */
+  async createBudget(request: CreateBudgetRequest): Promise<Budget> {
+    const body = {
+      id: request.id,
+      name: request.name,
+      scope: request.scope,
+      limit_usd: request.limitUsd,
+      period: request.period,
+      on_exceed: request.onExceed,
+      alert_thresholds: request.alertThresholds,
+      scope_id: request.scopeId,
+    };
+
+    const response = await this.orchestratorRequest<Record<string, unknown>>('POST', '/api/v1/budgets', body);
+    return this.mapBudgetResponse(response);
+  }
+
+  /**
+   * Get a budget by ID.
+   *
+   * @param budgetId - Budget ID
+   * @returns Budget
+   */
+  async getBudget(budgetId: string): Promise<Budget> {
+    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', `/api/v1/budgets/${budgetId}`);
+    return this.mapBudgetResponse(response);
+  }
+
+  /**
+   * List all budgets.
+   *
+   * @param options - Filtering and pagination options
+   * @returns List of budgets
+   */
+  async listBudgets(options?: ListBudgetsOptions): Promise<BudgetsResponse> {
+    const params = new URLSearchParams();
+
+    if (options?.scope) params.set('scope', options.scope);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+
+    const queryString = params.toString();
+    const path = `/api/v1/budgets${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', path);
+    return {
+      budgets: ((response.budgets as Record<string, unknown>[]) || []).map(b => this.mapBudgetResponse(b)),
+      total: (response.total as number) || 0,
+    };
+  }
+
+  /**
+   * Update an existing budget.
+   *
+   * @param budgetId - Budget ID
+   * @param request - Update request
+   * @returns Updated budget
+   */
+  async updateBudget(budgetId: string, request: UpdateBudgetRequest): Promise<Budget> {
+    const body: Record<string, unknown> = {};
+    if (request.name !== undefined) body.name = request.name;
+    if (request.limitUsd !== undefined) body.limit_usd = request.limitUsd;
+    if (request.onExceed !== undefined) body.on_exceed = request.onExceed;
+    if (request.alertThresholds !== undefined) body.alert_thresholds = request.alertThresholds;
+
+    const response = await this.orchestratorRequest<Record<string, unknown>>('PUT', `/api/v1/budgets/${budgetId}`, body);
+    return this.mapBudgetResponse(response);
+  }
+
+  /**
+   * Delete a budget.
+   *
+   * @param budgetId - Budget ID
+   */
+  async deleteBudget(budgetId: string): Promise<void> {
+    await this.orchestratorRequest<void>('DELETE', `/api/v1/budgets/${budgetId}`);
+  }
+
+  // ========================================
+  // COST CONTROLS - BUDGET STATUS & ALERTS
+  // ========================================
+
+  /**
+   * Get the current status of a budget.
+   *
+   * @param budgetId - Budget ID
+   * @returns Budget status
+   */
+  async getBudgetStatus(budgetId: string): Promise<BudgetStatus> {
+    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', `/api/v1/budgets/${budgetId}/status`);
+    return {
+      budget: this.mapBudgetResponse(response.budget as Record<string, unknown>),
+      usedUsd: (response.used_usd as number) || 0,
+      remainingUsd: (response.remaining_usd as number) || 0,
+      percentage: (response.percentage as number) || 0,
+      isExceeded: (response.is_exceeded as boolean) || false,
+      isBlocked: (response.is_blocked as boolean) || false,
+      periodStart: (response.period_start as string) || '',
+      periodEnd: (response.period_end as string) || '',
+    };
+  }
+
+  /**
+   * Get alerts for a budget.
+   *
+   * @param budgetId - Budget ID
+   * @returns Budget alerts
+   */
+  async getBudgetAlerts(budgetId: string): Promise<BudgetAlertsResponse> {
+    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', `/api/v1/budgets/${budgetId}/alerts`);
+    const alerts = ((response.alerts as Record<string, unknown>[]) || []).map((a): BudgetAlert => ({
+      id: (a.id as string) || '',
+      budgetId: (a.budget_id as string) || '',
+      alertType: (a.alert_type as string) || '',
+      threshold: (a.threshold as number) || 0,
+      percentageReached: (a.percentage_reached as number) || 0,
+      amountUsd: (a.amount_usd as number) || 0,
+      message: (a.message as string) || '',
+      createdAt: (a.created_at as string) || '',
+    }));
+    return {
+      alerts,
+      count: (response.count as number) || 0,
+    };
+  }
+
+  /**
+   * Perform a pre-flight budget check.
+   *
+   * @param request - Check request
+   * @returns Budget decision
+   */
+  async checkBudget(request: BudgetCheckRequest): Promise<BudgetDecision> {
+    const body: Record<string, unknown> = {};
+    if (request.orgId) body.org_id = request.orgId;
+    if (request.teamId) body.team_id = request.teamId;
+    if (request.agentId) body.agent_id = request.agentId;
+    if (request.workflowId) body.workflow_id = request.workflowId;
+    if (request.userId) body.user_id = request.userId;
+
+    const response = await this.orchestratorRequest<Record<string, unknown>>('POST', '/api/v1/budgets/check', body);
+    return {
+      allowed: (response.allowed as boolean) || false,
+      action: response.action as string | undefined,
+      message: response.message as string | undefined,
+      budgets: response.budgets
+        ? ((response.budgets as Record<string, unknown>[]) || []).map(b => this.mapBudgetResponse(b))
+        : undefined,
+    };
+  }
+
+  // ========================================
+  // COST CONTROLS - USAGE
+  // ========================================
+
+  /**
+   * Get usage summary for a period.
+   *
+   * @param period - Period (daily, weekly, monthly, quarterly, yearly)
+   * @returns Usage summary
+   */
+  async getUsageSummary(period?: string): Promise<UsageSummary> {
+    const path = period ? `/api/v1/usage?period=${period}` : '/api/v1/usage';
+    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', path);
+    return {
+      totalCostUsd: (response.total_cost_usd as number) || 0,
+      totalRequests: (response.total_requests as number) || 0,
+      totalTokensIn: (response.total_tokens_in as number) || 0,
+      totalTokensOut: (response.total_tokens_out as number) || 0,
+      averageCostPerRequest: (response.average_cost_per_request as number) || 0,
+      period: (response.period as string) || '',
+      periodStart: (response.period_start as string) || '',
+      periodEnd: (response.period_end as string) || '',
+    };
+  }
+
+  /**
+   * Get usage breakdown by a grouping dimension.
+   *
+   * @param groupBy - Dimension to group by (provider, model, agent, team, workflow)
+   * @param period - Period (daily, weekly, monthly, quarterly, yearly)
+   * @returns Usage breakdown
+   */
+  async getUsageBreakdown(groupBy: string, period?: string): Promise<UsageBreakdown> {
+    const params = new URLSearchParams();
+    params.set('group_by', groupBy);
+    if (period) params.set('period', period);
+
+    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', `/api/v1/usage/breakdown?${params.toString()}`);
+    const items = ((response.items as Record<string, unknown>[]) || []).map((i): UsageBreakdownItem => ({
+      groupValue: (i.group_value as string) || '',
+      costUsd: (i.cost_usd as number) || 0,
+      percentage: (i.percentage as number) || 0,
+      requestCount: (i.request_count as number) || 0,
+      tokensIn: (i.tokens_in as number) || 0,
+      tokensOut: (i.tokens_out as number) || 0,
+    }));
+    return {
+      groupBy: (response.group_by as string) || '',
+      totalCostUsd: (response.total_cost_usd as number) || 0,
+      items,
+      period: (response.period as string) || '',
+      periodStart: (response.period_start as string) || '',
+      periodEnd: (response.period_end as string) || '',
+    };
+  }
+
+  /**
+   * List usage records.
+   *
+   * @param options - Filtering and pagination options
+   * @returns List of usage records
+   */
+  async listUsageRecords(options?: ListUsageRecordsOptions): Promise<UsageRecordsResponse> {
+    const params = new URLSearchParams();
+
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.provider) params.set('provider', options.provider);
+    if (options?.model) params.set('model', options.model);
+
+    const queryString = params.toString();
+    const path = `/api/v1/usage/records${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', path);
+    const records = ((response.records as Record<string, unknown>[]) || []).map((r): UsageRecord => ({
+      id: (r.id as string) || '',
+      provider: (r.provider as string) || '',
+      model: (r.model as string) || '',
+      tokensIn: (r.tokens_in as number) || 0,
+      tokensOut: (r.tokens_out as number) || 0,
+      costUsd: (r.cost_usd as number) || 0,
+      requestId: r.request_id as string | undefined,
+      orgId: r.org_id as string | undefined,
+      agentId: r.agent_id as string | undefined,
+      timestamp: r.timestamp as string | undefined,
+    }));
+    return {
+      records,
+      total: (response.total as number) || 0,
+    };
+  }
+
+  // ========================================
+  // COST CONTROLS - PRICING
+  // ========================================
+
+  /**
+   * Get pricing information for models.
+   *
+   * @param provider - Filter by provider (optional)
+   * @param model - Filter by model (optional)
+   * @returns Pricing information
+   */
+  async getPricing(provider?: string, model?: string): Promise<PricingListResponse> {
+    const params = new URLSearchParams();
+    if (provider) params.set('provider', provider);
+    if (model) params.set('model', model);
+
+    const queryString = params.toString();
+    const path = `/api/v1/pricing${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', path);
+
+    // Handle single object vs array response
+    if ((response as Record<string, unknown>).provider !== undefined) {
+      // Single object response - wrap in list
+      const pricing = this.mapPricingResponse(response);
+      return { pricing: [pricing] };
+    }
+
+    const pricingList = ((response.pricing as Record<string, unknown>[]) || []).map(p => this.mapPricingResponse(p));
+    return { pricing: pricingList };
+  }
+
+  // ========================================
+  // COST CONTROLS - HELPER METHODS
+  // ========================================
+
+  private mapBudgetResponse(response: Record<string, unknown>): Budget {
+    return {
+      id: (response.id as string) || '',
+      name: (response.name as string) || '',
+      scope: (response.scope as string) || '',
+      limitUsd: (response.limit_usd as number) || 0,
+      period: (response.period as string) || '',
+      onExceed: (response.on_exceed as string) || '',
+      alertThresholds: (response.alert_thresholds as number[]) || [],
+      enabled: (response.enabled as boolean) ?? true,
+      scopeId: response.scope_id as string | undefined,
+      createdAt: response.created_at as string | undefined,
+      updatedAt: response.updated_at as string | undefined,
+    };
+  }
+
+  private mapPricingResponse(response: Record<string, unknown>): PricingInfo {
+    const pricingData = response.pricing as Record<string, unknown> | undefined;
+    return {
+      provider: (response.provider as string) || '',
+      model: (response.model as string) || '',
+      pricing: {
+        inputPer1k: (pricingData?.input_per_1k as number) || 0,
+        outputPer1k: (pricingData?.output_per_1k as number) || 0,
+      },
+    };
   }
 }
