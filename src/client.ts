@@ -45,7 +45,6 @@ import {
   ExportOptions,
   ExportResponse,
   // Execution Replay types
-  ExecutionSummary,
   ExecutionSnapshot,
   TimelineEntry,
   ExecutionDetail,
