@@ -51,6 +51,20 @@ import {
   ListExecutionsResponse,
   ListExecutionsOptions,
   ExecutionExportOptions,
+  // Cost Controls types
+  Budget,
+  BudgetStatus,
+  BudgetDecision,
+  BudgetAlert,
+  BudgetCheckRequest,
+  CreateBudgetRequest,
+  UpdateBudgetRequest,
+  ListBudgetsOptions,
+  UsageSummary,
+  UsageBreakdown,
+  UsageRecord,
+  ListUsageRecordsOptions,
+  PricingInfo,
 } from './types';
 import { AuthenticationError, APIError, PolicyViolationError } from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
@@ -2253,7 +2267,7 @@ export class AxonFlow {
     }>('GET', path);
 
     return {
-      executions: response.executions.map(e => ({
+      executions: (response.executions || []).map(e => ({
         requestId: e.request_id,
         workflowName: e.workflow_name,
         status: e.status,
@@ -2556,5 +2570,570 @@ export class AxonFlow {
     }
 
     await this.orchestratorRequest<void>('DELETE', `/api/v1/executions/${executionId}`);
+  }
+
+  // ============================================================================
+  // Cost Controls Methods
+  // ============================================================================
+
+  /**
+   * Create a new budget.
+   *
+   * @param request - Budget creation request
+   * @returns The created budget
+   *
+   * @example
+   * ```typescript
+   * const budget = await axonflow.createBudget({
+   *   id: 'monthly-budget',
+   *   name: 'Monthly Production Budget',
+   *   scope: 'organization',
+   *   limitUsd: 1000.00,
+   *   period: 'monthly',
+   *   onExceed: 'warn',
+   *   alertThresholds: [50, 80, 100]
+   * });
+   * ```
+   */
+  async createBudget(request: CreateBudgetRequest): Promise<Budget> {
+    if (this.config.debug) {
+      debugLog('Creating budget', { budgetId: request.id });
+    }
+
+    const apiRequest = {
+      id: request.id,
+      name: request.name,
+      scope: request.scope,
+      scope_id: request.scopeId,
+      limit_usd: request.limitUsd,
+      period: request.period,
+      on_exceed: request.onExceed,
+      alert_thresholds: request.alertThresholds,
+      metadata: request.metadata,
+    };
+
+    const response = await this.orchestratorRequest<{
+      id: string;
+      name: string;
+      scope: string;
+      scope_id?: string;
+      org_id?: string;
+      limit_usd: number;
+      period: string;
+      on_exceed: string;
+      alert_thresholds: number[];
+      enabled: boolean;
+      created_at?: string;
+      updated_at?: string;
+      metadata?: Record<string, unknown>;
+    }>('POST', '/api/v1/budgets', apiRequest);
+
+    return this.transformBudget(response);
+  }
+
+  /**
+   * Get a specific budget by ID.
+   *
+   * @param budgetId - Budget ID
+   * @returns The budget
+   */
+  async getBudget(budgetId: string): Promise<Budget> {
+    if (this.config.debug) {
+      debugLog('Getting budget', { budgetId });
+    }
+
+    const response = await this.orchestratorRequest<{
+      id: string;
+      name: string;
+      scope: string;
+      scope_id?: string;
+      org_id?: string;
+      limit_usd: number;
+      period: string;
+      on_exceed: string;
+      alert_thresholds: number[];
+      enabled: boolean;
+      created_at?: string;
+      updated_at?: string;
+      metadata?: Record<string, unknown>;
+    }>('GET', `/api/v1/budgets/${budgetId}`);
+
+    return this.transformBudget(response);
+  }
+
+  /**
+   * List all budgets with optional filtering.
+   *
+   * @param options - Filtering and pagination options
+   * @returns List of budgets
+   */
+  async listBudgets(options?: ListBudgetsOptions): Promise<Budget[]> {
+    const params = new URLSearchParams();
+
+    if (options?.scope) params.set('scope', options.scope);
+    if (options?.enabled !== undefined) params.set('enabled', String(options.enabled));
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+
+    const queryString = params.toString();
+    const path = `/api/v1/budgets${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Listing budgets', { options });
+    }
+
+    const response = await this.orchestratorRequest<{
+      budgets: Array<{
+        id: string;
+        name: string;
+        scope: string;
+        scope_id?: string;
+        org_id?: string;
+        limit_usd: number;
+        period: string;
+        on_exceed: string;
+        alert_thresholds: number[];
+        enabled: boolean;
+        created_at?: string;
+        updated_at?: string;
+        metadata?: Record<string, unknown>;
+      }>;
+    }>('GET', path);
+
+    return (response.budgets || []).map(b => this.transformBudget(b));
+  }
+
+  /**
+   * Update an existing budget.
+   *
+   * @param budgetId - Budget ID
+   * @param request - Fields to update
+   * @returns The updated budget
+   */
+  async updateBudget(budgetId: string, request: UpdateBudgetRequest): Promise<Budget> {
+    if (this.config.debug) {
+      debugLog('Updating budget', { budgetId });
+    }
+
+    const apiRequest: Record<string, unknown> = {};
+    if (request.name !== undefined) apiRequest.name = request.name;
+    if (request.limitUsd !== undefined) apiRequest.limit_usd = request.limitUsd;
+    if (request.period !== undefined) apiRequest.period = request.period;
+    if (request.onExceed !== undefined) apiRequest.on_exceed = request.onExceed;
+    if (request.alertThresholds !== undefined) apiRequest.alert_thresholds = request.alertThresholds;
+    if (request.enabled !== undefined) apiRequest.enabled = request.enabled;
+    if (request.metadata !== undefined) apiRequest.metadata = request.metadata;
+
+    const response = await this.orchestratorRequest<{
+      id: string;
+      name: string;
+      scope: string;
+      scope_id?: string;
+      org_id?: string;
+      limit_usd: number;
+      period: string;
+      on_exceed: string;
+      alert_thresholds: number[];
+      enabled: boolean;
+      created_at?: string;
+      updated_at?: string;
+      metadata?: Record<string, unknown>;
+    }>('PUT', `/api/v1/budgets/${budgetId}`, apiRequest);
+
+    return this.transformBudget(response);
+  }
+
+  /**
+   * Delete a budget.
+   *
+   * @param budgetId - Budget ID
+   */
+  async deleteBudget(budgetId: string): Promise<void> {
+    if (this.config.debug) {
+      debugLog('Deleting budget', { budgetId });
+    }
+
+    await this.orchestratorRequest<void>('DELETE', `/api/v1/budgets/${budgetId}`);
+  }
+
+  /**
+   * Get real-time status of a budget.
+   *
+   * @param budgetId - Budget ID
+   * @returns Current budget status with usage info
+   */
+  async getBudgetStatus(budgetId: string): Promise<BudgetStatus> {
+    if (this.config.debug) {
+      debugLog('Getting budget status', { budgetId });
+    }
+
+    const response = await this.orchestratorRequest<{
+      budget: {
+        id: string;
+        name: string;
+        scope: string;
+        scope_id?: string;
+        org_id?: string;
+        limit_usd: number;
+        period: string;
+        on_exceed: string;
+        alert_thresholds: number[];
+        enabled: boolean;
+        created_at?: string;
+        updated_at?: string;
+        metadata?: Record<string, unknown>;
+      };
+      used_usd: number;
+      remaining_usd: number;
+      percentage: number;
+      period_start: string;
+      period_end: string;
+      is_exceeded: boolean;
+      is_blocked: boolean;
+    }>('GET', `/api/v1/budgets/${budgetId}/status`);
+
+    return {
+      budget: this.transformBudget(response.budget),
+      usedUsd: response.used_usd,
+      remainingUsd: response.remaining_usd,
+      percentage: response.percentage,
+      periodStart: response.period_start,
+      periodEnd: response.period_end,
+      isExceeded: response.is_exceeded,
+      isBlocked: response.is_blocked,
+    };
+  }
+
+  /**
+   * Get alerts for a budget.
+   *
+   * @param budgetId - Budget ID
+   * @returns List of budget alerts
+   */
+  async getBudgetAlerts(budgetId: string): Promise<BudgetAlert[]> {
+    if (this.config.debug) {
+      debugLog('Getting budget alerts', { budgetId });
+    }
+
+    const response = await this.orchestratorRequest<{
+      alerts: Array<{
+        id: number;
+        budget_id: string;
+        threshold: number;
+        percentage_reached: number;
+        amount_usd: number;
+        alert_type: string;
+        message: string;
+        created_at: string;
+        acknowledged: boolean;
+      }>;
+    }>('GET', `/api/v1/budgets/${budgetId}/alerts`);
+
+    return (response.alerts || []).map(a => ({
+      id: a.id,
+      budgetId: a.budget_id,
+      threshold: a.threshold,
+      percentageReached: a.percentage_reached,
+      amountUsd: a.amount_usd,
+      alertType: a.alert_type as BudgetAlert['alertType'],
+      message: a.message,
+      createdAt: a.created_at,
+      acknowledged: a.acknowledged,
+    }));
+  }
+
+  /**
+   * Check if a request should be allowed based on budget.
+   *
+   * @param request - Budget check request with scope identifiers
+   * @returns Decision indicating whether request is allowed
+   *
+   * @example
+   * ```typescript
+   * const decision = await axonflow.checkBudget({
+   *   orgId: 'my-org',
+   *   teamId: 'engineering',
+   *   agentId: 'support-bot'
+   * });
+   *
+   * if (!decision.allowed) {
+   *   console.log(`Blocked: ${decision.message}`);
+   * }
+   * ```
+   */
+  async checkBudget(request: BudgetCheckRequest): Promise<BudgetDecision> {
+    if (this.config.debug) {
+      debugLog('Checking budget', { orgId: request.orgId });
+    }
+
+    const apiRequest = {
+      org_id: request.orgId,
+      team_id: request.teamId,
+      agent_id: request.agentId,
+      workflow_id: request.workflowId,
+      user_id: request.userId,
+    };
+
+    const response = await this.orchestratorRequest<{
+      allowed: boolean;
+      action?: string;
+      budget_id?: string;
+      budget_name?: string;
+      used_usd?: number;
+      limit_usd?: number;
+      percentage?: number;
+      message?: string;
+    }>('POST', '/api/v1/budgets/check', apiRequest);
+
+    return {
+      allowed: response.allowed,
+      action: response.action,
+      budgetId: response.budget_id,
+      budgetName: response.budget_name,
+      usedUsd: response.used_usd,
+      limitUsd: response.limit_usd,
+      percentage: response.percentage,
+      message: response.message,
+    };
+  }
+
+  /**
+   * Get aggregated usage summary.
+   *
+   * @param period - Period filter (daily, weekly, monthly)
+   * @returns Aggregated usage summary
+   */
+  async getUsageSummary(period?: string): Promise<UsageSummary> {
+    const params = new URLSearchParams();
+    if (period) params.set('period', period);
+
+    const queryString = params.toString();
+    const path = `/api/v1/usage${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Getting usage summary', { period });
+    }
+
+    const response = await this.orchestratorRequest<{
+      total_cost_usd: number;
+      total_tokens_in: number;
+      total_tokens_out: number;
+      total_requests: number;
+      average_cost_per_request: number;
+    }>('GET', path);
+
+    return {
+      totalCostUsd: response.total_cost_usd,
+      totalTokensIn: response.total_tokens_in,
+      totalTokensOut: response.total_tokens_out,
+      totalRequests: response.total_requests,
+      averageCostPerRequest: response.average_cost_per_request,
+    };
+  }
+
+  /**
+   * Get usage breakdown by dimension.
+   *
+   * @param groupBy - Dimension to group by (provider, model, agent)
+   * @param period - Period filter (daily, weekly, monthly)
+   * @returns Usage breakdown by specified dimension
+   */
+  async getUsageBreakdown(groupBy: string, period?: string): Promise<UsageBreakdown> {
+    const params = new URLSearchParams();
+    params.set('group_by', groupBy);
+    if (period) params.set('period', period);
+
+    const path = `/api/v1/usage/breakdown?${params.toString()}`;
+
+    if (this.config.debug) {
+      debugLog('Getting usage breakdown', { groupBy, period });
+    }
+
+    const response = await this.orchestratorRequest<{
+      group_by: string;
+      total_cost_usd: number;
+      items: Array<{
+        group_by: string;
+        group_value: string;
+        cost_usd: number;
+        tokens_in: number;
+        tokens_out: number;
+        request_count: number;
+        percentage: number;
+      }>;
+    }>('GET', path);
+
+    return {
+      groupBy: response.group_by,
+      totalCostUsd: response.total_cost_usd,
+      items: (response.items || []).map(i => ({
+        groupBy: i.group_by,
+        groupValue: i.group_value,
+        costUsd: i.cost_usd,
+        tokensIn: i.tokens_in,
+        tokensOut: i.tokens_out,
+        requestCount: i.request_count,
+        percentage: i.percentage,
+      })),
+    };
+  }
+
+  /**
+   * List individual usage records.
+   *
+   * @param options - Filtering and pagination options
+   * @returns List of usage records
+   */
+  async listUsageRecords(options?: ListUsageRecordsOptions): Promise<UsageRecord[]> {
+    const params = new URLSearchParams();
+
+    if (options?.period) params.set('period', options.period);
+    if (options?.provider) params.set('provider', options.provider);
+    if (options?.model) params.set('model', options.model);
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+
+    const queryString = params.toString();
+    const path = `/api/v1/usage/records${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Listing usage records', { options });
+    }
+
+    const response = await this.orchestratorRequest<{
+      records: Array<{
+        id: number;
+        org_id: string;
+        team_id?: string;
+        agent_id?: string;
+        user_id?: string;
+        provider: string;
+        model: string;
+        tokens_in: number;
+        tokens_out: number;
+        cost_usd: number;
+        request_id?: string;
+        created_at: string;
+      }>;
+    }>('GET', path);
+
+    return (response.records || []).map(r => ({
+      id: r.id,
+      orgId: r.org_id,
+      teamId: r.team_id,
+      agentId: r.agent_id,
+      userId: r.user_id,
+      provider: r.provider,
+      model: r.model,
+      tokensIn: r.tokens_in,
+      tokensOut: r.tokens_out,
+      costUsd: r.cost_usd,
+      requestId: r.request_id,
+      createdAt: r.created_at,
+    }));
+  }
+
+  /**
+   * Get model pricing information.
+   *
+   * @param provider - Filter by provider
+   * @param model - Filter by model (requires provider)
+   * @returns Pricing info (single if both provider and model specified, list otherwise)
+   */
+  async getPricing(provider?: string, model?: string): Promise<PricingInfo | PricingInfo[]> {
+    const params = new URLSearchParams();
+    if (provider) params.set('provider', provider);
+    if (model) params.set('model', model);
+
+    const queryString = params.toString();
+    const path = `/api/v1/pricing${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Getting pricing', { provider, model });
+    }
+
+    const response = await this.orchestratorRequest<
+      | {
+          provider: string;
+          model: string;
+          pricing: { input_per_1k: number; output_per_1k: number };
+        }
+      | {
+          pricing: Array<{
+            provider: string;
+            model: string;
+            pricing: { input_per_1k: number; output_per_1k: number };
+          }>;
+        }
+    >('GET', path);
+
+    // If both provider and model specified, return single PricingInfo
+    if (provider && model && 'pricing' in response && !Array.isArray(response.pricing)) {
+      const single = response as {
+        provider: string;
+        model: string;
+        pricing: { input_per_1k: number; output_per_1k: number };
+      };
+      return {
+        provider: single.provider,
+        model: single.model,
+        pricing: {
+          inputPer1k: single.pricing.input_per_1k,
+          outputPer1k: single.pricing.output_per_1k,
+        },
+      };
+    }
+
+    // Otherwise return list
+    const listResponse = response as {
+      pricing: Array<{
+        provider: string;
+        model: string;
+        pricing: { input_per_1k: number; output_per_1k: number };
+      }>;
+    };
+    return (listResponse.pricing || []).map(p => ({
+      provider: p.provider,
+      model: p.model,
+      pricing: {
+        inputPer1k: p.pricing.input_per_1k,
+        outputPer1k: p.pricing.output_per_1k,
+      },
+    }));
+  }
+
+  /**
+   * Transform snake_case budget response to camelCase
+   */
+  private transformBudget(b: {
+    id: string;
+    name: string;
+    scope: string;
+    scope_id?: string;
+    org_id?: string;
+    limit_usd: number;
+    period: string;
+    on_exceed: string;
+    alert_thresholds: number[];
+    enabled: boolean;
+    created_at?: string;
+    updated_at?: string;
+    metadata?: Record<string, unknown>;
+  }): Budget {
+    return {
+      id: b.id,
+      name: b.name,
+      scope: b.scope as Budget['scope'],
+      scopeId: b.scope_id,
+      orgId: b.org_id,
+      limitUsd: b.limit_usd,
+      period: b.period as Budget['period'],
+      onExceed: b.on_exceed as Budget['onExceed'],
+      alertThresholds: b.alert_thresholds || [],
+      enabled: b.enabled,
+      createdAt: b.created_at,
+      updatedAt: b.updated_at,
+      metadata: b.metadata,
+    };
   }
 }
