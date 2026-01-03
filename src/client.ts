@@ -2595,7 +2595,11 @@ export class AxonFlow {
       scope_id: request.scopeId,
     };
 
-    const response = await this.orchestratorRequest<Record<string, unknown>>('POST', '/api/v1/budgets', body);
+    const response = await this.orchestratorRequest<Record<string, unknown>>(
+      'POST',
+      '/api/v1/budgets',
+      body
+    );
     return this.mapBudgetResponse(response);
   }
 
@@ -2606,7 +2610,10 @@ export class AxonFlow {
    * @returns Budget
    */
   async getBudget(budgetId: string): Promise<Budget> {
-    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', `/api/v1/budgets/${budgetId}`);
+    const response = await this.orchestratorRequest<Record<string, unknown>>(
+      'GET',
+      `/api/v1/budgets/${budgetId}`
+    );
     return this.mapBudgetResponse(response);
   }
 
@@ -2628,7 +2635,9 @@ export class AxonFlow {
 
     const response = await this.orchestratorRequest<Record<string, unknown>>('GET', path);
     return {
-      budgets: ((response.budgets as Record<string, unknown>[]) || []).map(b => this.mapBudgetResponse(b)),
+      budgets: ((response.budgets as Record<string, unknown>[]) || []).map(b =>
+        this.mapBudgetResponse(b)
+      ),
       total: (response.total as number) || 0,
     };
   }
@@ -2647,7 +2656,11 @@ export class AxonFlow {
     if (request.onExceed !== undefined) body.on_exceed = request.onExceed;
     if (request.alertThresholds !== undefined) body.alert_thresholds = request.alertThresholds;
 
-    const response = await this.orchestratorRequest<Record<string, unknown>>('PUT', `/api/v1/budgets/${budgetId}`, body);
+    const response = await this.orchestratorRequest<Record<string, unknown>>(
+      'PUT',
+      `/api/v1/budgets/${budgetId}`,
+      body
+    );
     return this.mapBudgetResponse(response);
   }
 
@@ -2671,7 +2684,10 @@ export class AxonFlow {
    * @returns Budget status
    */
   async getBudgetStatus(budgetId: string): Promise<BudgetStatus> {
-    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', `/api/v1/budgets/${budgetId}/status`);
+    const response = await this.orchestratorRequest<Record<string, unknown>>(
+      'GET',
+      `/api/v1/budgets/${budgetId}/status`
+    );
     return {
       budget: this.mapBudgetResponse(response.budget as Record<string, unknown>),
       usedUsd: (response.used_usd as number) || 0,
@@ -2691,17 +2707,22 @@ export class AxonFlow {
    * @returns Budget alerts
    */
   async getBudgetAlerts(budgetId: string): Promise<BudgetAlertsResponse> {
-    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', `/api/v1/budgets/${budgetId}/alerts`);
-    const alerts = ((response.alerts as Record<string, unknown>[]) || []).map((a): BudgetAlert => ({
-      id: (a.id as string) || '',
-      budgetId: (a.budget_id as string) || '',
-      alertType: (a.alert_type as string) || '',
-      threshold: (a.threshold as number) || 0,
-      percentageReached: (a.percentage_reached as number) || 0,
-      amountUsd: (a.amount_usd as number) || 0,
-      message: (a.message as string) || '',
-      createdAt: (a.created_at as string) || '',
-    }));
+    const response = await this.orchestratorRequest<Record<string, unknown>>(
+      'GET',
+      `/api/v1/budgets/${budgetId}/alerts`
+    );
+    const alerts = ((response.alerts as Record<string, unknown>[]) || []).map(
+      (a): BudgetAlert => ({
+        id: (a.id as string) || '',
+        budgetId: (a.budget_id as string) || '',
+        alertType: (a.alert_type as string) || '',
+        threshold: (a.threshold as number) || 0,
+        percentageReached: (a.percentage_reached as number) || 0,
+        amountUsd: (a.amount_usd as number) || 0,
+        message: (a.message as string) || '',
+        createdAt: (a.created_at as string) || '',
+      })
+    );
     return {
       alerts,
       count: (response.count as number) || 0,
@@ -2722,13 +2743,19 @@ export class AxonFlow {
     if (request.workflowId) body.workflow_id = request.workflowId;
     if (request.userId) body.user_id = request.userId;
 
-    const response = await this.orchestratorRequest<Record<string, unknown>>('POST', '/api/v1/budgets/check', body);
+    const response = await this.orchestratorRequest<Record<string, unknown>>(
+      'POST',
+      '/api/v1/budgets/check',
+      body
+    );
     return {
       allowed: (response.allowed as boolean) || false,
       action: response.action as string | undefined,
       message: response.message as string | undefined,
       budgets: response.budgets
-        ? ((response.budgets as Record<string, unknown>[]) || []).map(b => this.mapBudgetResponse(b))
+        ? ((response.budgets as Record<string, unknown>[]) || []).map(b =>
+            this.mapBudgetResponse(b)
+          )
         : undefined,
     };
   }
@@ -2770,15 +2797,20 @@ export class AxonFlow {
     params.set('group_by', groupBy);
     if (period) params.set('period', period);
 
-    const response = await this.orchestratorRequest<Record<string, unknown>>('GET', `/api/v1/usage/breakdown?${params.toString()}`);
-    const items = ((response.items as Record<string, unknown>[]) || []).map((i): UsageBreakdownItem => ({
-      groupValue: (i.group_value as string) || '',
-      costUsd: (i.cost_usd as number) || 0,
-      percentage: (i.percentage as number) || 0,
-      requestCount: (i.request_count as number) || 0,
-      tokensIn: (i.tokens_in as number) || 0,
-      tokensOut: (i.tokens_out as number) || 0,
-    }));
+    const response = await this.orchestratorRequest<Record<string, unknown>>(
+      'GET',
+      `/api/v1/usage/breakdown?${params.toString()}`
+    );
+    const items = ((response.items as Record<string, unknown>[]) || []).map(
+      (i): UsageBreakdownItem => ({
+        groupValue: (i.group_value as string) || '',
+        costUsd: (i.cost_usd as number) || 0,
+        percentage: (i.percentage as number) || 0,
+        requestCount: (i.request_count as number) || 0,
+        tokensIn: (i.tokens_in as number) || 0,
+        tokensOut: (i.tokens_out as number) || 0,
+      })
+    );
     return {
       groupBy: (response.group_by as string) || '',
       totalCostUsd: (response.total_cost_usd as number) || 0,
@@ -2807,18 +2839,20 @@ export class AxonFlow {
     const path = `/api/v1/usage/records${queryString ? `?${queryString}` : ''}`;
 
     const response = await this.orchestratorRequest<Record<string, unknown>>('GET', path);
-    const records = ((response.records as Record<string, unknown>[]) || []).map((r): UsageRecord => ({
-      id: (r.id as string) || '',
-      provider: (r.provider as string) || '',
-      model: (r.model as string) || '',
-      tokensIn: (r.tokens_in as number) || 0,
-      tokensOut: (r.tokens_out as number) || 0,
-      costUsd: (r.cost_usd as number) || 0,
-      requestId: r.request_id as string | undefined,
-      orgId: r.org_id as string | undefined,
-      agentId: r.agent_id as string | undefined,
-      timestamp: r.timestamp as string | undefined,
-    }));
+    const records = ((response.records as Record<string, unknown>[]) || []).map(
+      (r): UsageRecord => ({
+        id: (r.id as string) || '',
+        provider: (r.provider as string) || '',
+        model: (r.model as string) || '',
+        tokensIn: (r.tokens_in as number) || 0,
+        tokensOut: (r.tokens_out as number) || 0,
+        costUsd: (r.cost_usd as number) || 0,
+        requestId: r.request_id as string | undefined,
+        orgId: r.org_id as string | undefined,
+        agentId: r.agent_id as string | undefined,
+        timestamp: r.timestamp as string | undefined,
+      })
+    );
     return {
       records,
       total: (response.total as number) || 0,
@@ -2853,7 +2887,9 @@ export class AxonFlow {
       return { pricing: [pricing] };
     }
 
-    const pricingList = ((response.pricing as Record<string, unknown>[]) || []).map(p => this.mapPricingResponse(p));
+    const pricingList = ((response.pricing as Record<string, unknown>[]) || []).map(p =>
+      this.mapPricingResponse(p)
+    );
     return { pricing: pricingList };
   }
 
