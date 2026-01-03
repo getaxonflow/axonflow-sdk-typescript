@@ -44,6 +44,13 @@ import {
   CodeGovernanceMetrics,
   ExportOptions,
   ExportResponse,
+  // Execution Replay types
+  ExecutionSnapshot,
+  TimelineEntry,
+  ExecutionDetail,
+  ListExecutionsResponse,
+  ListExecutionsOptions,
+  ExecutionExportOptions,
 } from './types';
 import { AuthenticationError, APIError, PolicyViolationError } from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
@@ -59,6 +66,7 @@ export class AxonFlow {
     apiKey?: string;
     licenseKey?: string;
     endpoint: string;
+    orchestratorEndpoint?: string;
     mode: 'sandbox' | 'production';
     tenant: string;
     debug: boolean;
@@ -82,6 +90,7 @@ export class AxonFlow {
       apiKey: config.apiKey,
       licenseKey: config.licenseKey,
       endpoint,
+      orchestratorEndpoint: config.orchestratorEndpoint,
       mode: config.mode || (hasCredentials ? 'production' : 'sandbox'),
       tenant: config.tenant || 'default',
       debug: config.debug || false,
@@ -2117,5 +2126,431 @@ export class AxonFlow {
       count: response.count,
       exportedAt: response.exported_at,
     };
+  }
+
+  // ============================================================================
+  // Execution Replay Methods
+  // ============================================================================
+
+  /**
+   * Get the orchestrator URL for Execution Replay API.
+   * Falls back to agent endpoint with port 8081 if not configured.
+   */
+  private getOrchestratorUrl(): string {
+    if (this.config.orchestratorEndpoint) {
+      return this.config.orchestratorEndpoint;
+    }
+    // Default: assume orchestrator is on same host as agent, port 8081
+    try {
+      const url = new URL(this.config.endpoint);
+      url.port = '8081';
+      return url.toString().replace(/\/$/, '');
+    } catch {
+      return 'http://localhost:8081';
+    }
+  }
+
+  /**
+   * Generic HTTP request helper for orchestrator APIs
+   */
+  private async orchestratorRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const url = `${this.getOrchestratorUrl()}${path}`;
+    const headers = this.buildAuthHeaders();
+
+    const options: RequestInit = {
+      method,
+      headers,
+      signal: AbortSignal.timeout(this.config.timeout),
+    };
+
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 401 || response.status === 403) {
+        throw new AuthenticationError(`Request failed: ${errorText}`);
+      }
+      if (response.status === 404) {
+        throw new APIError(404, 'Not Found', errorText);
+      }
+      throw new APIError(response.status, response.statusText, errorText);
+    }
+
+    // Handle DELETE responses with no body
+    if (response.status === 204 || method === 'DELETE') {
+      return undefined as T;
+    }
+
+    return response.json();
+  }
+
+  /**
+   * List workflow executions with optional filtering and pagination.
+   *
+   * @param options - Filtering and pagination options
+   * @returns Paginated list of execution summaries
+   *
+   * @example
+   * ```typescript
+   * // List completed executions
+   * const { executions, total } = await axonflow.listExecutions({
+   *   status: 'completed',
+   *   limit: 10
+   * });
+   *
+   * for (const exec of executions) {
+   *   console.log(`${exec.requestId}: ${exec.status} (${exec.totalSteps} steps)`);
+   * }
+   * ```
+   */
+  async listExecutions(options?: ListExecutionsOptions): Promise<ListExecutionsResponse> {
+    const params = new URLSearchParams();
+
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.offset) params.set('offset', String(options.offset));
+    if (options?.status) params.set('status', options.status);
+    if (options?.workflowId) params.set('workflow_id', options.workflowId);
+    if (options?.startTime) params.set('start_time', options.startTime);
+    if (options?.endTime) params.set('end_time', options.endTime);
+
+    const queryString = params.toString();
+    const path = `/api/v1/executions${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Listing executions', { options });
+    }
+
+    const response = await this.orchestratorRequest<{
+      executions: Array<{
+        request_id: string;
+        workflow_name: string;
+        status: string;
+        total_steps: number;
+        completed_steps: number;
+        started_at: string;
+        completed_at?: string;
+        duration_ms?: number;
+        total_tokens: number;
+        total_cost_usd: number;
+        org_id?: string;
+        tenant_id?: string;
+        user_id?: string;
+        error_message?: string;
+        input_summary?: unknown;
+        output_summary?: unknown;
+      }>;
+      total: number;
+      limit: number;
+      offset: number;
+    }>('GET', path);
+
+    return {
+      executions: (response.executions || []).map(e => ({
+        requestId: e.request_id,
+        workflowName: e.workflow_name,
+        status: e.status,
+        totalSteps: e.total_steps,
+        completedSteps: e.completed_steps,
+        startedAt: e.started_at,
+        completedAt: e.completed_at,
+        durationMs: e.duration_ms,
+        totalTokens: e.total_tokens,
+        totalCostUsd: e.total_cost_usd,
+        orgId: e.org_id,
+        tenantId: e.tenant_id,
+        userId: e.user_id,
+        errorMessage: e.error_message,
+        inputSummary: e.input_summary,
+        outputSummary: e.output_summary,
+      })),
+      total: response.total,
+      limit: response.limit,
+      offset: response.offset,
+    };
+  }
+
+  /**
+   * Get a complete execution record including summary and all steps.
+   *
+   * @param executionId - Execution ID (request_id)
+   * @returns Full execution details with all step snapshots
+   *
+   * @example
+   * ```typescript
+   * const execution = await axonflow.getExecution('exec-abc123');
+   * console.log(`Execution: ${execution.summary.requestId} - ${execution.summary.status}`);
+   *
+   * for (const step of execution.steps) {
+   *   console.log(`  Step ${step.stepIndex}: ${step.stepName} (${step.durationMs}ms)`);
+   * }
+   * ```
+   */
+  async getExecution(executionId: string): Promise<ExecutionDetail> {
+    if (this.config.debug) {
+      debugLog('Getting execution', { executionId });
+    }
+
+    const response = await this.orchestratorRequest<{
+      summary: {
+        request_id: string;
+        workflow_name: string;
+        status: string;
+        total_steps: number;
+        completed_steps: number;
+        started_at: string;
+        completed_at?: string;
+        duration_ms?: number;
+        total_tokens: number;
+        total_cost_usd: number;
+        org_id?: string;
+        tenant_id?: string;
+        user_id?: string;
+        error_message?: string;
+        input_summary?: unknown;
+        output_summary?: unknown;
+      };
+      steps: Array<{
+        request_id: string;
+        step_index: number;
+        step_name: string;
+        status: string;
+        started_at: string;
+        completed_at?: string;
+        duration_ms?: number;
+        provider?: string;
+        model?: string;
+        tokens_in: number;
+        tokens_out: number;
+        cost_usd: number;
+        input?: unknown;
+        output?: unknown;
+        error_message?: string;
+        policies_checked?: string[];
+        policies_triggered?: string[];
+        approval_required?: boolean;
+        approved_by?: string;
+        approved_at?: string;
+      }>;
+    }>('GET', `/api/v1/executions/${executionId}`);
+
+    return {
+      summary: {
+        requestId: response.summary.request_id,
+        workflowName: response.summary.workflow_name,
+        status: response.summary.status,
+        totalSteps: response.summary.total_steps,
+        completedSteps: response.summary.completed_steps,
+        startedAt: response.summary.started_at,
+        completedAt: response.summary.completed_at,
+        durationMs: response.summary.duration_ms,
+        totalTokens: response.summary.total_tokens,
+        totalCostUsd: response.summary.total_cost_usd,
+        orgId: response.summary.org_id,
+        tenantId: response.summary.tenant_id,
+        userId: response.summary.user_id,
+        errorMessage: response.summary.error_message,
+        inputSummary: response.summary.input_summary,
+        outputSummary: response.summary.output_summary,
+      },
+      steps: response.steps.map(s => ({
+        requestId: s.request_id,
+        stepIndex: s.step_index,
+        stepName: s.step_name,
+        status: s.status,
+        startedAt: s.started_at,
+        completedAt: s.completed_at,
+        durationMs: s.duration_ms,
+        provider: s.provider,
+        model: s.model,
+        tokensIn: s.tokens_in,
+        tokensOut: s.tokens_out,
+        costUsd: s.cost_usd,
+        input: s.input,
+        output: s.output,
+        errorMessage: s.error_message,
+        policiesChecked: s.policies_checked,
+        policiesTriggered: s.policies_triggered,
+        approvalRequired: s.approval_required,
+        approvedBy: s.approved_by,
+        approvedAt: s.approved_at,
+      })),
+    };
+  }
+
+  /**
+   * Get all step snapshots for an execution.
+   *
+   * @param executionId - Execution ID (request_id)
+   * @returns Array of step snapshots
+   *
+   * @example
+   * ```typescript
+   * const steps = await axonflow.getExecutionSteps('exec-abc123');
+   * for (const step of steps) {
+   *   console.log(`Step ${step.stepIndex}: ${step.stepName} - ${step.status}`);
+   * }
+   * ```
+   */
+  async getExecutionSteps(executionId: string): Promise<ExecutionSnapshot[]> {
+    if (this.config.debug) {
+      debugLog('Getting execution steps', { executionId });
+    }
+
+    const response = await this.orchestratorRequest<
+      Array<{
+        request_id: string;
+        step_index: number;
+        step_name: string;
+        status: string;
+        started_at: string;
+        completed_at?: string;
+        duration_ms?: number;
+        provider?: string;
+        model?: string;
+        tokens_in: number;
+        tokens_out: number;
+        cost_usd: number;
+        input?: unknown;
+        output?: unknown;
+        error_message?: string;
+        policies_checked?: string[];
+        policies_triggered?: string[];
+        approval_required?: boolean;
+        approved_by?: string;
+        approved_at?: string;
+      }>
+    >('GET', `/api/v1/executions/${executionId}/steps`);
+
+    return response.map(s => ({
+      requestId: s.request_id,
+      stepIndex: s.step_index,
+      stepName: s.step_name,
+      status: s.status,
+      startedAt: s.started_at,
+      completedAt: s.completed_at,
+      durationMs: s.duration_ms,
+      provider: s.provider,
+      model: s.model,
+      tokensIn: s.tokens_in,
+      tokensOut: s.tokens_out,
+      costUsd: s.cost_usd,
+      input: s.input,
+      output: s.output,
+      errorMessage: s.error_message,
+      policiesChecked: s.policies_checked,
+      policiesTriggered: s.policies_triggered,
+      approvalRequired: s.approval_required,
+      approvedBy: s.approved_by,
+      approvedAt: s.approved_at,
+    }));
+  }
+
+  /**
+   * Get a timeline view of execution events for visualization.
+   *
+   * @param executionId - Execution ID (request_id)
+   * @returns Array of timeline entries
+   *
+   * @example
+   * ```typescript
+   * const timeline = await axonflow.getExecutionTimeline('exec-abc123');
+   * for (const entry of timeline) {
+   *   let info = `[${entry.stepIndex}] ${entry.stepName}: ${entry.status}`;
+   *   if (entry.hasError) info += ' [ERROR]';
+   *   if (entry.hasApproval) info += ' [APPROVED]';
+   *   console.log(info);
+   * }
+   * ```
+   */
+  async getExecutionTimeline(executionId: string): Promise<TimelineEntry[]> {
+    if (this.config.debug) {
+      debugLog('Getting execution timeline', { executionId });
+    }
+
+    const response = await this.orchestratorRequest<
+      Array<{
+        step_index: number;
+        step_name: string;
+        status: string;
+        started_at: string;
+        completed_at?: string;
+        duration_ms?: number;
+        has_error: boolean;
+        has_approval: boolean;
+      }>
+    >('GET', `/api/v1/executions/${executionId}/timeline`);
+
+    return response.map(t => ({
+      stepIndex: t.step_index,
+      stepName: t.step_name,
+      status: t.status,
+      startedAt: t.started_at,
+      completedAt: t.completed_at,
+      durationMs: t.duration_ms,
+      hasError: t.has_error,
+      hasApproval: t.has_approval,
+    }));
+  }
+
+  /**
+   * Export a complete execution record for compliance or archival.
+   *
+   * @param executionId - Execution ID (request_id)
+   * @param options - Export options
+   * @returns Execution data in requested format
+   *
+   * @example
+   * ```typescript
+   * const exportData = await axonflow.exportExecution('exec-abc123', {
+   *   includeInput: true,
+   *   includeOutput: true
+   * });
+   *
+   * // Save to file for audit
+   * fs.writeFileSync('audit-export.json', JSON.stringify(exportData, null, 2));
+   * ```
+   */
+  async exportExecution(
+    executionId: string,
+    options?: ExecutionExportOptions
+  ): Promise<Record<string, unknown>> {
+    const params = new URLSearchParams();
+
+    if (options?.format) params.set('format', options.format);
+    if (options?.includeInput) params.set('include_input', 'true');
+    if (options?.includeOutput) params.set('include_output', 'true');
+    if (options?.includePolicies) params.set('include_policies', 'true');
+
+    const queryString = params.toString();
+    const path = `/api/v1/executions/${executionId}/export${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Exporting execution', { executionId, options });
+    }
+
+    return this.orchestratorRequest<Record<string, unknown>>('GET', path);
+  }
+
+  /**
+   * Delete an execution and all associated step snapshots.
+   *
+   * @param executionId - Execution ID (request_id)
+   *
+   * @example
+   * ```typescript
+   * await axonflow.deleteExecution('exec-abc123');
+   * console.log('Execution deleted');
+   * ```
+   */
+  async deleteExecution(executionId: string): Promise<void> {
+    if (this.config.debug) {
+      debugLog('Deleting execution', { executionId });
+    }
+
+    await this.orchestratorRequest<void>('DELETE', `/api/v1/executions/${executionId}`);
   }
 }

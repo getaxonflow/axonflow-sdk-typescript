@@ -21,6 +21,12 @@ export interface AxonFlowConfig {
   endpoint?: string;
 
   /**
+   * Orchestrator endpoint for Execution Replay API (optional)
+   * Defaults to agent endpoint with port 8081
+   */
+  orchestratorEndpoint?: string;
+
+  /**
    * Deployment mode
    * - sandbox: For testing with non-production data
    * - production: For production use

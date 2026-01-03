@@ -143,6 +143,17 @@ export type {
   ListPRsResponse,
 } from './types/code-governance';
 
+// Export Execution Replay types
+export type {
+  ExecutionSummary,
+  ExecutionSnapshot,
+  TimelineEntry,
+  ExecutionDetail,
+  ListExecutionsResponse,
+  ListExecutionsOptions,
+  ExecutionExportOptions,
+} from './types/execution-replay';
+
 // Export version
 export const VERSION = '1.7.0';
 

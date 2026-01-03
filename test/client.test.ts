@@ -1017,4 +1017,434 @@ describe('AxonFlow Client Unit Tests', () => {
       logSpy.mockRestore();
     });
   });
+
+  describe('Execution Replay Methods', () => {
+    let client: AxonFlow;
+
+    beforeAll(() => {
+      global.fetch = mockFetch;
+    });
+
+    afterAll(() => {
+      global.fetch = originalFetch;
+    });
+
+    beforeEach(() => {
+      mockFetch.mockClear();
+      client = new AxonFlow({
+        apiKey: 'test-key',
+        tenant: 'test-tenant',
+        endpoint: 'http://localhost:8080',
+      });
+    });
+
+    describe('listExecutions', () => {
+      it('should list executions successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              executions: [
+                {
+                  request_id: 'exec-123',
+                  workflow_name: 'test-workflow',
+                  status: 'completed',
+                  total_steps: 3,
+                  completed_steps: 3,
+                  started_at: '2025-01-01T00:00:00Z',
+                  completed_at: '2025-01-01T00:01:00Z',
+                  duration_ms: 60000,
+                  total_tokens: 1000,
+                  total_cost_usd: 0.05,
+                },
+              ],
+              total: 1,
+              limit: 10,
+              offset: 0,
+            }),
+        });
+
+        const result = await client.listExecutions();
+        expect(result.executions).toHaveLength(1);
+        expect(result.executions[0].requestId).toBe('exec-123');
+        expect(result.executions[0].workflowName).toBe('test-workflow');
+        expect(result.executions[0].status).toBe('completed');
+        expect(result.total).toBe(1);
+      });
+
+      it('should pass filtering options', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              executions: [],
+              total: 0,
+              limit: 5,
+              offset: 10,
+            }),
+        });
+
+        await client.listExecutions({
+          limit: 5,
+          offset: 10,
+          status: 'completed',
+          workflowId: 'wf-123',
+          startTime: '2025-01-01',
+          endTime: '2025-01-31',
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('limit=5'),
+          expect.any(Object)
+        );
+      });
+
+      it('should handle empty response', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              executions: null,
+              total: 0,
+              limit: 10,
+              offset: 0,
+            }),
+        });
+
+        const result = await client.listExecutions();
+        expect(result.executions).toEqual([]);
+      });
+
+      it('should throw AuthenticationError on 401', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          text: () => Promise.resolve('Unauthorized'),
+        });
+
+        await expect(client.listExecutions()).rejects.toThrow(AuthenticationError);
+      });
+    });
+
+    describe('getExecution', () => {
+      it('should get execution details successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              summary: {
+                request_id: 'exec-123',
+                workflow_name: 'test-workflow',
+                status: 'completed',
+                total_steps: 2,
+                completed_steps: 2,
+                started_at: '2025-01-01T00:00:00Z',
+                completed_at: '2025-01-01T00:01:00Z',
+                duration_ms: 60000,
+                total_tokens: 500,
+                total_cost_usd: 0.025,
+              },
+              steps: [
+                {
+                  request_id: 'exec-123',
+                  step_index: 0,
+                  step_name: 'step-1',
+                  status: 'completed',
+                  started_at: '2025-01-01T00:00:00Z',
+                  completed_at: '2025-01-01T00:00:30Z',
+                  duration_ms: 30000,
+                  provider: 'openai',
+                  model: 'gpt-4',
+                  tokens_in: 100,
+                  tokens_out: 150,
+                  cost_usd: 0.01,
+                },
+              ],
+            }),
+        });
+
+        const result = await client.getExecution('exec-123');
+        expect(result.summary.requestId).toBe('exec-123');
+        expect(result.summary.status).toBe('completed');
+        expect(result.steps).toHaveLength(1);
+        expect(result.steps[0].stepName).toBe('step-1');
+        expect(result.steps[0].provider).toBe('openai');
+      });
+
+      it('should throw APIError on 404', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          text: () => Promise.resolve('Execution not found'),
+        });
+
+        await expect(client.getExecution('invalid-id')).rejects.toThrow(APIError);
+      });
+    });
+
+    describe('getExecutionSteps', () => {
+      it('should get execution steps successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                request_id: 'exec-123',
+                step_index: 0,
+                step_name: 'step-1',
+                status: 'completed',
+                started_at: '2025-01-01T00:00:00Z',
+                tokens_in: 100,
+                tokens_out: 150,
+                cost_usd: 0.01,
+                policies_checked: ['policy-1'],
+                policies_triggered: [],
+                approval_required: false,
+              },
+              {
+                request_id: 'exec-123',
+                step_index: 1,
+                step_name: 'step-2',
+                status: 'completed',
+                started_at: '2025-01-01T00:00:30Z',
+                tokens_in: 200,
+                tokens_out: 250,
+                cost_usd: 0.02,
+                approval_required: true,
+                approved_by: 'user-123',
+                approved_at: '2025-01-01T00:00:35Z',
+              },
+            ]),
+        });
+
+        const steps = await client.getExecutionSteps('exec-123');
+        expect(steps).toHaveLength(2);
+        expect(steps[0].stepIndex).toBe(0);
+        expect(steps[0].policiesChecked).toContain('policy-1');
+        expect(steps[1].approvalRequired).toBe(true);
+        expect(steps[1].approvedBy).toBe('user-123');
+      });
+
+      it('should throw AuthenticationError on 403', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 403,
+          text: () => Promise.resolve('Forbidden'),
+        });
+
+        await expect(client.getExecutionSteps('exec-123')).rejects.toThrow(AuthenticationError);
+      });
+    });
+
+    describe('getExecutionTimeline', () => {
+      it('should get execution timeline successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                step_index: 0,
+                step_name: 'step-1',
+                status: 'completed',
+                started_at: '2025-01-01T00:00:00Z',
+                completed_at: '2025-01-01T00:00:30Z',
+                duration_ms: 30000,
+                has_error: false,
+                has_approval: false,
+              },
+              {
+                step_index: 1,
+                step_name: 'step-2',
+                status: 'failed',
+                started_at: '2025-01-01T00:00:30Z',
+                completed_at: '2025-01-01T00:00:45Z',
+                duration_ms: 15000,
+                has_error: true,
+                has_approval: true,
+              },
+            ]),
+        });
+
+        const timeline = await client.getExecutionTimeline('exec-123');
+        expect(timeline).toHaveLength(2);
+        expect(timeline[0].hasError).toBe(false);
+        expect(timeline[1].hasError).toBe(true);
+        expect(timeline[1].hasApproval).toBe(true);
+      });
+
+      it('should throw APIError on server error', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+          text: () => Promise.resolve('Server error'),
+        });
+
+        await expect(client.getExecutionTimeline('exec-123')).rejects.toThrow(APIError);
+      });
+    });
+
+    describe('exportExecution', () => {
+      it('should export execution successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              execution_id: 'exec-123',
+              workflow_name: 'test-workflow',
+              exported_at: '2025-01-01T00:00:00Z',
+              data: { summary: {}, steps: [] },
+            }),
+        });
+
+        const result = await client.exportExecution('exec-123');
+        expect(result.execution_id).toBe('exec-123');
+      });
+
+      it('should pass export options', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              execution_id: 'exec-123',
+              data: {},
+            }),
+        });
+
+        await client.exportExecution('exec-123', {
+          format: 'json',
+          includeInput: true,
+          includeOutput: true,
+          includePolicies: true,
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('include_input=true'),
+          expect.any(Object)
+        );
+      });
+
+      it('should throw APIError on 404', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          text: () => Promise.resolve('Execution not found'),
+        });
+
+        await expect(client.exportExecution('invalid-id')).rejects.toThrow(APIError);
+      });
+    });
+
+    describe('deleteExecution', () => {
+      it('should delete execution successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 204,
+        });
+
+        await expect(client.deleteExecution('exec-123')).resolves.toBeUndefined();
+      });
+
+      it('should throw AuthenticationError on 401', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          text: () => Promise.resolve('Unauthorized'),
+        });
+
+        await expect(client.deleteExecution('exec-123')).rejects.toThrow(AuthenticationError);
+      });
+
+      it('should throw APIError on 404', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          text: () => Promise.resolve('Execution not found'),
+        });
+
+        await expect(client.deleteExecution('invalid-id')).rejects.toThrow(APIError);
+      });
+    });
+
+    describe('orchestratorEndpoint configuration', () => {
+      it('should use custom orchestratorEndpoint when configured', async () => {
+        const clientWithOrchestrator = new AxonFlow({
+          apiKey: 'test-key',
+          tenant: 'test-tenant',
+          endpoint: 'http://localhost:8080',
+          orchestratorEndpoint: 'http://custom-orchestrator:9000',
+        });
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              executions: [],
+              total: 0,
+              limit: 10,
+              offset: 0,
+            }),
+        });
+
+        await clientWithOrchestrator.listExecutions();
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('http://custom-orchestrator:9000'),
+          expect.any(Object)
+        );
+      });
+
+      it('should derive orchestrator URL from agent endpoint with port 8081', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              executions: [],
+              total: 0,
+              limit: 10,
+              offset: 0,
+            }),
+        });
+
+        await client.listExecutions();
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining(':8081'),
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('debug mode logging', () => {
+      it('should log in debug mode for execution methods', async () => {
+        const debugClient = new AxonFlow({
+          apiKey: 'test-key',
+          tenant: 'test',
+          endpoint: 'http://localhost:8080',
+          debug: true,
+        });
+
+        const logSpy = jest.spyOn(console, 'log').mockImplementation();
+
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              executions: [],
+              total: 0,
+              limit: 10,
+              offset: 0,
+            }),
+        });
+
+        await debugClient.listExecutions({ status: 'completed' });
+
+        expect(logSpy).toHaveBeenCalled();
+        logSpy.mockRestore();
+      });
+    });
+  });
 });
