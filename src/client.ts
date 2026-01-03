@@ -2167,11 +2167,7 @@ export class AxonFlow {
   /**
    * Generic HTTP request helper for orchestrator APIs
    */
-  private async orchestratorRequest<T>(
-    method: string,
-    path: string,
-    body?: unknown
-  ): Promise<T> {
+  private async orchestratorRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.getOrchestratorUrl()}${path}`;
     const headers = this.buildAuthHeaders();
 
@@ -2720,7 +2716,8 @@ export class AxonFlow {
     if (request.limitUsd !== undefined) apiRequest.limit_usd = request.limitUsd;
     if (request.period !== undefined) apiRequest.period = request.period;
     if (request.onExceed !== undefined) apiRequest.on_exceed = request.onExceed;
-    if (request.alertThresholds !== undefined) apiRequest.alert_thresholds = request.alertThresholds;
+    if (request.alertThresholds !== undefined)
+      apiRequest.alert_thresholds = request.alertThresholds;
     if (request.enabled !== undefined) apiRequest.enabled = request.enabled;
     if (request.metadata !== undefined) apiRequest.metadata = request.metadata;
 
