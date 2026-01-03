@@ -65,7 +65,6 @@ import {
   UsageRecordsResponse,
   PricingInfo,
   PricingListResponse,
-  ModelPricing,
   CreateBudgetRequest,
   UpdateBudgetRequest,
   ListBudgetsOptions,
