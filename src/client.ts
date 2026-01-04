@@ -2448,7 +2448,9 @@ export class AxonFlow {
    */
   private async portalRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
     if (!this.sessionCookie) {
-      throw new AuthenticationError('Not logged in to Customer Portal. Call loginToPortal() first.');
+      throw new AuthenticationError(
+        'Not logged in to Customer Portal. Call loginToPortal() first.'
+      );
     }
 
     const url = `${this.getPortalUrl()}${path}`;
@@ -3217,7 +3219,9 @@ export class AxonFlow {
    */
   private async portalRequestText(method: string, path: string): Promise<string> {
     if (!this.sessionCookie) {
-      throw new AuthenticationError('Not logged in to Customer Portal. Call loginToPortal() first.');
+      throw new AuthenticationError(
+        'Not logged in to Customer Portal. Call loginToPortal() first.'
+      );
     }
 
     const url = `${this.getPortalUrl()}${path}`;
