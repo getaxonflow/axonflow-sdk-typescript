@@ -2165,7 +2165,6 @@ describe('AxonFlow Client Unit Tests', () => {
 
           expect(result.success).toBe(true);
         });
-
       });
 
       describe('getPolicyApprovedContext additional branches', () => {

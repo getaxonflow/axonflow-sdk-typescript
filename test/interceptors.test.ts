@@ -644,7 +644,11 @@ describe('LLM Provider Interceptors', () => {
           chat: jest.fn().mockResolvedValue(mockResponse),
         };
 
-        const governedChat = createGovernedOllamaChat(mockOllama, mockAxonFlowNoContext, 'user-123');
+        const governedChat = createGovernedOllamaChat(
+          mockOllama,
+          mockAxonFlowNoContext,
+          'user-123'
+        );
         const result = await governedChat({
           model: 'llama2',
           messages: [{ role: 'user', content: 'Hello' }],
@@ -710,7 +714,9 @@ describe('LLM Provider Interceptors', () => {
         const { GeminiInterceptor } = await import('../src/interceptors/gemini');
         const interceptor = new GeminiInterceptor();
 
-        expect(interceptor.extractRequest(() => 'gemini-1.5-pro call').model).toBe('gemini-1.5-pro');
+        expect(interceptor.extractRequest(() => 'gemini-1.5-pro call').model).toBe(
+          'gemini-1.5-pro'
+        );
         expect(interceptor.extractRequest(() => 'gemini-1.5-flash call').model).toBe(
           'gemini-1.5-flash'
         );
