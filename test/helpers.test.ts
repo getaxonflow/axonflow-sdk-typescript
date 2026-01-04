@@ -197,4 +197,60 @@ describe('Helper Functions', () => {
       expect(result).toContain('"bool":true');
     });
   });
+
+  describe('isBrowser edge cases', () => {
+    it('should return true when window and document exist', () => {
+      // Simulate browser environment
+      const originalWindow = (global as any).window;
+      (global as any).window = { document: {} };
+
+      expect(isBrowser()).toBe(true);
+
+      // Restore
+      if (originalWindow === undefined) {
+        delete (global as any).window;
+      } else {
+        (global as any).window = originalWindow;
+      }
+    });
+
+    it('should return false when window exists but document does not', () => {
+      const originalWindow = (global as any).window;
+      (global as any).window = {};
+
+      expect(isBrowser()).toBe(false);
+
+      // Restore
+      if (originalWindow === undefined) {
+        delete (global as any).window;
+      } else {
+        (global as any).window = originalWindow;
+      }
+    });
+  });
+
+  describe('isNode edge cases', () => {
+    it('should return false when process is undefined', () => {
+      const originalProcess = global.process;
+      (global as any).process = undefined;
+
+      expect(isNode()).toBe(false);
+
+      // Restore
+      global.process = originalProcess;
+    });
+
+    it('should return false when process.versions.node is undefined', () => {
+      const originalProcess = global.process;
+      // Create a mock process object with versions but no node property
+      (global as any).process = {
+        versions: {},
+      };
+
+      expect(isNode()).toBe(false);
+
+      // Restore
+      global.process = originalProcess;
+    });
+  });
 });

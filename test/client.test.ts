@@ -1952,5 +1952,670 @@ describe('AxonFlow Client Unit Tests', () => {
         expect(result.pricing[0].model).toBe('gpt-4');
       });
     });
+
+    describe('Additional Branch Coverage Tests', () => {
+      describe('protect() method branches', () => {
+        it('should handle sandbox mode errors without fail-open', async () => {
+          const sandboxClient = new AxonFlow({
+            apiKey: 'test-key',
+            tenant: 'test-tenant',
+            mode: 'sandbox',
+          });
+
+          const mockAICall = async () => {
+            return { result: 'success' };
+          };
+
+          // In sandbox mode with unreachable endpoint, should throw
+          await expect(sandboxClient.protect(mockAICall)).rejects.toThrow();
+        });
+
+        it('should handle governance error in sandbox mode', async () => {
+          mockFetch.mockRejectedValueOnce(new Error('governance service unavailable'));
+
+          const sandboxClient = new AxonFlow({
+            apiKey: 'test-key',
+            tenant: 'test-tenant',
+            mode: 'sandbox',
+            endpoint: 'http://localhost:8080',
+          });
+
+          const mockAICall = async () => ({ result: 'success' });
+
+          // Sandbox mode should throw governance errors
+          await expect(sandboxClient.protect(mockAICall)).rejects.toThrow('governance');
+        });
+
+        it('should log debug info in protect method on error', async () => {
+          const logSpy = jest.spyOn(console, 'log').mockImplementation();
+          mockFetch.mockRejectedValueOnce(new Error('fetch failed'));
+
+          const debugClient = new AxonFlow({
+            apiKey: 'test-key',
+            tenant: 'test-tenant',
+            mode: 'production',
+            endpoint: 'http://localhost:8080',
+            debug: true,
+          });
+
+          const mockAICall = async () => ({ result: 'success' });
+          await debugClient.protect(mockAICall);
+
+          expect(logSpy).toHaveBeenCalled();
+          logSpy.mockRestore();
+        });
+      });
+
+      describe('checkPolicies response branches', () => {
+        it('should handle response with modified data', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                blocked: false,
+                data: { modified: true, content: 'sanitized' },
+                policy_info: {
+                  policies_evaluated: ['pii-filter'],
+                  processing_time: '5ms',
+                },
+              }),
+          });
+
+          const result = await client.executeQuery({
+            userToken: 'user-123',
+            query: 'Test with PII',
+            requestType: 'chat',
+          });
+
+          expect(result.success).toBe(true);
+          expect(result.data).toEqual({ modified: true, content: 'sanitized' });
+        });
+
+        it('should handle response without policy_info', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                blocked: false,
+                success: true,
+                data: { result: 'ok' },
+              }),
+          });
+
+          const result = await client.executeQuery({
+            userToken: 'user-123',
+            query: 'Simple query',
+            requestType: 'chat',
+          });
+
+          expect(result.success).toBe(true);
+        });
+
+        it('should handle response with empty policies_evaluated', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                blocked: false,
+                success: true,
+                data: { result: 'ok' },
+                policy_info: {
+                  policies_evaluated: [],
+                  processing_time: '1ms',
+                },
+              }),
+          });
+
+          const result = await client.executeQuery({
+            userToken: 'user-123',
+            query: 'Test query',
+            requestType: 'chat',
+          });
+
+          expect(result.policyInfo?.policiesEvaluated).toEqual([]);
+        });
+      });
+
+      describe('getOrchestratorUrl and getPortalUrl fallback', () => {
+        it('should fall back to localhost:8081 for invalid URL', async () => {
+          const clientWithInvalidUrl = new AxonFlow({
+            apiKey: 'test-key',
+            tenant: 'test-tenant',
+            endpoint: 'not-a-valid-url',
+          });
+
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                executions: [],
+                total: 0,
+                limit: 10,
+                offset: 0,
+              }),
+          });
+
+          await clientWithInvalidUrl.listExecutions();
+
+          expect(mockFetch).toHaveBeenCalledWith(
+            expect.stringContaining('http://localhost:8081'),
+            expect.any(Object)
+          );
+        });
+      });
+
+      describe('executeQuery additional branches', () => {
+        it('should handle 403 error with non-policy violation body', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 403,
+            text: () => Promise.resolve('Access denied'),
+          });
+
+          await expect(
+            client.executeQuery({
+              userToken: 'user-123',
+              query: 'Test',
+              requestType: 'chat',
+            })
+          ).rejects.toThrow(AuthenticationError);
+        });
+
+        it('should handle 403 error with policy violation JSON body', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 403,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify({
+                  blocked: true,
+                  block_reason: 'PII detected',
+                  policy_info: { policies_evaluated: ['pii-policy'] },
+                })
+              ),
+          });
+
+          await expect(
+            client.executeQuery({
+              userToken: 'user-123',
+              query: 'Test',
+              requestType: 'chat',
+            })
+          ).rejects.toThrow(PolicyViolationError);
+        });
+
+        it('should handle executeQuery with context parameter', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                data: { result: 'ok' },
+                blocked: false,
+              }),
+          });
+
+          const result = await client.executeQuery({
+            userToken: 'user-123',
+            query: 'Test',
+            requestType: 'chat',
+            context: { custom: 'data' },
+          });
+
+          expect(result.success).toBe(true);
+        });
+      });
+
+      describe('getPolicyApprovedContext additional branches', () => {
+        it('should handle response without expires_at', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                context_id: 'ctx-no-expiry',
+                approved: true,
+                approved_data: {},
+                policies: [],
+              }),
+          });
+
+          const result = await client.getPolicyApprovedContext({
+            userToken: 'user-123',
+            query: 'Test',
+          });
+
+          expect(result.contextId).toBe('ctx-no-expiry');
+          expect(result.expiresAt).toBeInstanceOf(Date);
+        });
+
+        it('should handle preCheck with dataSources', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                context_id: 'ctx-with-ds',
+                approved: true,
+                approved_data: {},
+                policies: [],
+              }),
+          });
+
+          await client.getPolicyApprovedContext({
+            userToken: 'user-123',
+            query: 'Test',
+            dataSources: ['source1'],
+          });
+
+          expect(mockFetch).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+              body: expect.stringContaining('data_sources'),
+            })
+          );
+        });
+
+        it('should throw APIError on 403 for preCheck', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 403,
+            text: () => Promise.resolve('Forbidden'),
+          });
+
+          await expect(
+            client.getPolicyApprovedContext({
+              userToken: 'bad-token',
+              query: 'Test',
+            })
+          ).rejects.toThrow(AuthenticationError);
+        });
+      });
+
+      describe('auditLLMCall additional branches', () => {
+        it('should handle auditLLMCall with metadata', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                audit_id: 'audit-with-meta',
+              }),
+          });
+
+          const result = await client.auditLLMCall({
+            contextId: 'ctx-123',
+            responseSummary: 'Response',
+            provider: 'openai',
+            model: 'gpt-4',
+            tokenUsage: { promptTokens: 10, completionTokens: 10, totalTokens: 20 },
+            latencyMs: 100,
+            metadata: { custom: 'field' },
+          });
+
+          expect(result.auditId).toBe('audit-with-meta');
+        });
+
+        it('should throw AuthenticationError on 403 for auditLLMCall', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 403,
+            text: () => Promise.resolve('Forbidden'),
+          });
+
+          await expect(
+            client.auditLLMCall({
+              contextId: 'ctx-123',
+              responseSummary: 'Response',
+              provider: 'openai',
+              model: 'gpt-4',
+              tokenUsage: { promptTokens: 10, completionTokens: 10, totalTokens: 20 },
+              latencyMs: 100,
+            })
+          ).rejects.toThrow(AuthenticationError);
+        });
+      });
+
+      describe('Debug mode logging for various methods', () => {
+        let debugClient: AxonFlow;
+        let logSpy: jest.SpyInstance;
+
+        beforeEach(() => {
+          debugClient = new AxonFlow({
+            apiKey: 'test-key',
+            tenant: 'test-tenant',
+            endpoint: 'http://localhost:8080',
+            debug: true,
+          });
+          logSpy = jest.spyOn(console, 'log').mockImplementation();
+        });
+
+        afterEach(() => {
+          logSpy.mockRestore();
+        });
+
+        it('should log in debug mode for executeQuery', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                blocked: false,
+                data: {},
+              }),
+          });
+
+          await debugClient.executeQuery({
+            userToken: 'user-123',
+            query: 'Test',
+            requestType: 'chat',
+          });
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for getPolicyApprovedContext', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                context_id: 'ctx-123',
+                approved: true,
+                approved_data: {},
+                policies: [],
+              }),
+          });
+
+          await debugClient.getPolicyApprovedContext({
+            userToken: 'user-123',
+            query: 'Test',
+          });
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for auditLLMCall', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                audit_id: 'audit-123',
+              }),
+          });
+
+          await debugClient.auditLLMCall({
+            contextId: 'ctx-123',
+            responseSummary: 'Response',
+            provider: 'openai',
+            model: 'gpt-4',
+            tokenUsage: { promptTokens: 10, completionTokens: 10, totalTokens: 20 },
+            latencyMs: 100,
+          });
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for queryConnector', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                data: {},
+              }),
+          });
+
+          await debugClient.queryConnector('postgres', 'SELECT 1');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for installConnector', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ success: true }),
+          });
+
+          await debugClient.installConnector({
+            connector_id: 'conn-1',
+            name: 'postgres',
+            tenant_id: 'test-tenant',
+            options: {},
+            credentials: {},
+          });
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for uninstallConnector', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ success: true }),
+          });
+
+          await debugClient.uninstallConnector('postgres');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for getConnector', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                id: 'conn-1',
+                name: 'postgres',
+                version: '1.0.0',
+                description: 'PostgreSQL connector',
+              }),
+          });
+
+          await debugClient.getConnector('conn-1');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for getConnectorHealth', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                healthy: true,
+                last_check: '2025-01-01T00:00:00Z',
+              }),
+          });
+
+          await debugClient.getConnectorHealth('conn-1');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for generatePlan', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                plan_id: 'plan-123',
+                data: {
+                  steps: [],
+                  domain: 'test',
+                  complexity: 1,
+                  parallel: false,
+                },
+              }),
+          });
+
+          await debugClient.generatePlan('Test plan');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for executePlan', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                result: 'done',
+              }),
+          });
+
+          await debugClient.executePlan('plan-123');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for getExecution', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                summary: {
+                  request_id: 'exec-123',
+                  workflow_name: 'test',
+                  status: 'completed',
+                  total_steps: 1,
+                  completed_steps: 1,
+                  started_at: '2025-01-01T00:00:00Z',
+                  total_tokens: 100,
+                  total_cost_usd: 0.01,
+                },
+                steps: [],
+              }),
+          });
+
+          await debugClient.getExecution('exec-123');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for getExecutionSteps', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve([]),
+          });
+
+          await debugClient.getExecutionSteps('exec-123');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for getExecutionTimeline', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve([]),
+          });
+
+          await debugClient.getExecutionTimeline('exec-123');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for exportExecution', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ execution_id: 'exec-123' }),
+          });
+
+          await debugClient.exportExecution('exec-123');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+
+        it('should log in debug mode for deleteExecution', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            status: 204,
+          });
+
+          await debugClient.deleteExecution('exec-123');
+
+          expect(logSpy).toHaveBeenCalled();
+        });
+      });
+
+      describe('orchestratorRequest error handling', () => {
+        it('should handle 404 error in orchestratorRequest', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 404,
+            statusText: 'Not Found',
+            text: () => Promise.resolve('Resource not found'),
+          });
+
+          await expect(client.listConnectors()).rejects.toThrow(APIError);
+        });
+
+        it('should handle generic error in orchestratorRequest', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 502,
+            statusText: 'Bad Gateway',
+            text: () => Promise.resolve('Gateway error'),
+          });
+
+          await expect(client.listConnectors()).rejects.toThrow('API error: 502 Bad Gateway');
+        });
+      });
+
+      describe('generatePlan with userToken', () => {
+        it('should pass userToken to generatePlan', async () => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                plan_id: 'plan-123',
+                data: {
+                  steps: [],
+                  domain: 'travel',
+                  complexity: 1,
+                  parallel: false,
+                },
+              }),
+          });
+
+          await client.generatePlan('Book flight', 'travel', 'user-token-123');
+
+          expect(mockFetch).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+              body: expect.stringContaining('user-token-123'),
+            })
+          );
+        });
+      });
+
+      describe('queryConnector with licenseKey', () => {
+        it('should use licenseKey in queryConnector', async () => {
+          const clientWithLicense = new AxonFlow({
+            licenseKey: 'license-key-123',
+            tenant: 'test-tenant',
+            endpoint: 'http://localhost:8080',
+          });
+
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                success: true,
+                data: {},
+              }),
+          });
+
+          await clientWithLicense.queryConnector('postgres', 'SELECT 1');
+
+          expect(mockFetch).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+              headers: expect.objectContaining({
+                'X-License-Key': 'license-key-123',
+              }),
+            })
+          );
+        });
+      });
+    });
   });
 });
