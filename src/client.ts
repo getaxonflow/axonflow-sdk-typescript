@@ -6,6 +6,7 @@ import {
   ConnectorMetadata,
   ConnectorInstallRequest,
   ConnectorResponse,
+  ConnectorHealthStatus,
   PlanResponse,
   PlanExecutionResponse,
   PolicyApprovalResult,
@@ -667,6 +668,38 @@ export class AxonFlow {
     if (this.config.debug) {
       debugLog('Connector uninstalled', { name: connectorName });
     }
+  }
+
+  /**
+   * Get details for a specific connector by ID
+   */
+  async getConnector(connectorId: string): Promise<ConnectorMetadata> {
+    const connector = await this.orchestratorRequest<ConnectorMetadata>(
+      'GET',
+      `/api/v1/connectors/${connectorId}`
+    );
+
+    if (this.config.debug) {
+      debugLog('Got connector', { id: connectorId });
+    }
+
+    return connector;
+  }
+
+  /**
+   * Get health status of an installed connector
+   */
+  async getConnectorHealth(connectorId: string): Promise<ConnectorHealthStatus> {
+    const health = await this.orchestratorRequest<ConnectorHealthStatus>(
+      'GET',
+      `/api/v1/connectors/${connectorId}/health`
+    );
+
+    if (this.config.debug) {
+      debugLog('Got connector health', { id: connectorId, healthy: health.healthy });
+    }
+
+    return health;
   }
 
   /**
@@ -1509,7 +1542,7 @@ export class AxonFlow {
    * @example
    * ```typescript
    * const policies = await axonflow.listDynamicPolicies({
-   *   category: 'dynamic-cost',
+   *   type: 'cost',
    *   enabled: true
    * });
    * ```
@@ -1517,8 +1550,7 @@ export class AxonFlow {
   async listDynamicPolicies(options?: ListDynamicPoliciesOptions): Promise<DynamicPolicy[]> {
     const params = new URLSearchParams();
 
-    if (options?.category) params.set('category', options.category);
-    if (options?.tier) params.set('tier', options.tier);
+    if (options?.type) params.set('type', options.type);
     if (options?.enabled !== undefined) params.set('enabled', String(options.enabled));
     if (options?.limit) params.set('limit', String(options.limit));
     if (options?.offset) params.set('offset', String(options.offset));

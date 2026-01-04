@@ -114,7 +114,7 @@ export type {
   PolicyOverride,
   CreatePolicyOverrideRequest,
   DynamicPolicy,
-  DynamicPolicyConfig,
+  DynamicPolicyAction,
   DynamicPolicyCondition,
   CreateDynamicPolicyRequest,
   UpdateDynamicPolicyRequest,

@@ -66,17 +66,13 @@ describe('Policy CRUD Methods', () => {
     id: 'dpol_456',
     name: 'Rate Limit API',
     description: 'Rate limit API calls',
-    category: 'dynamic-cost',
-    tier: 'organization',
+    type: 'cost',
+    conditions: [{ field: 'requests_per_minute', operator: 'greater_than', value: 100 }],
+    actions: [{ type: 'block', config: { reason: 'Rate limit exceeded' } }],
+    priority: 50,
     enabled: true,
-    config: {
-      type: 'rate-limit',
-      rules: { maxRequestsPerMinute: 100 },
-      action: 'block',
-    },
-    createdAt: '2025-01-01T00:00:00Z',
-    updatedAt: '2025-01-01T00:00:00Z',
-    version: 1,
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
   };
 
   const sampleOverride: PolicyOverride = {
@@ -496,13 +492,13 @@ describe('Policy CRUD Methods', () => {
         );
       });
 
-      it('should filter by category', async () => {
+      it('should filter by type', async () => {
         mockFetch.mockReturnValueOnce(mockResponse([sampleDynamicPolicy]));
 
-        await client.listDynamicPolicies({ category: 'dynamic-cost' });
+        await client.listDynamicPolicies({ type: 'cost' });
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8081/api/v1/policies/dynamic?category=dynamic-cost',
+          'http://localhost:8081/api/v1/policies/dynamic?type=cost',
           expect.any(Object)
         );
       });
@@ -515,7 +511,7 @@ describe('Policy CRUD Methods', () => {
         const policy = await client.getDynamicPolicy('dpol_456');
 
         expect(policy.id).toBe('dpol_456');
-        expect(policy.config.type).toBe('rate-limit');
+        expect(policy.type).toBe('cost');
       });
     });
 
@@ -525,12 +521,10 @@ describe('Policy CRUD Methods', () => {
 
         const request: CreateDynamicPolicyRequest = {
           name: 'Rate Limit API',
-          category: 'dynamic-cost',
-          config: {
-            type: 'rate-limit',
-            rules: { maxRequestsPerMinute: 100 },
-            action: 'block',
-          },
+          type: 'cost',
+          conditions: [{ field: 'requests_per_minute', operator: 'greater_than', value: 100 }],
+          actions: [{ type: 'block', config: { reason: 'Rate limit exceeded' } }],
+          priority: 50,
         };
 
         const policy = await client.createDynamicPolicy(request);
@@ -550,22 +544,15 @@ describe('Policy CRUD Methods', () => {
       it('should update a dynamic policy', async () => {
         const updatedPolicy = {
           ...sampleDynamicPolicy,
-          config: {
-            ...sampleDynamicPolicy.config,
-            rules: { maxRequestsPerMinute: 200 },
-          },
+          conditions: [{ field: 'requests_per_minute', operator: 'greater_than', value: 200 }],
         };
         mockFetch.mockReturnValueOnce(mockResponse(updatedPolicy));
 
         const policy = await client.updateDynamicPolicy('dpol_456', {
-          config: {
-            type: 'rate-limit',
-            rules: { maxRequestsPerMinute: 200 },
-            action: 'block',
-          },
+          conditions: [{ field: 'requests_per_minute', operator: 'greater_than', value: 200 }],
         });
 
-        expect(policy.config.rules).toEqual({ maxRequestsPerMinute: 200 });
+        expect(policy.conditions?.[0]?.value).toBe(200);
       });
     });
 
@@ -803,23 +790,22 @@ describe('Policy CRUD Methods', () => {
     });
 
     it('should handle list dynamic policies with all options', async () => {
-      const dynamicPolicy = {
+      const dynamicPolicy: DynamicPolicy = {
         id: 'dpol_456',
         name: 'Rate Limit',
         description: 'Rate limiting',
-        category: 'dynamic-cost',
-        tier: 'tenant',
-        type: 'rate-limit',
-        config: { max_requests: 100 },
+        type: 'cost',
+        conditions: [{ field: 'requests_per_minute', operator: 'greater_than', value: 100 }],
+        actions: [{ type: 'block', config: { reason: 'Rate limit exceeded' } }],
+        priority: 50,
         enabled: true,
-        createdAt: '2025-01-01T00:00:00Z',
-        updatedAt: '2025-01-01T00:00:00Z',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
       };
       mockFetch.mockReturnValueOnce(mockResponse([dynamicPolicy]));
 
       await client.listDynamicPolicies({
-        category: 'dynamic-cost',
-        tier: 'organization',
+        type: 'cost',
         enabled: true,
         sortBy: 'name',
         sortOrder: 'asc',
@@ -828,8 +814,7 @@ describe('Policy CRUD Methods', () => {
       });
 
       const url = mockFetch.mock.calls[0][0];
-      expect(url).toContain('category=dynamic-cost');
-      expect(url).toContain('tier=organization');
+      expect(url).toContain('type=cost');
       expect(url).toContain('enabled=true');
     });
 
