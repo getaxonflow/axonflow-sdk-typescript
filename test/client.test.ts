@@ -746,9 +746,10 @@ describe('AxonFlow Client Unit Tests', () => {
           ok: false,
           status: 500,
           statusText: 'Server Error',
+          text: () => Promise.resolve('Internal server error'),
         });
 
-        await expect(client.listConnectors()).rejects.toThrow('Failed to list connectors');
+        await expect(client.listConnectors()).rejects.toThrow('API error: 500 Server Error');
       });
     });
 
@@ -786,7 +787,7 @@ describe('AxonFlow Client Unit Tests', () => {
             options: {},
             credentials: {},
           })
-        ).rejects.toThrow('Failed to install connector');
+        ).rejects.toThrow('API error: 400 Bad Request');
       });
     });
 

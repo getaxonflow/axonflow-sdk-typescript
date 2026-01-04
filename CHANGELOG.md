@@ -5,6 +5,22 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-01-04
+
+### Added
+
+- **Orchestrator Health Check**: `orchestratorHealthCheck()` to verify Orchestrator service health
+- **Uninstall Connector**: `uninstallConnector()` to remove installed MCP connectors
+
+### Fixed
+
+- **Connector API Endpoints**: Fixed endpoints to use Orchestrator (port 8081) instead of Agent
+  - `listConnectors()` - Changed from Agent `/api/connectors` to Orchestrator `/api/v1/connectors`
+  - `installConnector()` - Fixed path to `/api/v1/connectors/{id}/install`
+- **Dynamic Policies Endpoint**: Changed from Agent `/api/v1/policies` to Orchestrator `/api/v1/policies/dynamic`
+
+---
+
 ## [1.12.0] - 2026-01-04
 
 ### Added

@@ -491,7 +491,7 @@ describe('Policy CRUD Methods', () => {
         expect(policies[0].id).toBe('dpol_456');
         expect(policies[0].name).toBe('Rate Limit API');
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/policies',
+          'http://localhost:8081/api/v1/policies/dynamic',
           expect.objectContaining({ method: 'GET' })
         );
       });
@@ -502,7 +502,7 @@ describe('Policy CRUD Methods', () => {
         await client.listDynamicPolicies({ category: 'dynamic-cost' });
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/policies?category=dynamic-cost',
+          'http://localhost:8081/api/v1/policies/dynamic?category=dynamic-cost',
           expect.any(Object)
         );
       });
@@ -537,7 +537,7 @@ describe('Policy CRUD Methods', () => {
 
         expect(policy.id).toBe('dpol_456');
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/policies',
+          'http://localhost:8081/api/v1/policies/dynamic',
           expect.objectContaining({
             method: 'POST',
             body: expect.stringContaining('Rate Limit API'),
@@ -584,7 +584,7 @@ describe('Policy CRUD Methods', () => {
         await client.deleteDynamicPolicy('dpol_456');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/policies/dpol_456',
+          'http://localhost:8081/api/v1/policies/dynamic/dpol_456',
           expect.objectContaining({ method: 'DELETE' })
         );
       });
@@ -609,7 +609,7 @@ describe('Policy CRUD Methods', () => {
 
         expect(policies).toHaveLength(1);
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/policies/effective',
+          'http://localhost:8081/api/v1/policies/dynamic/effective',
           expect.objectContaining({ method: 'GET' })
         );
       });
