@@ -11,18 +11,24 @@
  * Policy categories for organization and filtering
  */
 export type PolicyCategory =
+  // Static policy categories - Security
   | 'security-sqli'
   | 'security-admin'
+  // Static policy categories - PII Detection
   | 'pii-global'
   | 'pii-us'
   | 'pii-eu'
   | 'pii-india'
+  // Static policy categories - Code Governance
+  | 'code-secrets'
+  | 'code-unsafe'
+  | 'code-compliance'
+  // Dynamic policy categories
   | 'dynamic-risk'
   | 'dynamic-compliance'
   | 'dynamic-security'
   | 'dynamic-cost'
-  | 'dynamic-access'
-  | 'custom';
+  | 'dynamic-access';
 
 /**
  * Policy tiers determine where policies apply
