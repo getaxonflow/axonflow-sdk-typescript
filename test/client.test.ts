@@ -1446,5 +1446,510 @@ describe('AxonFlow Client Unit Tests', () => {
         logSpy.mockRestore();
       });
     });
+
+    describe('Cost Controls - Budgets', () => {
+      it('should create budget successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: 'budget-123',
+              name: 'Test Budget',
+              scope: 'organization',
+              limit_usd: 1000,
+              period: 'monthly',
+              on_exceed: 'warn',
+              alert_thresholds: [50, 80, 100],
+              enabled: true,
+            }),
+        });
+
+        const result = await client.createBudget({
+          id: 'budget-123',
+          name: 'Test Budget',
+          scope: 'organization',
+          limitUsd: 1000,
+          period: 'monthly',
+          onExceed: 'warn',
+          alertThresholds: [50, 80, 100],
+        });
+
+        expect(result.id).toBe('budget-123');
+        expect(result.name).toBe('Test Budget');
+        expect(result.scope).toBe('organization');
+        expect(result.limitUsd).toBe(1000);
+        expect(result.period).toBe('monthly');
+        expect(result.onExceed).toBe('warn');
+        expect(result.alertThresholds).toEqual([50, 80, 100]);
+      });
+
+      it('should get budget successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: 'budget-123',
+              name: 'Test Budget',
+              scope: 'team',
+              limit_usd: 500,
+              period: 'weekly',
+              on_exceed: 'block',
+              alert_thresholds: [75, 90],
+              enabled: true,
+              scope_id: 'team-456',
+            }),
+        });
+
+        const result = await client.getBudget('budget-123');
+
+        expect(result.id).toBe('budget-123');
+        expect(result.scope).toBe('team');
+        expect(result.scopeId).toBe('team-456');
+      });
+
+      it('should list budgets successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              budgets: [
+                {
+                  id: 'budget-1',
+                  name: 'Budget 1',
+                  scope: 'organization',
+                  limit_usd: 1000,
+                  period: 'monthly',
+                  on_exceed: 'warn',
+                  alert_thresholds: [50],
+                  enabled: true,
+                },
+                {
+                  id: 'budget-2',
+                  name: 'Budget 2',
+                  scope: 'team',
+                  limit_usd: 500,
+                  period: 'weekly',
+                  on_exceed: 'block',
+                  alert_thresholds: [80],
+                  enabled: true,
+                },
+              ],
+              total: 2,
+            }),
+        });
+
+        const result = await client.listBudgets();
+
+        expect(result.budgets).toHaveLength(2);
+        expect(result.total).toBe(2);
+        expect(result.budgets[0].id).toBe('budget-1');
+        expect(result.budgets[1].id).toBe('budget-2');
+      });
+
+      it('should list budgets with options', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              budgets: [],
+              total: 0,
+            }),
+        });
+
+        await client.listBudgets({ scope: 'team', limit: 10, offset: 5 });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('scope=team'),
+          expect.any(Object)
+        );
+      });
+
+      it('should update budget successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: 'budget-123',
+              name: 'Updated Budget',
+              scope: 'organization',
+              limit_usd: 2000,
+              period: 'monthly',
+              on_exceed: 'block',
+              alert_thresholds: [50, 75, 100],
+              enabled: true,
+            }),
+        });
+
+        const result = await client.updateBudget('budget-123', {
+          name: 'Updated Budget',
+          limitUsd: 2000,
+          onExceed: 'block',
+          alertThresholds: [50, 75, 100],
+        });
+
+        expect(result.name).toBe('Updated Budget');
+        expect(result.limitUsd).toBe(2000);
+        expect(result.onExceed).toBe('block');
+      });
+
+      it('should delete budget successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({}),
+        });
+
+        await expect(client.deleteBudget('budget-123')).resolves.not.toThrow();
+      });
+    });
+
+    describe('Cost Controls - Budget Status & Alerts', () => {
+      it('should get budget status successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              budget: {
+                id: 'budget-123',
+                name: 'Test Budget',
+                scope: 'organization',
+                limit_usd: 1000,
+                period: 'monthly',
+                on_exceed: 'warn',
+                alert_thresholds: [50, 80],
+                enabled: true,
+              },
+              used_usd: 450,
+              remaining_usd: 550,
+              percentage: 45,
+              is_exceeded: false,
+              is_blocked: false,
+              period_start: '2025-01-01T00:00:00Z',
+              period_end: '2025-01-31T23:59:59Z',
+            }),
+        });
+
+        const result = await client.getBudgetStatus('budget-123');
+
+        expect(result.usedUsd).toBe(450);
+        expect(result.remainingUsd).toBe(550);
+        expect(result.percentage).toBe(45);
+        expect(result.isExceeded).toBe(false);
+        expect(result.isBlocked).toBe(false);
+        expect(result.budget.id).toBe('budget-123');
+      });
+
+      it('should get budget alerts successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              alerts: [
+                {
+                  id: 'alert-1',
+                  budget_id: 'budget-123',
+                  alert_type: 'threshold',
+                  threshold: 50,
+                  percentage_reached: 52,
+                  amount_usd: 520,
+                  message: 'Budget reached 50% threshold',
+                  created_at: '2025-01-15T10:30:00Z',
+                },
+              ],
+              count: 1,
+            }),
+        });
+
+        const result = await client.getBudgetAlerts('budget-123');
+
+        expect(result.alerts).toHaveLength(1);
+        expect(result.count).toBe(1);
+        expect(result.alerts[0].alertType).toBe('threshold');
+        expect(result.alerts[0].threshold).toBe(50);
+      });
+
+      it('should check budget successfully - allowed', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              allowed: true,
+              action: 'allow',
+              message: 'Budget check passed',
+            }),
+        });
+
+        const result = await client.checkBudget({ orgId: 'org-123' });
+
+        expect(result.allowed).toBe(true);
+        expect(result.action).toBe('allow');
+      });
+
+      it('should check budget successfully - blocked', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              allowed: false,
+              action: 'block',
+              message: 'Budget exceeded',
+              budgets: [
+                {
+                  id: 'budget-123',
+                  name: 'Test Budget',
+                  scope: 'organization',
+                  limit_usd: 1000,
+                  period: 'monthly',
+                  on_exceed: 'block',
+                  alert_thresholds: [],
+                  enabled: true,
+                },
+              ],
+            }),
+        });
+
+        const result = await client.checkBudget({
+          orgId: 'org-123',
+          teamId: 'team-456',
+          agentId: 'agent-789',
+        });
+
+        expect(result.allowed).toBe(false);
+        expect(result.action).toBe('block');
+        expect(result.budgets).toBeDefined();
+        expect(result.budgets).toHaveLength(1);
+      });
+    });
+
+    describe('Cost Controls - Usage', () => {
+      it('should get usage summary successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              total_cost_usd: 1234.56,
+              total_requests: 5000,
+              total_tokens_in: 1000000,
+              total_tokens_out: 500000,
+              average_cost_per_request: 0.247,
+              period: 'monthly',
+              period_start: '2025-01-01T00:00:00Z',
+              period_end: '2025-01-31T23:59:59Z',
+            }),
+        });
+
+        const result = await client.getUsageSummary('monthly');
+
+        expect(result.totalCostUsd).toBe(1234.56);
+        expect(result.totalRequests).toBe(5000);
+        expect(result.totalTokensIn).toBe(1000000);
+        expect(result.totalTokensOut).toBe(500000);
+        expect(result.period).toBe('monthly');
+      });
+
+      it('should get usage summary without period', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              total_cost_usd: 100,
+              total_requests: 100,
+              total_tokens_in: 10000,
+              total_tokens_out: 5000,
+              average_cost_per_request: 1,
+              period: 'daily',
+              period_start: '2025-01-15T00:00:00Z',
+              period_end: '2025-01-15T23:59:59Z',
+            }),
+        });
+
+        await client.getUsageSummary();
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/v1/usage'),
+          expect.any(Object)
+        );
+      });
+
+      it('should get usage breakdown successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              group_by: 'provider',
+              total_cost_usd: 1000,
+              items: [
+                {
+                  group_value: 'openai',
+                  cost_usd: 600,
+                  percentage: 60,
+                  request_count: 3000,
+                  tokens_in: 600000,
+                  tokens_out: 300000,
+                },
+                {
+                  group_value: 'anthropic',
+                  cost_usd: 400,
+                  percentage: 40,
+                  request_count: 2000,
+                  tokens_in: 400000,
+                  tokens_out: 200000,
+                },
+              ],
+              period: 'monthly',
+              period_start: '2025-01-01T00:00:00Z',
+              period_end: '2025-01-31T23:59:59Z',
+            }),
+        });
+
+        const result = await client.getUsageBreakdown('provider', 'monthly');
+
+        expect(result.groupBy).toBe('provider');
+        expect(result.totalCostUsd).toBe(1000);
+        expect(result.items).toHaveLength(2);
+        expect(result.items[0].groupValue).toBe('openai');
+        expect(result.items[0].percentage).toBe(60);
+      });
+
+      it('should list usage records successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              records: [
+                {
+                  id: 'record-1',
+                  provider: 'openai',
+                  model: 'gpt-4',
+                  tokens_in: 1000,
+                  tokens_out: 500,
+                  cost_usd: 0.05,
+                  request_id: 'req-123',
+                  org_id: 'org-456',
+                  timestamp: '2025-01-15T10:30:00Z',
+                },
+              ],
+              total: 1,
+            }),
+        });
+
+        const result = await client.listUsageRecords();
+
+        expect(result.records).toHaveLength(1);
+        expect(result.total).toBe(1);
+        expect(result.records[0].provider).toBe('openai');
+        expect(result.records[0].model).toBe('gpt-4');
+        expect(result.records[0].costUsd).toBe(0.05);
+      });
+
+      it('should list usage records with options', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              records: [],
+              total: 0,
+            }),
+        });
+
+        await client.listUsageRecords({
+          limit: 50,
+          offset: 10,
+          provider: 'anthropic',
+          model: 'claude-3',
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('provider=anthropic'),
+          expect.any(Object)
+        );
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('model=claude-3'),
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('Cost Controls - Pricing', () => {
+      it('should get pricing list successfully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              pricing: [
+                {
+                  provider: 'openai',
+                  model: 'gpt-4',
+                  pricing: {
+                    input_per_1k: 0.03,
+                    output_per_1k: 0.06,
+                  },
+                },
+                {
+                  provider: 'anthropic',
+                  model: 'claude-3-opus',
+                  pricing: {
+                    input_per_1k: 0.015,
+                    output_per_1k: 0.075,
+                  },
+                },
+              ],
+            }),
+        });
+
+        const result = await client.getPricing();
+
+        expect(result.pricing).toHaveLength(2);
+        expect(result.pricing[0].provider).toBe('openai');
+        expect(result.pricing[0].pricing.inputPer1k).toBe(0.03);
+        expect(result.pricing[1].provider).toBe('anthropic');
+      });
+
+      it('should get pricing with provider filter', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              pricing: [
+                {
+                  provider: 'openai',
+                  model: 'gpt-4',
+                  pricing: {
+                    input_per_1k: 0.03,
+                    output_per_1k: 0.06,
+                  },
+                },
+              ],
+            }),
+        });
+
+        await client.getPricing('openai');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('provider=openai'),
+          expect.any(Object)
+        );
+      });
+
+      it('should handle single pricing object response', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              provider: 'openai',
+              model: 'gpt-4',
+              pricing: {
+                input_per_1k: 0.03,
+                output_per_1k: 0.06,
+              },
+            }),
+        });
+
+        const result = await client.getPricing('openai', 'gpt-4');
+
+        expect(result.pricing).toHaveLength(1);
+        expect(result.pricing[0].provider).toBe('openai');
+        expect(result.pricing[0].model).toBe('gpt-4');
+      });
+    });
   });
 });
