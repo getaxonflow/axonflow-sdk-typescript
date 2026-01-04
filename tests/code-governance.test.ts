@@ -767,9 +767,7 @@ describe('Code Governance Methods', () => {
         tenant: 'test-tenant',
       });
 
-      mockFetch.mockReturnValueOnce(
-        mockResponse({ error: 'Invalid credentials' }, 401)
-      );
+      mockFetch.mockReturnValueOnce(mockResponse({ error: 'Invalid credentials' }, 401));
 
       await expect(freshClient.loginToPortal('bad-org', 'bad-pass')).rejects.toThrow(
         'Login failed'
