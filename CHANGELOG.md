@@ -5,6 +5,20 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-01-04
+
+### Added
+
+- **Portal Authentication**: Added `loginToPortal()` and `logoutFromPortal()` for session-based authentication
+- **Portal URL Configuration**: New `portalUrl` config option for Code Governance portal endpoints
+- **CSV Export**: Added `exportCodeGovernanceDataCsv()` for CSV format exports
+
+### Fixed
+
+- **Code Governance Authentication**: Changed Code Governance methods to use portal session-based auth instead of API key auth
+
+---
+
 ## [1.13.0] - 2026-01-04
 
 ### Added
