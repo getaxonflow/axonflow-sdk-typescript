@@ -9,3 +9,4 @@ export * from './gateway';
 export * from './proxy';
 export * from './code-governance';
 export * from './execution-replay';
+export * from './cost-controls';
