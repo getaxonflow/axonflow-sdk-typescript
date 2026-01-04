@@ -12,29 +12,52 @@ global.fetch = mockFetch as unknown as typeof fetch;
 describe('Code Governance Methods', () => {
   let client: AxonFlow;
 
-  beforeEach(() => {
+  // Helper to create mock responses
+  const mockResponse = (data: unknown, status = 200, headers: Record<string, string> = {}) => {
+    return Promise.resolve({
+      ok: status >= 200 && status < 300,
+      status,
+      statusText: status === 200 ? 'OK' : 'Error',
+      headers: {
+        get: (name: string) => headers[name.toLowerCase()] || null,
+      },
+      json: () => Promise.resolve(data),
+      text: () => Promise.resolve(JSON.stringify(data)),
+    });
+  };
+
+  // Helper to mock portal login
+  const mockPortalLogin = () => {
+    mockFetch.mockReturnValueOnce(
+      mockResponse(
+        {
+          session_id: 'test-session',
+          org_id: 'test-org',
+          email: 'test@example.com',
+          name: 'Test User',
+          expires_at: new Date(Date.now() + 86400000).toISOString(),
+        },
+        200,
+        { 'set-cookie': 'axonflow_session=test-session-cookie; Path=/' }
+      )
+    );
+  };
+
+  beforeEach(async () => {
     jest.clearAllMocks();
     client = new AxonFlow({
       endpoint: 'http://localhost:8080',
       licenseKey: 'test-license-key',
       tenant: 'test-tenant',
     });
+    // Login to portal before each test since Code Governance requires auth
+    mockPortalLogin();
+    await client.loginToPortal('test-org', 'test-pass');
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
-
-  // Helper to create mock responses
-  const mockResponse = (data: unknown, status = 200) => {
-    return Promise.resolve({
-      ok: status >= 200 && status < 300,
-      status,
-      statusText: status === 200 ? 'OK' : 'Error',
-      json: () => Promise.resolve(data),
-      text: () => Promise.resolve(JSON.stringify(data)),
-    });
-  };
 
   // Sample test data
   const samplePRRecord = {
@@ -89,7 +112,7 @@ describe('Code Governance Methods', () => {
 
         expect(result.valid).toBe(true);
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/code-governance/git-providers/validate',
+          'http://localhost:8082/api/v1/code-governance/git-providers/validate',
           expect.objectContaining({
             method: 'POST',
             body: JSON.stringify({
@@ -190,7 +213,7 @@ describe('Code Governance Methods', () => {
 
         expect(result.message).toBe('Git provider configured successfully');
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/code-governance/git-providers',
+          'http://localhost:8082/api/v1/code-governance/git-providers',
           expect.objectContaining({
             method: 'POST',
           })
@@ -259,7 +282,7 @@ describe('Code Governance Methods', () => {
         await client.deleteGitProvider('github');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/code-governance/git-providers/github',
+          'http://localhost:8082/api/v1/code-governance/git-providers/github',
           expect.objectContaining({
             method: 'DELETE',
           })
@@ -343,8 +366,8 @@ describe('Code Governance Methods', () => {
         expect(result.prNumber).toBe(43);
         expect(result.headBranch).toBe('feat/custom-branch');
 
-        // Verify all fields were sent
-        const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+        // Verify all fields were sent (calls[1] because calls[0] is the login)
+        const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
         expect(callBody.description).toBe('Generated validation utilities');
         expect(callBody.base_branch).toBe('develop');
         expect(callBody.branch_name).toBe('feat/custom-branch');
@@ -389,7 +412,7 @@ describe('Code Governance Methods', () => {
         });
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/code-governance/prs?limit=10&offset=5&state=open',
+          'http://localhost:8082/api/v1/code-governance/prs?limit=10&offset=5&state=open',
           expect.any(Object)
         );
       });
@@ -424,7 +447,7 @@ describe('Code Governance Methods', () => {
         expect(result.id).toBe('pr_123');
         expect(result.prNumber).toBe(42);
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/code-governance/prs/pr_123',
+          'http://localhost:8082/api/v1/code-governance/prs/pr_123',
           expect.any(Object)
         );
       });
@@ -439,7 +462,7 @@ describe('Code Governance Methods', () => {
 
         expect(result.state).toBe('merged');
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/code-governance/prs/pr_123/sync',
+          'http://localhost:8082/api/v1/code-governance/prs/pr_123/sync',
           expect.objectContaining({
             method: 'POST',
           })
@@ -509,7 +532,7 @@ describe('Code Governance Methods', () => {
         expect(result.records).toHaveLength(1);
         expect(result.records[0].prNumber).toBe(42);
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/v1/code-governance/export?format=json',
+          'http://localhost:8082/api/v1/code-governance/export?format=json',
           expect.any(Object)
         );
       });
@@ -561,6 +584,50 @@ describe('Code Governance Methods', () => {
         expect(result.records[0].providerType).toBe('github');
       });
     });
+
+    describe('exportCodeGovernanceDataCSV', () => {
+      it('should export data as CSV without filters', async () => {
+        mockFetch.mockReturnValueOnce(
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            headers: { get: () => null },
+            text: () => Promise.resolve('id,title,state\npr_123,Test PR,open'),
+          })
+        );
+
+        const result = await client.exportCodeGovernanceDataCSV();
+        expect(result).toContain('id,title,state');
+        expect(mockFetch).toHaveBeenCalledWith(
+          'http://localhost:8082/api/v1/code-governance/export?format=csv',
+          expect.any(Object)
+        );
+      });
+
+      it('should export CSV with date filters', async () => {
+        mockFetch.mockReturnValueOnce(
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            headers: { get: () => null },
+            text: () => Promise.resolve('id,title,state\npr_123,Test PR,merged'),
+          })
+        );
+
+        await client.exportCodeGovernanceDataCSV({
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+          state: 'merged',
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('start_date=2024-01-01'),
+          expect.any(Object)
+        );
+      });
+    });
   });
 
   // ========================================================================
@@ -578,6 +645,23 @@ describe('Code Governance Methods', () => {
 
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
+      // First mock the portal login
+      mockFetch.mockReturnValueOnce(
+        mockResponse(
+          {
+            session_id: 'test-session',
+            org_id: 'test-org',
+            email: 'test@example.com',
+            name: 'Test User',
+            expires_at: new Date(Date.now() + 86400000).toISOString(),
+          },
+          200,
+          { 'set-cookie': 'axonflow_session=test-session-cookie; Path=/' }
+        )
+      );
+      await debugClient.loginToPortal('test-org', 'test-pass');
+
+      // Then mock the actual API call
       mockFetch.mockReturnValueOnce(
         mockResponse({
           valid: true,
@@ -628,6 +712,200 @@ describe('Code Governance Methods', () => {
       mockFetch.mockReturnValueOnce(mockResponse({ error: 'Internal server error' }, 500));
 
       await expect(client.getCodeGovernanceMetrics()).rejects.toThrow();
+    });
+
+    it('should throw APIError on 404', async () => {
+      mockFetch.mockReturnValueOnce(mockResponse({ error: 'Not found' }, 404));
+
+      await expect(client.getPR('nonexistent')).rejects.toThrow('Not Found');
+    });
+
+    it('should log debug info on portal request with body', async () => {
+      const debugClient = new AxonFlow({
+        endpoint: 'http://localhost:8080',
+        licenseKey: 'test-license-key',
+        tenant: 'test-tenant',
+        debug: true,
+      });
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      // First login
+      mockFetch.mockReturnValueOnce(
+        mockResponse(
+          {
+            session_id: 'test-session',
+            org_id: 'test-org',
+            email: 'test@example.com',
+            name: 'Test User',
+            expires_at: new Date(Date.now() + 86400000).toISOString(),
+          },
+          200,
+          { 'set-cookie': 'axonflow_session=test-session-cookie; Path=/' }
+        )
+      );
+      await debugClient.loginToPortal('test-org', 'test-pass');
+
+      // Then configure provider (POST with body)
+      mockFetch.mockReturnValueOnce(mockResponse({ message: 'configured' }));
+      await debugClient.configureGitProvider({ type: 'github', token: 'ghp_xxx' });
+
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // ========================================================================
+  // Portal Authentication Edge Cases
+  // ========================================================================
+
+  describe('Portal Authentication Edge Cases', () => {
+    it('should handle login failure', async () => {
+      const freshClient = new AxonFlow({
+        endpoint: 'http://localhost:8080',
+        licenseKey: 'test-license-key',
+        tenant: 'test-tenant',
+      });
+
+      mockFetch.mockReturnValueOnce(mockResponse({ error: 'Invalid credentials' }, 401));
+
+      await expect(freshClient.loginToPortal('bad-org', 'bad-pass')).rejects.toThrow(
+        'Login failed'
+      );
+    });
+
+    it('should use session_id fallback when no cookie header', async () => {
+      const freshClient = new AxonFlow({
+        endpoint: 'http://localhost:8080',
+        licenseKey: 'test-license-key',
+        tenant: 'test-tenant',
+      });
+
+      // Mock login response without set-cookie header
+      mockFetch.mockReturnValueOnce(
+        mockResponse({
+          session_id: 'fallback-session-id',
+          org_id: 'test-org',
+          email: 'test@example.com',
+          name: 'Test User',
+          expires_at: new Date(Date.now() + 86400000).toISOString(),
+        })
+      );
+
+      const result = await freshClient.loginToPortal('test-org', 'test-pass');
+      expect(result.sessionId).toBe('fallback-session-id');
+      expect(freshClient.isLoggedIn()).toBe(true);
+    });
+
+    it('should check isLoggedIn correctly', () => {
+      // Client from beforeEach is logged in
+      expect(client.isLoggedIn()).toBe(true);
+
+      // Fresh client is not logged in
+      const freshClient = new AxonFlow({
+        endpoint: 'http://localhost:8080',
+        licenseKey: 'test-license-key',
+        tenant: 'test-tenant',
+      });
+      expect(freshClient.isLoggedIn()).toBe(false);
+    });
+
+    it('should handle logout successfully', async () => {
+      // Client is logged in from beforeEach
+      expect(client.isLoggedIn()).toBe(true);
+
+      // Mock logout response
+      mockFetch.mockReturnValueOnce(mockResponse({ success: true }));
+
+      await client.logoutFromPortal();
+      expect(client.isLoggedIn()).toBe(false);
+    });
+
+    it('should handle logout when not logged in', async () => {
+      const freshClient = new AxonFlow({
+        endpoint: 'http://localhost:8080',
+        licenseKey: 'test-license-key',
+        tenant: 'test-tenant',
+      });
+
+      // Should not throw and should return early
+      await freshClient.logoutFromPortal();
+      expect(freshClient.isLoggedIn()).toBe(false);
+    });
+
+    it('should handle logout network error silently', async () => {
+      // Client is logged in from beforeEach
+      expect(client.isLoggedIn()).toBe(true);
+
+      // Mock network error
+      mockFetch.mockReturnValueOnce(Promise.reject(new Error('Network error')));
+
+      // Should not throw
+      await client.logoutFromPortal();
+      expect(client.isLoggedIn()).toBe(false);
+    });
+
+    it('should log debug info during portal login', async () => {
+      const debugClient = new AxonFlow({
+        endpoint: 'http://localhost:8080',
+        licenseKey: 'test-license-key',
+        tenant: 'test-tenant',
+        debug: true,
+      });
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      mockFetch.mockReturnValueOnce(
+        mockResponse(
+          {
+            session_id: 'test-session',
+            org_id: 'test-org',
+            email: 'test@example.com',
+            name: 'Test User',
+            expires_at: new Date(Date.now() + 86400000).toISOString(),
+          },
+          200,
+          { 'set-cookie': 'axonflow_session=test-session-cookie; Path=/' }
+        )
+      );
+
+      await debugClient.loginToPortal('test-org', 'test-pass');
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it('should log debug info during portal logout', async () => {
+      const debugClient = new AxonFlow({
+        endpoint: 'http://localhost:8080',
+        licenseKey: 'test-license-key',
+        tenant: 'test-tenant',
+        debug: true,
+      });
+
+      // First login
+      mockFetch.mockReturnValueOnce(
+        mockResponse(
+          {
+            session_id: 'test-session',
+            org_id: 'test-org',
+            email: 'test@example.com',
+            name: 'Test User',
+            expires_at: new Date(Date.now() + 86400000).toISOString(),
+          },
+          200,
+          { 'set-cookie': 'axonflow_session=test-session-cookie; Path=/' }
+        )
+      );
+      await debugClient.loginToPortal('test-org', 'test-pass');
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      // Mock logout response
+      mockFetch.mockReturnValueOnce(mockResponse({ success: true }));
+
+      await debugClient.logoutFromPortal();
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
     });
   });
 });
