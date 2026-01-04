@@ -440,6 +440,60 @@ export class AxonFlow {
   }
 
   /**
+   * Check the health of the AxonFlow Orchestrator service.
+   *
+   * @returns Promise resolving to health status
+   * @example
+   * ```typescript
+   * const health = await axonflow.orchestratorHealthCheck();
+   * if (health.status === 'healthy') {
+   *   console.log('Orchestrator is healthy');
+   * }
+   * ```
+   */
+  async orchestratorHealthCheck(): Promise<HealthStatus> {
+    const url = `${this.getOrchestratorUrl()}/health`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(this.config.timeout),
+      });
+
+      if (!response.ok) {
+        return {
+          status: 'unhealthy',
+          components: {
+            orchestrator: { status: 'error', message: `HTTP ${response.status}` },
+          },
+        };
+      }
+
+      const data = await response.json();
+
+      return {
+        status: data.status === 'healthy' ? 'healthy' : 'degraded',
+        version: data.version,
+        uptime: data.uptime,
+        components: data.components,
+      };
+    } catch (error) {
+      if (this.config.debug) {
+        debugLog('Orchestrator health check failed', error);
+      }
+      return {
+        status: 'unhealthy',
+        components: {
+          orchestrator: {
+            status: 'error',
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
+        },
+      };
+    }
+  }
+
+  /**
    * Execute a query through AxonFlow with policy enforcement (Proxy Mode).
    *
    * This is the primary method for Proxy Mode, where AxonFlow handles policy
@@ -601,6 +655,17 @@ export class AxonFlow {
 
     if (this.config.debug) {
       debugLog('Connector installed', { name: request.name });
+    }
+  }
+
+  /**
+   * Uninstall an MCP connector
+   */
+  async uninstallConnector(connectorName: string): Promise<void> {
+    await this.orchestratorRequest<void>('DELETE', `/api/v1/connectors/${connectorName}`);
+
+    if (this.config.debug) {
+      debugLog('Connector uninstalled', { name: connectorName });
     }
   }
 
