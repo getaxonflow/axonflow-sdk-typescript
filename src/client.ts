@@ -87,6 +87,7 @@ export class AxonFlow {
     licenseKey?: string;
     endpoint: string;
     orchestratorEndpoint?: string;
+    portalEndpoint?: string;
     mode: 'sandbox' | 'production';
     tenant: string;
     debug: boolean;
@@ -96,6 +97,7 @@ export class AxonFlow {
     cache: { enabled: boolean; ttl: number };
   };
   private interceptors: BaseInterceptor[] = [];
+  private sessionCookie: string | null = null;
 
   constructor(config: AxonFlowConfig) {
     // Set defaults first to determine endpoint
@@ -111,6 +113,7 @@ export class AxonFlow {
       licenseKey: config.licenseKey,
       endpoint,
       orchestratorEndpoint: config.orchestratorEndpoint,
+      portalEndpoint: config.portalEndpoint,
       mode: config.mode || (hasCredentials ? 'production' : 'sandbox'),
       tenant: config.tenant || 'default',
       debug: config.debug || false,
@@ -1680,6 +1683,112 @@ export class AxonFlow {
   }
 
   // ============================================================================
+  // Portal Authentication Methods (Enterprise)
+  // ============================================================================
+
+  /**
+   * Login to Customer Portal and store session cookie.
+   * Required before using Code Governance methods.
+   *
+   * @param orgId - Organization ID
+   * @param password - Organization password
+   * @returns Login response with session info
+   *
+   * @example
+   * ```typescript
+   * const login = await axonflow.loginToPortal('test-org-001', 'test123');
+   * console.log(`Logged in as ${login.name}`);
+   *
+   * // Now you can use Code Governance methods
+   * const providers = await axonflow.listGitProviders();
+   * ```
+   */
+  async loginToPortal(
+    orgId: string,
+    password: string
+  ): Promise<{ sessionId: string; orgId: string; email: string; name: string; expiresAt: string }> {
+    const url = `${this.getPortalUrl()}/api/v1/auth/login`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ org_id: orgId, password }),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new AuthenticationError(`Login failed: ${errorText}`);
+    }
+
+    const result = (await response.json()) as {
+      session_id: string;
+      org_id: string;
+      email: string;
+      name: string;
+      expires_at: string;
+    };
+
+    // Extract session cookie from response
+    const cookies = response.headers.get('set-cookie');
+    if (cookies) {
+      const match = cookies.match(/axonflow_session=([^;]+)/);
+      if (match) {
+        this.sessionCookie = match[1];
+      }
+    }
+
+    // Fallback to session_id in response body
+    if (!this.sessionCookie && result.session_id) {
+      this.sessionCookie = result.session_id;
+    }
+
+    if (this.config.debug) {
+      debugLog('Portal login successful', { orgId });
+    }
+
+    return {
+      sessionId: result.session_id,
+      orgId: result.org_id,
+      email: result.email,
+      name: result.name,
+      expiresAt: result.expires_at,
+    };
+  }
+
+  /**
+   * Logout from Customer Portal and clear session cookie.
+   */
+  async logoutFromPortal(): Promise<void> {
+    if (!this.sessionCookie) {
+      return;
+    }
+
+    try {
+      await fetch(`${this.getPortalUrl()}/api/v1/auth/logout`, {
+        method: 'POST',
+        headers: { Cookie: `axonflow_session=${this.sessionCookie}` },
+        signal: AbortSignal.timeout(this.config.timeout),
+      });
+    } catch {
+      // Ignore logout errors
+    }
+
+    this.sessionCookie = null;
+
+    if (this.config.debug) {
+      debugLog('Portal logout successful');
+    }
+  }
+
+  /**
+   * Check if logged in to Customer Portal.
+   */
+  isLoggedIn(): boolean {
+    return this.sessionCookie !== null;
+  }
+
+  // ============================================================================
   // Code Governance Methods (Enterprise)
   // ============================================================================
 
@@ -1721,7 +1830,7 @@ export class AxonFlow {
     if (request.installationId) apiRequest.installation_id = request.installationId;
     if (request.privateKey) apiRequest.private_key = request.privateKey;
 
-    return this.policyRequest<ValidateGitProviderResponse>(
+    return this.portalRequest<ValidateGitProviderResponse>(
       'POST',
       '/api/v1/code-governance/git-providers/validate',
       apiRequest
@@ -1776,7 +1885,7 @@ export class AxonFlow {
     if (request.installationId) apiRequest.installation_id = request.installationId;
     if (request.privateKey) apiRequest.private_key = request.privateKey;
 
-    return this.policyRequest<ConfigureGitProviderResponse>(
+    return this.portalRequest<ConfigureGitProviderResponse>(
       'POST',
       '/api/v1/code-governance/git-providers',
       apiRequest
@@ -1800,7 +1909,7 @@ export class AxonFlow {
       debugLog('Listing Git providers');
     }
 
-    return this.policyRequest<ListGitProvidersResponse>(
+    return this.portalRequest<ListGitProvidersResponse>(
       'GET',
       '/api/v1/code-governance/git-providers'
     );
@@ -1821,7 +1930,7 @@ export class AxonFlow {
       debugLog('Deleting Git provider', { type });
     }
 
-    await this.policyRequest<void>('DELETE', `/api/v1/code-governance/git-providers/${type}`);
+    await this.portalRequest<void>('DELETE', `/api/v1/code-governance/git-providers/${type}`);
   }
 
   /**
@@ -1884,7 +1993,7 @@ export class AxonFlow {
       apiRequest.secrets_detected = request.secretsDetected;
     if (request.unsafePatterns !== undefined) apiRequest.unsafe_patterns = request.unsafePatterns;
 
-    const response = await this.policyRequest<{
+    const response = await this.portalRequest<{
       pr_id: string;
       pr_number: number;
       pr_url: string;
@@ -1939,7 +2048,7 @@ export class AxonFlow {
       debugLog('Listing PRs', { options });
     }
 
-    const response = await this.policyRequest<{
+    const response = await this.portalRequest<{
       prs: Array<{
         id: string;
         pr_number: number;
@@ -1962,7 +2071,7 @@ export class AxonFlow {
 
     // Transform snake_case response to camelCase
     return {
-      prs: response.prs.map(pr => ({
+      prs: (response.prs || []).map(pr => ({
         id: pr.id,
         prNumber: pr.pr_number,
         prUrl: pr.pr_url,
@@ -2000,7 +2109,7 @@ export class AxonFlow {
       debugLog('Getting PR', { prId });
     }
 
-    const response = await this.policyRequest<{
+    const response = await this.portalRequest<{
       id: string;
       pr_number: number;
       pr_url: string;
@@ -2056,7 +2165,7 @@ export class AxonFlow {
       debugLog('Syncing PR status', { prId });
     }
 
-    const response = await this.policyRequest<{
+    const response = await this.portalRequest<{
       id: string;
       pr_number: number;
       pr_url: string;
@@ -2116,7 +2225,7 @@ export class AxonFlow {
       debugLog('Getting code governance metrics');
     }
 
-    const response = await this.policyRequest<{
+    const response = await this.portalRequest<{
       tenant_id: string;
       total_prs: number;
       open_prs: number;
@@ -2178,7 +2287,7 @@ export class AxonFlow {
       debugLog('Exporting code governance data', { path });
     }
 
-    const response = await this.policyRequest<{
+    const response = await this.portalRequest<{
       records: Array<{
         id: string;
         pr_number: number;
@@ -2201,7 +2310,7 @@ export class AxonFlow {
     }>('GET', path);
 
     return {
-      records: response.records.map(r => ({
+      records: (response.records || []).map(r => ({
         id: r.id,
         prNumber: r.pr_number,
         prUrl: r.pr_url,
@@ -2221,6 +2330,38 @@ export class AxonFlow {
       count: response.count,
       exportedAt: response.exported_at,
     };
+  }
+
+  /**
+   * Export code governance data as CSV.
+   *
+   * Returns raw CSV data suitable for saving to file or streaming.
+   *
+   * @param options - Export options (date filters, state filter)
+   * @returns Raw CSV data
+   *
+   * @example
+   * ```typescript
+   * const csvData = await axonflow.exportCodeGovernanceDataCSV();
+   * fs.writeFileSync('pr-audit.csv', csvData);
+   * ```
+   */
+  async exportCodeGovernanceDataCSV(options?: ExportOptions): Promise<string> {
+    const params = new URLSearchParams();
+    params.set('format', 'csv');
+
+    if (options?.startDate) params.set('start_date', options.startDate);
+    if (options?.endDate) params.set('end_date', options.endDate);
+    if (options?.state) params.set('state', options.state);
+
+    const query = params.toString();
+    const path = `/api/v1/code-governance/export${query ? '?' + query : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Exporting code governance data as CSV', { path });
+    }
+
+    return this.portalRequestText('GET', path);
   }
 
   // ============================================================================
@@ -2260,6 +2401,74 @@ export class AxonFlow {
 
     if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
       options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 401 || response.status === 403) {
+        throw new AuthenticationError(`Request failed: ${errorText}`);
+      }
+      if (response.status === 404) {
+        throw new APIError(404, 'Not Found', errorText);
+      }
+      throw new APIError(response.status, response.statusText, errorText);
+    }
+
+    // Handle DELETE responses with no body
+    if (response.status === 204 || method === 'DELETE') {
+      return undefined as T;
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get the portal URL for enterprise PR workflow features.
+   * Falls back to agent endpoint with port 8082 if not configured.
+   */
+  private getPortalUrl(): string {
+    if (this.config.portalEndpoint) {
+      return this.config.portalEndpoint;
+    }
+    // Default: assume portal is on same host as agent, port 8082
+    try {
+      const url = new URL(this.config.endpoint);
+      url.port = '8082';
+      return url.toString().replace(/\/$/, '');
+    } catch {
+      return 'http://localhost:8082';
+    }
+  }
+
+  /**
+   * Generic HTTP request helper for Customer Portal APIs (enterprise features).
+   * Requires prior authentication via loginToPortal().
+   */
+  private async portalRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
+    if (!this.sessionCookie) {
+      throw new AuthenticationError('Not logged in to Customer Portal. Call loginToPortal() first.');
+    }
+
+    const url = `${this.getPortalUrl()}${path}`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Cookie: `axonflow_session=${this.sessionCookie}`,
+    };
+
+    const options: RequestInit = {
+      method,
+      headers,
+      signal: AbortSignal.timeout(this.config.timeout),
+    };
+
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      options.body = JSON.stringify(body);
+    }
+
+    if (this.config.debug) {
+      debugLog('Portal request', { method, path });
     }
 
     const response = await fetch(url, options);
@@ -2999,5 +3208,43 @@ export class AxonFlow {
         outputPer1k: (pricingData?.output_per_1k as number) || 0,
       },
     };
+  }
+
+  /**
+   * Generic HTTP request helper for Customer Portal APIs that returns raw text.
+   * Used for CSV exports and other non-JSON responses.
+   * Requires prior authentication via loginToPortal().
+   */
+  private async portalRequestText(method: string, path: string): Promise<string> {
+    if (!this.sessionCookie) {
+      throw new AuthenticationError('Not logged in to Customer Portal. Call loginToPortal() first.');
+    }
+
+    const url = `${this.getPortalUrl()}${path}`;
+    const headers: Record<string, string> = {
+      Cookie: `axonflow_session=${this.sessionCookie}`,
+    };
+
+    const options: RequestInit = {
+      method,
+      headers,
+      signal: AbortSignal.timeout(this.config.timeout),
+    };
+
+    if (this.config.debug) {
+      debugLog('Portal request (text)', { method, path });
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 401 || response.status === 403) {
+        throw new AuthenticationError(`Request failed: ${errorText}`);
+      }
+      throw new APIError(response.status, response.statusText, errorText);
+    }
+
+    return response.text();
   }
 }

@@ -27,6 +27,12 @@ export interface AxonFlowConfig {
   orchestratorEndpoint?: string;
 
   /**
+   * Customer Portal endpoint for enterprise PR workflow features (optional)
+   * Defaults to agent endpoint with port 8082
+   */
+  portalEndpoint?: string;
+
+  /**
    * Deployment mode
    * - sandbox: For testing with non-production data
    * - production: For production use
