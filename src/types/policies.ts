@@ -209,7 +209,32 @@ export interface CreatePolicyOverrideRequest {
 // ============================================================================
 
 /**
+ * Condition for dynamic policy evaluation
+ */
+export interface DynamicPolicyCondition {
+  /** Field to evaluate */
+  field: string;
+  /** Comparison operator */
+  operator: string;
+  /** Value to compare against */
+  value: unknown;
+}
+
+/**
+ * Action to take when dynamic policy conditions are met
+ */
+export interface DynamicPolicyAction {
+  /** Action type: "block", "alert", "redact", "log", "route", "modify_risk" */
+  type: string;
+  /** Action configuration */
+  config?: Record<string, unknown>;
+}
+
+/**
  * Dynamic policy definition
+ *
+ * Dynamic policies are LLM-powered policies that can evaluate complex,
+ * context-aware rules that can't be expressed with simple regex patterns.
  */
 export interface DynamicPolicy {
   /** Unique policy identifier */
@@ -218,71 +243,28 @@ export interface DynamicPolicy {
   name: string;
   /** Policy description */
   description?: string;
-  /** Policy category */
-  category: PolicyCategory;
-  /** Policy tier */
-  tier: PolicyTier;
+  /** Policy type: "risk", "content", "user", "cost" */
+  type: string;
+  /** Conditions for policy evaluation */
+  conditions?: DynamicPolicyCondition[];
+  /** Actions to take when conditions are met */
+  actions?: DynamicPolicyAction[];
+  /** Priority for policy evaluation (higher = evaluated first) */
+  priority: number;
   /** Whether the policy is enabled */
   enabled: boolean;
-  /** Organization ID (for organization-tier policies) */
-  organizationId?: string;
-  /** Tenant ID (for tenant-tier policies) */
-  tenantId?: string;
-  /** Policy configuration/rules */
-  config: DynamicPolicyConfig;
   /** Creation timestamp */
-  createdAt: string;
+  created_at: string;
   /** Last update timestamp */
-  updatedAt: string;
-  /** Version number */
-  version?: number;
-}
-
-/**
- * Configuration for a dynamic policy
- */
-export interface DynamicPolicyConfig {
-  /** Policy type (e.g., 'rate-limit', 'cost-control', 'access-control') */
-  type: string;
-  /** Type-specific rules */
-  rules: Record<string, unknown>;
-  /** Conditions for when the policy applies */
-  conditions?: DynamicPolicyCondition[];
-  /** Action to take when policy triggers */
-  action: PolicyAction;
-  /** Additional parameters */
-  parameters?: Record<string, unknown>;
-}
-
-/**
- * Condition for dynamic policy evaluation
- */
-export interface DynamicPolicyCondition {
-  /** Field to evaluate */
-  field: string;
-  /** Comparison operator */
-  operator:
-    | 'equals'
-    | 'not_equals'
-    | 'contains'
-    | 'not_contains'
-    | 'greater_than'
-    | 'less_than'
-    | 'in'
-    | 'not_in'
-    | 'regex';
-  /** Value to compare against */
-  value: unknown;
+  updated_at: string;
 }
 
 /**
  * Options for listing dynamic policies
  */
 export interface ListDynamicPoliciesOptions {
-  /** Filter by category */
-  category?: PolicyCategory;
-  /** Filter by tier */
-  tier?: PolicyTier;
+  /** Filter by policy type: "risk", "content", "user", "cost" */
+  type?: string;
   /** Filter by enabled status */
   enabled?: boolean;
   /** Maximum number of results */
@@ -290,7 +272,7 @@ export interface ListDynamicPoliciesOptions {
   /** Offset for pagination */
   offset?: number;
   /** Sort field */
-  sortBy?: 'name' | 'category' | 'createdAt' | 'updatedAt';
+  sortBy?: 'name' | 'type' | 'priority' | 'created_at' | 'updated_at';
   /** Sort order */
   sortOrder?: 'asc' | 'desc';
   /** Search query */
@@ -305,10 +287,14 @@ export interface CreateDynamicPolicyRequest {
   name: string;
   /** Policy description */
   description?: string;
-  /** Policy category */
-  category: PolicyCategory;
-  /** Policy configuration */
-  config: DynamicPolicyConfig;
+  /** Policy type: "risk", "content", "user", "cost" */
+  type: string;
+  /** Conditions for policy evaluation */
+  conditions?: DynamicPolicyCondition[];
+  /** Actions to take when conditions are met */
+  actions?: DynamicPolicyAction[];
+  /** Priority for policy evaluation */
+  priority?: number;
   /** Whether the policy is enabled */
   enabled?: boolean;
 }
@@ -321,10 +307,14 @@ export interface UpdateDynamicPolicyRequest {
   name?: string;
   /** Updated description */
   description?: string;
-  /** Updated category */
-  category?: PolicyCategory;
-  /** Updated configuration */
-  config?: DynamicPolicyConfig;
+  /** Updated type */
+  type?: string;
+  /** Updated conditions */
+  conditions?: DynamicPolicyCondition[];
+  /** Updated actions */
+  actions?: DynamicPolicyAction[];
+  /** Updated priority */
+  priority?: number;
   /** Updated enabled status */
   enabled?: boolean;
 }

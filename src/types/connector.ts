@@ -31,3 +31,14 @@ export interface ConnectorResponse {
   error?: string;
   meta?: Record<string, any>;
 }
+
+/**
+ * Health status of an installed connector
+ */
+export interface ConnectorHealthStatus {
+  healthy: boolean;
+  latency: number;
+  details: Record<string, string>;
+  timestamp: string;
+  error?: string;
+}
