@@ -571,18 +571,13 @@ export class AxonFlow {
    * List all available MCP connectors from the marketplace
    */
   async listConnectors(): Promise<ConnectorMetadata[]> {
-    const url = `${this.config.endpoint}/api/connectors`;
+    const response = await this.orchestratorRequest<{ connectors: ConnectorMetadata[]; total: number }>(
+      'GET',
+      '/api/v1/connectors'
+    );
 
-    const response = await fetch(url, {
-      method: 'GET',
-      signal: AbortSignal.timeout(this.config.timeout),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to list connectors: ${response.status} ${response.statusText}`);
-    }
-
-    const connectors = await response.json();
+    // Handle wrapped response
+    const connectors = Array.isArray(response) ? response : (response.connectors || []);
 
     if (this.config.debug) {
       debugLog('Listed connectors', { count: connectors.length });
@@ -595,32 +590,14 @@ export class AxonFlow {
    * Install an MCP connector from the marketplace
    */
   async installConnector(request: ConnectorInstallRequest): Promise<void> {
-    const url = `${this.config.endpoint}/api/connectors/install`;
+    // Extract connector_id from request for URL path
+    const { connector_id, ...body } = request;
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    // Add authentication headers
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    } else if (this.config.apiKey) {
-      headers['X-Client-Secret'] = this.config.apiKey;
-    }
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request),
-      signal: AbortSignal.timeout(this.config.timeout),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Failed to install connector: ${response.status} ${response.statusText} - ${errorText}`
-      );
-    }
+    await this.orchestratorRequest<void>(
+      'POST',
+      `/api/v1/connectors/${connector_id}/install`,
+      body
+    );
 
     if (this.config.debug) {
       debugLog('Connector installed', { name: request.name });
@@ -1485,13 +1462,13 @@ export class AxonFlow {
     if (options?.search) params.set('search', options.search);
 
     const queryString = params.toString();
-    const path = `/api/v1/policies${queryString ? `?${queryString}` : ''}`;
+    const path = `/api/v1/policies/dynamic${queryString ? `?${queryString}` : ''}`;
 
     if (this.config.debug) {
       debugLog('Listing dynamic policies', { options });
     }
 
-    return this.policyRequest<DynamicPolicy[]>('GET', path);
+    return this.orchestratorRequest<DynamicPolicy[]>('GET', path);
   }
 
   /**
@@ -1505,7 +1482,7 @@ export class AxonFlow {
       debugLog('Getting dynamic policy', { id });
     }
 
-    return this.policyRequest<DynamicPolicy>('GET', `/api/v1/policies/${id}`);
+    return this.orchestratorRequest<DynamicPolicy>('GET', `/api/v1/policies/dynamic/${id}`);
   }
 
   /**
@@ -1532,7 +1509,7 @@ export class AxonFlow {
       debugLog('Creating dynamic policy', { name: policy.name });
     }
 
-    return this.policyRequest<DynamicPolicy>('POST', '/api/v1/policies', policy);
+    return this.orchestratorRequest<DynamicPolicy>('POST', '/api/v1/policies/dynamic', policy);
   }
 
   /**
@@ -1550,7 +1527,7 @@ export class AxonFlow {
       debugLog('Updating dynamic policy', { id, updates: Object.keys(policy) });
     }
 
-    return this.policyRequest<DynamicPolicy>('PUT', `/api/v1/policies/${id}`, policy);
+    return this.orchestratorRequest<DynamicPolicy>('PUT', `/api/v1/policies/dynamic/${id}`, policy);
   }
 
   /**
@@ -1563,7 +1540,7 @@ export class AxonFlow {
       debugLog('Deleting dynamic policy', { id });
     }
 
-    await this.policyRequest<void>('DELETE', `/api/v1/policies/${id}`);
+    await this.orchestratorRequest<void>('DELETE', `/api/v1/policies/dynamic/${id}`);
   }
 
   /**
@@ -1578,7 +1555,7 @@ export class AxonFlow {
       debugLog('Toggling dynamic policy', { id, enabled });
     }
 
-    return this.policyRequest<DynamicPolicy>('PATCH', `/api/v1/policies/${id}`, { enabled });
+    return this.orchestratorRequest<DynamicPolicy>('PATCH', `/api/v1/policies/dynamic/${id}`, { enabled });
   }
 
   /**
@@ -1594,13 +1571,13 @@ export class AxonFlow {
     if (options?.includeDisabled) params.set('include_disabled', 'true');
 
     const queryString = params.toString();
-    const path = `/api/v1/policies/effective${queryString ? `?${queryString}` : ''}`;
+    const path = `/api/v1/policies/dynamic/effective${queryString ? `?${queryString}` : ''}`;
 
     if (this.config.debug) {
       debugLog('Getting effective dynamic policies', { options });
     }
 
-    return this.policyRequest<DynamicPolicy[]>('GET', path);
+    return this.orchestratorRequest<DynamicPolicy[]>('GET', path);
   }
 
   // ============================================================================
