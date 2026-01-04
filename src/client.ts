@@ -571,13 +571,13 @@ export class AxonFlow {
    * List all available MCP connectors from the marketplace
    */
   async listConnectors(): Promise<ConnectorMetadata[]> {
-    const response = await this.orchestratorRequest<{ connectors: ConnectorMetadata[]; total: number }>(
-      'GET',
-      '/api/v1/connectors'
-    );
+    const response = await this.orchestratorRequest<{
+      connectors: ConnectorMetadata[];
+      total: number;
+    }>('GET', '/api/v1/connectors');
 
     // Handle wrapped response
-    const connectors = Array.isArray(response) ? response : (response.connectors || []);
+    const connectors = Array.isArray(response) ? response : response.connectors || [];
 
     if (this.config.debug) {
       debugLog('Listed connectors', { count: connectors.length });
@@ -1555,7 +1555,9 @@ export class AxonFlow {
       debugLog('Toggling dynamic policy', { id, enabled });
     }
 
-    return this.orchestratorRequest<DynamicPolicy>('PATCH', `/api/v1/policies/dynamic/${id}`, { enabled });
+    return this.orchestratorRequest<DynamicPolicy>('PATCH', `/api/v1/policies/dynamic/${id}`, {
+      enabled,
+    });
   }
 
   /**
