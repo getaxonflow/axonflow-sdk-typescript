@@ -241,6 +241,11 @@ export interface DynamicPolicyAction {
  *
  * Dynamic policies are LLM-powered policies that can evaluate complex,
  * context-aware rules that can't be expressed with simple regex patterns.
+ *
+ * For provider restrictions (GDPR, HIPAA, RBI compliance), use action config:
+ * ```typescript
+ * actions: [{ type: 'route', config: { allowed_providers: ['ollama', 'azure-eu'] } }]
+ * ```
  */
 export interface DynamicPolicy {
   /** Unique policy identifier */
@@ -255,8 +260,6 @@ export interface DynamicPolicy {
   conditions?: DynamicPolicyCondition[];
   /** Actions to take when conditions are met */
   actions?: DynamicPolicyAction[];
-  /** Restrict LLM routing to these providers (GDPR, HIPAA, RBI compliance) */
-  allowedProviders?: string[];
   /** Priority for policy evaluation (higher = evaluated first) */
   priority: number;
   /** Whether the policy is enabled */
@@ -289,6 +292,8 @@ export interface ListDynamicPoliciesOptions {
 
 /**
  * Request to create a dynamic policy
+ *
+ * For provider restrictions, use action config with "allowed_providers" key.
  */
 export interface CreateDynamicPolicyRequest {
   /** Policy name */
@@ -297,12 +302,12 @@ export interface CreateDynamicPolicyRequest {
   description?: string;
   /** Policy type: "risk", "content", "user", "cost" */
   type: string;
+  /** Policy category (must start with "dynamic-") */
+  category?: string;
   /** Conditions for policy evaluation */
   conditions?: DynamicPolicyCondition[];
   /** Actions to take when conditions are met */
   actions?: DynamicPolicyAction[];
-  /** Restrict LLM routing to these providers when policy matches */
-  allowedProviders?: string[];
   /** Priority for policy evaluation */
   priority?: number;
   /** Whether the policy is enabled */
@@ -311,6 +316,8 @@ export interface CreateDynamicPolicyRequest {
 
 /**
  * Request to update a dynamic policy
+ *
+ * For provider restrictions, use action config with "allowed_providers" key.
  */
 export interface UpdateDynamicPolicyRequest {
   /** Updated name */
@@ -319,12 +326,12 @@ export interface UpdateDynamicPolicyRequest {
   description?: string;
   /** Updated type */
   type?: string;
+  /** Updated category */
+  category?: string;
   /** Updated conditions */
   conditions?: DynamicPolicyCondition[];
   /** Updated actions */
   actions?: DynamicPolicyAction[];
-  /** Restrict LLM routing to these providers when policy matches */
-  allowedProviders?: string[];
   /** Updated priority */
   priority?: number;
   /** Updated enabled status */
