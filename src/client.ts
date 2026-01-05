@@ -1720,7 +1720,7 @@ export class AxonFlow {
     if (options?.search) params.set('search', options.search);
 
     const queryString = params.toString();
-    const path = `/api/v1/policies/dynamic${queryString ? `?${queryString}` : ''}`;
+    const path = `/api/v1/dynamic-policies${queryString ? `?${queryString}` : ''}`;
 
     if (this.config.debug) {
       debugLog('Listing dynamic policies', { options });
@@ -1740,7 +1740,7 @@ export class AxonFlow {
       debugLog('Getting dynamic policy', { id });
     }
 
-    return this.orchestratorRequest<DynamicPolicy>('GET', `/api/v1/policies/dynamic/${id}`);
+    return this.orchestratorRequest<DynamicPolicy>('GET', `/api/v1/dynamic-policies/${id}`);
   }
 
   /**
@@ -1767,7 +1767,7 @@ export class AxonFlow {
       debugLog('Creating dynamic policy', { name: policy.name });
     }
 
-    return this.orchestratorRequest<DynamicPolicy>('POST', '/api/v1/policies/dynamic', policy);
+    return this.orchestratorRequest<DynamicPolicy>('POST', '/api/v1/dynamic-policies', policy);
   }
 
   /**
@@ -1785,7 +1785,7 @@ export class AxonFlow {
       debugLog('Updating dynamic policy', { id, updates: Object.keys(policy) });
     }
 
-    return this.orchestratorRequest<DynamicPolicy>('PUT', `/api/v1/policies/dynamic/${id}`, policy);
+    return this.orchestratorRequest<DynamicPolicy>('PUT', `/api/v1/dynamic-policies/${id}`, policy);
   }
 
   /**
@@ -1798,7 +1798,7 @@ export class AxonFlow {
       debugLog('Deleting dynamic policy', { id });
     }
 
-    await this.orchestratorRequest<void>('DELETE', `/api/v1/policies/dynamic/${id}`);
+    await this.orchestratorRequest<void>('DELETE', `/api/v1/dynamic-policies/${id}`);
   }
 
   /**
@@ -1813,7 +1813,7 @@ export class AxonFlow {
       debugLog('Toggling dynamic policy', { id, enabled });
     }
 
-    return this.orchestratorRequest<DynamicPolicy>('PATCH', `/api/v1/policies/dynamic/${id}`, {
+    return this.orchestratorRequest<DynamicPolicy>('PATCH', `/api/v1/dynamic-policies/${id}`, {
       enabled,
     });
   }
@@ -1831,7 +1831,7 @@ export class AxonFlow {
     if (options?.includeDisabled) params.set('include_disabled', 'true');
 
     const queryString = params.toString();
-    const path = `/api/v1/policies/dynamic/effective${queryString ? `?${queryString}` : ''}`;
+    const path = `/api/v1/dynamic-policies/effective${queryString ? `?${queryString}` : ''}`;
 
     if (this.config.debug) {
       debugLog('Getting effective dynamic policies', { options });
