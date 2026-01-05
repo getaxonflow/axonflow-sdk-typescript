@@ -23,6 +23,8 @@ export type PolicyCategory =
   | 'code-secrets'
   | 'code-unsafe'
   | 'code-compliance'
+  // Sensitive data category
+  | 'sensitive-data'
   // Dynamic policy categories
   | 'dynamic-risk'
   | 'dynamic-compliance'
@@ -241,6 +243,11 @@ export interface DynamicPolicyAction {
  *
  * Dynamic policies are LLM-powered policies that can evaluate complex,
  * context-aware rules that can't be expressed with simple regex patterns.
+ *
+ * For provider restrictions (GDPR, HIPAA, RBI compliance), use action config:
+ * ```typescript
+ * actions: [{ type: 'route', config: { allowed_providers: ['ollama', 'azure-eu'] } }]
+ * ```
  */
 export interface DynamicPolicy {
   /** Unique policy identifier */
@@ -287,6 +294,8 @@ export interface ListDynamicPoliciesOptions {
 
 /**
  * Request to create a dynamic policy
+ *
+ * For provider restrictions, use action config with "allowed_providers" key.
  */
 export interface CreateDynamicPolicyRequest {
   /** Policy name */
@@ -295,6 +304,8 @@ export interface CreateDynamicPolicyRequest {
   description?: string;
   /** Policy type: "risk", "content", "user", "cost" */
   type: string;
+  /** Policy category (must start with "dynamic-") */
+  category?: string;
   /** Conditions for policy evaluation */
   conditions?: DynamicPolicyCondition[];
   /** Actions to take when conditions are met */
@@ -307,6 +318,8 @@ export interface CreateDynamicPolicyRequest {
 
 /**
  * Request to update a dynamic policy
+ *
+ * For provider restrictions, use action config with "allowed_providers" key.
  */
 export interface UpdateDynamicPolicyRequest {
   /** Updated name */
@@ -315,6 +328,8 @@ export interface UpdateDynamicPolicyRequest {
   description?: string;
   /** Updated type */
   type?: string;
+  /** Updated category */
+  category?: string;
   /** Updated conditions */
   conditions?: DynamicPolicyCondition[];
   /** Updated actions */
