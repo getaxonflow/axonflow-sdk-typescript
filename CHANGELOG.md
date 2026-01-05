@@ -5,13 +5,44 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.15.0] - 2026-01-05
+## [2.0.0] - 2026-01-05
+
+### Breaking Changes
+
+- **BREAKING**: Removed `orchestratorEndpoint` and `portalEndpoint` config options (Agent now proxies all routes per ADR-026)
+- **BREAKING**: Dynamic policy API path changed from `/api/v1/policies/dynamic` to `/api/v1/dynamic-policies`
 
 ### Added
 
 - **Audit Log Reading**: Added `searchAuditLogs()` for searching audit logs with filters (user email, client ID, time range, request type)
 - **Tenant Audit Logs**: Added `getAuditLogsByTenant()` for retrieving audit logs scoped to a specific tenant
 - **Audit Types**: Added `AuditLogEntry`, `AuditSearchRequest`, `AuditQueryOptions`, and `AuditSearchResponse` types
+
+### Changed
+
+- All SDK methods now route through single Agent endpoint
+- Simplified configuration - only `endpoint` field needed
+- Removed `getOrchestratorUrl()` and `getPortalUrl()` helper methods (now return endpoint directly)
+
+### Migration Guide
+
+**Before (v1.x):**
+```typescript
+const client = new AxonFlow({
+  endpoint: 'http://localhost:8080',
+  orchestratorEndpoint: 'http://localhost:8081',
+  portalEndpoint: 'http://localhost:8082',
+  apiKey: 'my-api-key',
+});
+```
+
+**After (v2.x):**
+```typescript
+const client = new AxonFlow({
+  endpoint: 'http://localhost:8080',
+  apiKey: 'my-api-key',
+});
+```
 
 ---
 

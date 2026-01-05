@@ -17,7 +17,6 @@ describe('Connector and Orchestrator Methods', () => {
     jest.clearAllMocks();
     client = new AxonFlow({
       endpoint: 'http://localhost:8080',
-      orchestratorEndpoint: 'http://localhost:8081',
       licenseKey: 'test-license-key',
       tenant: 'test-tenant',
     });
@@ -75,7 +74,7 @@ describe('Connector and Orchestrator Methods', () => {
 
       expect(health.status).toBe('healthy');
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8081/health',
+        'http://localhost:8080/health',
         expect.objectContaining({ method: 'GET' })
       );
     });
@@ -126,7 +125,7 @@ describe('Connector and Orchestrator Methods', () => {
       expect(connectors[0].id).toBe('postgres');
       expect(connectors[0].name).toBe('PostgreSQL Connector');
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8081/api/v1/connectors',
+        'http://localhost:8080/api/v1/connectors',
         expect.objectContaining({ method: 'GET' })
       );
     });
@@ -158,7 +157,7 @@ describe('Connector and Orchestrator Methods', () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8081/api/v1/connectors/postgres/install',
+        'http://localhost:8080/api/v1/connectors/postgres/install',
         expect.objectContaining({
           method: 'POST',
           body: expect.stringContaining('"name":"my-postgres"'),
@@ -174,7 +173,7 @@ describe('Connector and Orchestrator Methods', () => {
       await client.uninstallConnector('postgres');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8081/api/v1/connectors/postgres',
+        'http://localhost:8080/api/v1/connectors/postgres',
         expect.objectContaining({ method: 'DELETE' })
       );
     });

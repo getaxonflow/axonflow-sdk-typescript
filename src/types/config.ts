@@ -16,21 +16,11 @@ export interface AxonFlowConfig {
 
   /**
    * AxonFlow API endpoint (optional)
+   * All SDK methods route through this single endpoint.
+   * The Agent proxies all routes (ADR-026 Single Entry Point Architecture).
    * Default: https://api.axonflow.com
    */
   endpoint?: string;
-
-  /**
-   * Orchestrator endpoint for Execution Replay API (optional)
-   * Defaults to agent endpoint with port 8081
-   */
-  orchestratorEndpoint?: string;
-
-  /**
-   * Customer Portal endpoint for enterprise PR workflow features (optional)
-   * Defaults to agent endpoint with port 8082
-   */
-  portalEndpoint?: string;
 
   /**
    * Deployment mode
