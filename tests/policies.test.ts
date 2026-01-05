@@ -352,20 +352,23 @@ describe('Policy CRUD Methods', () => {
 
     describe('getStaticPolicyVersions', () => {
       it('should get policy version history', async () => {
-        const versions: PolicyVersion[] = [
+        // API returns snake_case fields, SDK transforms to camelCase
+        const apiVersions = [
           {
             version: 2,
-            changedAt: '2025-01-02T00:00:00Z',
-            changeType: 'updated',
-            changeDescription: 'Updated severity',
+            changed_at: '2025-01-02T00:00:00Z',
+            change_type: 'updated',
+            change_description: 'Updated severity',
           },
           {
             version: 1,
-            changedAt: '2025-01-01T00:00:00Z',
-            changeType: 'created',
+            changed_at: '2025-01-01T00:00:00Z',
+            change_type: 'created',
           },
         ];
-        mockFetch.mockReturnValueOnce(mockResponse({ policy_id: 'pol_123', versions, count: 2 }));
+        mockFetch.mockReturnValueOnce(
+          mockResponse({ policy_id: 'pol_123', versions: apiVersions, count: 2 })
+        );
 
         const result = await client.getStaticPolicyVersions('pol_123');
 
@@ -912,22 +915,25 @@ describe('Policy CRUD Methods', () => {
     });
 
     it('should get policy versions', async () => {
-      const versions: PolicyVersion[] = [
+      // API returns snake_case fields, SDK transforms to camelCase
+      const apiVersions = [
         {
           version: 2,
-          changeType: 'updated',
-          changeDescription: 'Updated severity from 8 to 9',
-          changedAt: '2025-01-02T00:00:00Z',
-          changedBy: 'admin',
+          change_type: 'updated',
+          change_description: 'Updated severity from 8 to 9',
+          changed_at: '2025-01-02T00:00:00Z',
+          changed_by: 'admin',
         },
         {
           version: 1,
-          changeType: 'created',
-          changedAt: '2025-01-01T00:00:00Z',
-          changedBy: 'system',
+          change_type: 'created',
+          changed_at: '2025-01-01T00:00:00Z',
+          changed_by: 'system',
         },
       ];
-      mockFetch.mockReturnValueOnce(mockResponse({ policy_id: 'pol_123', versions, count: 2 }));
+      mockFetch.mockReturnValueOnce(
+        mockResponse({ policy_id: 'pol_123', versions: apiVersions, count: 2 })
+      );
 
       const result = await client.getStaticPolicyVersions('pol_123');
 
