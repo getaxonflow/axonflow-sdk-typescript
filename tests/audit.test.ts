@@ -4,12 +4,7 @@
  */
 
 import { AxonFlow } from '../src/client';
-import type {
-  AuditSearchRequest,
-  AuditQueryOptions,
-  AuditLogEntry,
-  AuditSearchResponse,
-} from '../src/types/gateway';
+import type { AuditSearchRequest, AuditQueryOptions } from '../src/types/gateway';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
