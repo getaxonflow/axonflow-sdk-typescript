@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **toggleDynamicPolicy HTTP Method**: Changed from PATCH to PUT to match API specification
 - **PolicyVersion timestamp parsing**: Fixed `getStaticPolicyVersions()` to correctly transform snake_case API fields (`changed_at`, `changed_by`, `change_type`) to camelCase interface fields
 - **Dynamic Policy Response Parsing**: Fixed all dynamic policy methods to correctly parse wrapped API responses (Issue #886)
   - Agent proxy returns `{"policies": [...]}` and `{"policy": {...}}` wrappers

@@ -1306,9 +1306,9 @@ export class AxonFlow {
       'Content-Type': 'application/json',
     };
 
-    // Always include tenant ID for policy APIs
+    // Always include tenant ID for policy APIs (X-Org-ID header for server compatibility)
     if (this.config.tenant) {
-      headers['X-Tenant-ID'] = this.config.tenant;
+      headers['X-Org-ID'] = this.config.tenant;
     }
 
     // Add auth headers only when credentials are provided
@@ -1616,7 +1616,7 @@ export class AxonFlow {
     }>('GET', `/api/v1/static-policies/${id}/versions`);
 
     // Transform snake_case API response to camelCase
-    return response.versions.map((v) => ({
+    return response.versions.map(v => ({
       version: v.version,
       changedBy: v.changed_by,
       changedAt: v.changed_at,
