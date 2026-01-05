@@ -9,7 +9,6 @@ import type {
   DynamicPolicy,
   PolicyOverride,
   TestPatternResult,
-  PolicyVersion,
   CreateStaticPolicyRequest,
   CreateDynamicPolicyRequest,
   CreatePolicyOverrideRequest,
