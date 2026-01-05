@@ -1018,6 +1018,7 @@ export class AxonFlow {
     const result: PolicyApprovalResult = {
       contextId: data.context_id,
       approved: data.approved,
+      requiresRedaction: data.requires_redaction || false,
       approvedData: data.approved_data || {},
       policies: data.policies || [],
       expiresAt,
