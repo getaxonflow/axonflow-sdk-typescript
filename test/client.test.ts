@@ -1370,54 +1370,8 @@ describe('AxonFlow Client Unit Tests', () => {
       });
     });
 
-    describe('orchestratorEndpoint configuration', () => {
-      it('should use custom orchestratorEndpoint when configured', async () => {
-        const clientWithOrchestrator = new AxonFlow({
-          apiKey: 'test-key',
-          tenant: 'test-tenant',
-          endpoint: 'http://localhost:8080',
-          orchestratorEndpoint: 'http://custom-orchestrator:9000',
-        });
-
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              executions: [],
-              total: 0,
-              limit: 10,
-              offset: 0,
-            }),
-        });
-
-        await clientWithOrchestrator.listExecutions();
-
-        expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('http://custom-orchestrator:9000'),
-          expect.any(Object)
-        );
-      });
-
-      it('should derive orchestrator URL from agent endpoint with port 8081', async () => {
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              executions: [],
-              total: 0,
-              limit: 10,
-              offset: 0,
-            }),
-        });
-
-        await client.listExecutions();
-
-        expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining(':8081'),
-          expect.any(Object)
-        );
-      });
-    });
+    // Note: orchestratorEndpoint and portalEndpoint tests removed in v2.0.0
+    // All routes now go through a single endpoint (ADR-026 Single Entry Point)
 
     describe('debug mode logging', () => {
       it('should log in debug mode for execution methods', async () => {
@@ -2077,33 +2031,8 @@ describe('AxonFlow Client Unit Tests', () => {
         });
       });
 
-      describe('getOrchestratorUrl and getPortalUrl fallback', () => {
-        it('should fall back to localhost:8081 for invalid URL', async () => {
-          const clientWithInvalidUrl = new AxonFlow({
-            apiKey: 'test-key',
-            tenant: 'test-tenant',
-            endpoint: 'not-a-valid-url',
-          });
-
-          mockFetch.mockResolvedValueOnce({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                executions: [],
-                total: 0,
-                limit: 10,
-                offset: 0,
-              }),
-          });
-
-          await clientWithInvalidUrl.listExecutions();
-
-          expect(mockFetch).toHaveBeenCalledWith(
-            expect.stringContaining('http://localhost:8081'),
-            expect.any(Object)
-          );
-        });
-      });
+      // Note: getOrchestratorUrl and getPortalUrl fallback tests removed in v2.0.0
+      // All routes now go through a single endpoint (ADR-026 Single Entry Point)
 
       describe('executeQuery additional branches', () => {
         it('should handle 403 error with non-policy violation body', async () => {

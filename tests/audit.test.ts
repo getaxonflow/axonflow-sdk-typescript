@@ -17,7 +17,6 @@ describe('Audit Log Read Methods', () => {
     jest.clearAllMocks();
     client = new AxonFlow({
       endpoint: 'http://localhost:8080',
-      orchestratorEndpoint: 'http://localhost:8081',
       licenseKey: 'test-license-key',
       tenant: 'test-tenant',
     });
@@ -106,7 +105,7 @@ describe('Audit Log Read Methods', () => {
 
       // Verify request
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8081/api/v1/audit/search',
+        'http://localhost:8080/api/v1/audit/search',
         expect.objectContaining({
           method: 'POST',
           body: expect.stringContaining('"user_email":"user@example.com"'),
@@ -229,7 +228,7 @@ describe('Audit Log Read Methods', () => {
       expect(result.entries).toHaveLength(2);
       expect(result.limit).toBe(50);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8081/api/v1/audit/tenant/tenant-abc?limit=50&offset=0',
+        'http://localhost:8080/api/v1/audit/tenant/tenant-abc?limit=50&offset=0',
         expect.objectContaining({ method: 'GET' })
       );
     });
@@ -243,7 +242,7 @@ describe('Audit Log Read Methods', () => {
       expect(result.limit).toBe(100);
       expect(result.offset).toBe(25);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8081/api/v1/audit/tenant/tenant-abc?limit=100&offset=25',
+        'http://localhost:8080/api/v1/audit/tenant/tenant-abc?limit=100&offset=25',
         expect.any(Object)
       );
     });
@@ -318,7 +317,6 @@ describe('Audit Log Read Methods', () => {
     it('should log debug info for searchAuditLogs when debug enabled', async () => {
       const debugClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        orchestratorEndpoint: 'http://localhost:8081',
         debug: true,
       });
 
@@ -338,7 +336,6 @@ describe('Audit Log Read Methods', () => {
     it('should log debug info for getAuditLogsByTenant when debug enabled', async () => {
       const debugClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        orchestratorEndpoint: 'http://localhost:8081',
         debug: true,
       });
 

@@ -112,7 +112,7 @@ describe('Code Governance Methods', () => {
 
         expect(result.valid).toBe(true);
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8082/api/v1/code-governance/git-providers/validate',
+          'http://localhost:8080/api/v1/code-governance/git-providers/validate',
           expect.objectContaining({
             method: 'POST',
             body: JSON.stringify({
@@ -213,7 +213,7 @@ describe('Code Governance Methods', () => {
 
         expect(result.message).toBe('Git provider configured successfully');
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8082/api/v1/code-governance/git-providers',
+          'http://localhost:8080/api/v1/code-governance/git-providers',
           expect.objectContaining({
             method: 'POST',
           })
@@ -282,7 +282,7 @@ describe('Code Governance Methods', () => {
         await client.deleteGitProvider('github');
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8082/api/v1/code-governance/git-providers/github',
+          'http://localhost:8080/api/v1/code-governance/git-providers/github',
           expect.objectContaining({
             method: 'DELETE',
           })
@@ -412,7 +412,7 @@ describe('Code Governance Methods', () => {
         });
 
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8082/api/v1/code-governance/prs?limit=10&offset=5&state=open',
+          'http://localhost:8080/api/v1/code-governance/prs?limit=10&offset=5&state=open',
           expect.any(Object)
         );
       });
@@ -447,7 +447,7 @@ describe('Code Governance Methods', () => {
         expect(result.id).toBe('pr_123');
         expect(result.prNumber).toBe(42);
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8082/api/v1/code-governance/prs/pr_123',
+          'http://localhost:8080/api/v1/code-governance/prs/pr_123',
           expect.any(Object)
         );
       });
@@ -462,7 +462,7 @@ describe('Code Governance Methods', () => {
 
         expect(result.state).toBe('merged');
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8082/api/v1/code-governance/prs/pr_123/sync',
+          'http://localhost:8080/api/v1/code-governance/prs/pr_123/sync',
           expect.objectContaining({
             method: 'POST',
           })
@@ -532,7 +532,7 @@ describe('Code Governance Methods', () => {
         expect(result.records).toHaveLength(1);
         expect(result.records[0].prNumber).toBe(42);
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8082/api/v1/code-governance/export?format=json',
+          'http://localhost:8080/api/v1/code-governance/export?format=json',
           expect.any(Object)
         );
       });
@@ -600,7 +600,7 @@ describe('Code Governance Methods', () => {
         const result = await client.exportCodeGovernanceDataCSV();
         expect(result).toContain('id,title,state');
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8082/api/v1/code-governance/export?format=csv',
+          'http://localhost:8080/api/v1/code-governance/export?format=csv',
           expect.any(Object)
         );
       });

@@ -90,8 +90,6 @@ export class AxonFlow {
     apiKey?: string;
     licenseKey?: string;
     endpoint: string;
-    orchestratorEndpoint?: string;
-    portalEndpoint?: string;
     mode: 'sandbox' | 'production';
     tenant: string;
     debug: boolean;
@@ -116,8 +114,6 @@ export class AxonFlow {
       apiKey: config.apiKey,
       licenseKey: config.licenseKey,
       endpoint,
-      orchestratorEndpoint: config.orchestratorEndpoint,
-      portalEndpoint: config.portalEndpoint,
       mode: config.mode || (hasCredentials ? 'production' : 'sandbox'),
       tenant: config.tenant || 'default',
       debug: config.debug || false,
@@ -460,7 +456,7 @@ export class AxonFlow {
    * ```
    */
   async orchestratorHealthCheck(): Promise<HealthStatus> {
-    const url = `${this.getOrchestratorUrl()}/health`;
+    const url = `${this.config.endpoint}/health`;
 
     try {
       const response = await fetch(url, {
@@ -1869,7 +1865,7 @@ export class AxonFlow {
     orgId: string,
     password: string
   ): Promise<{ sessionId: string; orgId: string; email: string; name: string; expiresAt: string }> {
-    const url = `${this.getPortalUrl()}/api/v1/auth/login`;
+    const url = `${this.config.endpoint}/api/v1/auth/login`;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -1927,7 +1923,7 @@ export class AxonFlow {
     }
 
     try {
-      await fetch(`${this.getPortalUrl()}/api/v1/auth/logout`, {
+      await fetch(`${this.config.endpoint}/api/v1/auth/logout`, {
         method: 'POST',
         headers: { Cookie: `axonflow_session=${this.sessionCookie}` },
         signal: AbortSignal.timeout(this.config.timeout),
@@ -2531,28 +2527,18 @@ export class AxonFlow {
   // ============================================================================
 
   /**
-   * Get the orchestrator URL for Execution Replay API.
-   * Falls back to agent endpoint with port 8081 if not configured.
+   * Get the endpoint URL for API requests.
+   * All routes now go through the single Agent endpoint (ADR-026).
    */
-  private getOrchestratorUrl(): string {
-    if (this.config.orchestratorEndpoint) {
-      return this.config.orchestratorEndpoint;
-    }
-    // Default: assume orchestrator is on same host as agent, port 8081
-    try {
-      const url = new URL(this.config.endpoint);
-      url.port = '8081';
-      return url.toString().replace(/\/$/, '');
-    } catch {
-      return 'http://localhost:8081';
-    }
+  private getEndpointUrl(): string {
+    return this.config.endpoint;
   }
 
   /**
-   * Generic HTTP request helper for orchestrator APIs
+   * Generic HTTP request helper for APIs (routes through single endpoint per ADR-026)
    */
   private async orchestratorRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const url = `${this.getOrchestratorUrl()}${path}`;
+    const url = `${this.config.endpoint}${path}`;
     const headers = this.buildAuthHeaders();
 
     const options: RequestInit = {
@@ -2586,26 +2572,12 @@ export class AxonFlow {
     return response.json();
   }
 
-  /**
-   * Get the portal URL for enterprise PR workflow features.
-   * Falls back to agent endpoint with port 8082 if not configured.
-   */
-  private getPortalUrl(): string {
-    if (this.config.portalEndpoint) {
-      return this.config.portalEndpoint;
-    }
-    // Default: assume portal is on same host as agent, port 8082
-    try {
-      const url = new URL(this.config.endpoint);
-      url.port = '8082';
-      return url.toString().replace(/\/$/, '');
-    } catch {
-      return 'http://localhost:8082';
-    }
-  }
+  // Note: getPortalUrl() was removed in v2.0.0 (ADR-026 Single Entry Point).
+  // All routes now go through the single Agent endpoint (this.config.endpoint).
 
   /**
    * Generic HTTP request helper for Customer Portal APIs (enterprise features).
+   * Routes through single endpoint per ADR-026.
    * Requires prior authentication via loginToPortal().
    */
   private async portalRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -2615,7 +2587,7 @@ export class AxonFlow {
       );
     }
 
-    const url = `${this.getPortalUrl()}${path}`;
+    const url = `${this.config.endpoint}${path}`;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Cookie: `axonflow_session=${this.sessionCookie}`,
@@ -3386,7 +3358,7 @@ export class AxonFlow {
       );
     }
 
-    const url = `${this.getPortalUrl()}${path}`;
+    const url = `${this.config.endpoint}${path}`;
     const headers: Record<string, string> = {
       Cookie: `axonflow_session=${this.sessionCookie}`,
     };
