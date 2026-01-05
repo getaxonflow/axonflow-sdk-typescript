@@ -13,6 +13,10 @@ import {
   PolicyApprovalOptions,
   AuditResult,
   AuditOptions,
+  AuditSearchRequest,
+  AuditQueryOptions,
+  AuditLogEntry,
+  AuditSearchResponse,
   ExecuteQueryOptions,
   ExecuteQueryResponse,
   HealthStatus,
@@ -1133,6 +1137,164 @@ export class AxonFlow {
     }
 
     return result;
+  }
+
+  // ============================================================================
+  // Audit Log Read Methods
+  // ============================================================================
+
+  /**
+   * Search audit logs with optional filters.
+   *
+   * Query the AxonFlow orchestrator for audit logs matching the specified
+   * criteria. Use this for compliance dashboards, security investigations,
+   * and operational monitoring.
+   *
+   * @param request - Search filters and pagination options
+   * @returns Promise resolving to audit search response
+   *
+   * @example
+   * ```typescript
+   * // Search for logs from a specific user in the last 24 hours
+   * const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+   * const result = await client.searchAuditLogs({
+   *   userEmail: 'analyst@company.com',
+   *   startTime: yesterday,
+   *   limit: 100,
+   * });
+   *
+   * for (const entry of result.entries) {
+   *   console.log(`[${entry.timestamp}] ${entry.userEmail}: ${entry.querySummary}`);
+   * }
+   * ```
+   */
+  async searchAuditLogs(request?: AuditSearchRequest): Promise<AuditSearchResponse> {
+    const limit = Math.min(request?.limit ?? 100, 1000);
+    const offset = request?.offset ?? 0;
+
+    // Build request body with only defined values
+    const body: Record<string, unknown> = { limit };
+    if (request?.userEmail) body.user_email = request.userEmail;
+    if (request?.clientId) body.client_id = request.clientId;
+    if (request?.startTime) body.start_time = request.startTime.toISOString();
+    if (request?.endTime) body.end_time = request.endTime.toISOString();
+    if (request?.requestType) body.request_type = request.requestType;
+    if (offset > 0) body.offset = offset;
+
+    if (this.config.debug) {
+      debugLog('Searching audit logs', { limit, offset });
+    }
+
+    const response = await this.orchestratorRequest<unknown>('POST', '/api/v1/audit/search', body);
+
+    // Handle both array and wrapped response formats
+    if (Array.isArray(response)) {
+      const entries = response.map((e) => this.parseAuditLogEntry(e));
+      return {
+        entries,
+        total: entries.length,
+        limit,
+        offset,
+      };
+    }
+
+    const data = response as Record<string, unknown>;
+    const entries = ((data.entries as unknown[]) || []).map((e) => this.parseAuditLogEntry(e));
+    return {
+      entries,
+      total: (data.total as number) ?? entries.length,
+      limit: (data.limit as number) ?? limit,
+      offset: (data.offset as number) ?? offset,
+    };
+  }
+
+  /**
+   * Get recent audit logs for a specific tenant.
+   *
+   * Convenience method for tenant-scoped audit queries. Use this when you
+   * need to view all recent activity for a specific tenant.
+   *
+   * @param tenantId - The tenant identifier to query
+   * @param options - Pagination options (limit, offset)
+   * @returns Promise resolving to audit search response
+   * @throws Error if tenantId is empty
+   *
+   * @example
+   * ```typescript
+   * // Get the last 50 audit logs for a tenant
+   * const result = await client.getAuditLogsByTenant('tenant-abc');
+   * console.log(`Found ${result.entries.length} entries`);
+   *
+   * // With custom options
+   * const result2 = await client.getAuditLogsByTenant('tenant-abc', {
+   *   limit: 100,
+   *   offset: 50,
+   * });
+   * ```
+   */
+  async getAuditLogsByTenant(
+    tenantId: string,
+    options?: AuditQueryOptions
+  ): Promise<AuditSearchResponse> {
+    if (!tenantId) {
+      throw new Error('tenantId is required');
+    }
+
+    const limit = Math.min(options?.limit ?? 50, 1000);
+    const offset = options?.offset ?? 0;
+
+    if (this.config.debug) {
+      debugLog('Getting audit logs for tenant', { tenantId, limit, offset });
+    }
+
+    const path = `/api/v1/audit/tenant/${encodeURIComponent(tenantId)}?limit=${limit}&offset=${offset}`;
+    const response = await this.orchestratorRequest<unknown>('GET', path);
+
+    // Handle both array and wrapped response formats
+    if (Array.isArray(response)) {
+      const entries = response.map((e) => this.parseAuditLogEntry(e));
+      return {
+        entries,
+        total: entries.length,
+        limit,
+        offset,
+      };
+    }
+
+    const data = response as Record<string, unknown>;
+    const entries = ((data.entries as unknown[]) || []).map((e) => this.parseAuditLogEntry(e));
+    return {
+      entries,
+      total: (data.total as number) ?? entries.length,
+      limit: (data.limit as number) ?? limit,
+      offset: (data.offset as number) ?? offset,
+    };
+  }
+
+  /**
+   * Parse a raw audit log entry from the API into the typed interface
+   */
+  private parseAuditLogEntry(raw: unknown): AuditLogEntry {
+    const data = raw as Record<string, unknown>;
+    return {
+      id: (data.id as string) ?? '',
+      requestId: (data.request_id as string) ?? '',
+      timestamp: data.timestamp ? new Date(data.timestamp as string) : new Date(),
+      userEmail: (data.user_email as string) ?? '',
+      clientId: (data.client_id as string) ?? '',
+      tenantId: (data.tenant_id as string) ?? '',
+      requestType: (data.request_type as string) ?? '',
+      querySummary: (data.query_summary as string) ?? '',
+      success: (data.success as boolean) ?? true,
+      blocked: (data.blocked as boolean) ?? false,
+      riskScore: (data.risk_score as number) ?? 0,
+      provider: (data.provider as string) ?? '',
+      model: (data.model as string) ?? '',
+      tokensUsed: (data.tokens_used as number) ?? 0,
+      latencyMs: (data.latency_ms as number) ?? 0,
+      policyViolations: (data.policy_violations as string[]) ?? [],
+      metadata: (data.metadata as Record<string, unknown>) ?? {},
+    };
   }
 
   // ============================================================================
