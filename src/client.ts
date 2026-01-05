@@ -1859,7 +1859,7 @@ export class AxonFlow {
 
     // API returns {"policy": {...}} wrapper via Agent proxy
     const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
-      'PATCH',
+      'PUT',
       `/api/v1/dynamic-policies/${id}`,
       { enabled }
     );
