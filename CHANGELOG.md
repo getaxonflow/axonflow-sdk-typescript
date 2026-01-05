@@ -5,6 +5,16 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-01-05
+
+### Added
+
+- **Provider Restrictions for Compliance**: Added `allowedProviders` field to dynamic policy types
+  - `DynamicPolicy.allowedProviders` - List of allowed LLM providers when policy matches
+  - `CreateDynamicPolicyRequest.allowedProviders` - Specify allowed providers when creating policies
+  - `UpdateDynamicPolicyRequest.allowedProviders` - Update allowed providers on existing policies
+  - Enables GDPR, HIPAA, and RBI compliance by restricting data to specific providers/regions
+
 ## [2.0.0] - 2026-01-05
 
 ### Breaking Changes

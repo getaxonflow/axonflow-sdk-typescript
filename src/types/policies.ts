@@ -255,6 +255,8 @@ export interface DynamicPolicy {
   conditions?: DynamicPolicyCondition[];
   /** Actions to take when conditions are met */
   actions?: DynamicPolicyAction[];
+  /** Restrict LLM routing to these providers (GDPR, HIPAA, RBI compliance) */
+  allowedProviders?: string[];
   /** Priority for policy evaluation (higher = evaluated first) */
   priority: number;
   /** Whether the policy is enabled */
@@ -299,6 +301,8 @@ export interface CreateDynamicPolicyRequest {
   conditions?: DynamicPolicyCondition[];
   /** Actions to take when conditions are met */
   actions?: DynamicPolicyAction[];
+  /** Restrict LLM routing to these providers when policy matches */
+  allowedProviders?: string[];
   /** Priority for policy evaluation */
   priority?: number;
   /** Whether the policy is enabled */
@@ -319,6 +323,8 @@ export interface UpdateDynamicPolicyRequest {
   conditions?: DynamicPolicyCondition[];
   /** Updated actions */
   actions?: DynamicPolicyAction[];
+  /** Restrict LLM routing to these providers when policy matches */
+  allowedProviders?: string[];
   /** Updated priority */
   priority?: number;
   /** Updated enabled status */
