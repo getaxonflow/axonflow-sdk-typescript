@@ -23,6 +23,8 @@ export type PolicyCategory =
   | 'code-secrets'
   | 'code-unsafe'
   | 'code-compliance'
+  // Sensitive data category
+  | 'sensitive-data'
   // Dynamic policy categories
   | 'dynamic-risk'
   | 'dynamic-compliance'

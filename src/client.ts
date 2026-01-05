@@ -1603,10 +1603,28 @@ export class AxonFlow {
 
     const response = await this.policyRequest<{
       policy_id: string;
-      versions: PolicyVersion[];
+      versions: Array<{
+        version: number;
+        changed_by?: string;
+        changed_at: string;
+        change_type: string;
+        change_description?: string;
+        previous_values?: Record<string, unknown>;
+        new_values?: Record<string, unknown>;
+      }>;
       count: number;
     }>('GET', `/api/v1/static-policies/${id}/versions`);
-    return response.versions;
+
+    // Transform snake_case API response to camelCase
+    return response.versions.map((v) => ({
+      version: v.version,
+      changedBy: v.changed_by,
+      changedAt: v.changed_at,
+      changeType: v.change_type as PolicyVersion['changeType'],
+      changeDescription: v.change_description,
+      previousValues: v.previous_values,
+      newValues: v.new_values,
+    }));
   }
 
   // ============================================================================
