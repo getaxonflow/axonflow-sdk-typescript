@@ -1189,7 +1189,7 @@ export class AxonFlow {
 
     // Handle both array and wrapped response formats
     if (Array.isArray(response)) {
-      const entries = response.map((e) => this.parseAuditLogEntry(e));
+      const entries = response.map(e => this.parseAuditLogEntry(e));
       return {
         entries,
         total: entries.length,
@@ -1199,7 +1199,7 @@ export class AxonFlow {
     }
 
     const data = response as Record<string, unknown>;
-    const entries = ((data.entries as unknown[]) || []).map((e) => this.parseAuditLogEntry(e));
+    const entries = ((data.entries as unknown[]) || []).map(e => this.parseAuditLogEntry(e));
     return {
       entries,
       total: (data.total as number) ?? entries.length,
@@ -1252,7 +1252,7 @@ export class AxonFlow {
 
     // Handle both array and wrapped response formats
     if (Array.isArray(response)) {
-      const entries = response.map((e) => this.parseAuditLogEntry(e));
+      const entries = response.map(e => this.parseAuditLogEntry(e));
       return {
         entries,
         total: entries.length,
@@ -1262,7 +1262,7 @@ export class AxonFlow {
     }
 
     const data = response as Record<string, unknown>;
-    const entries = ((data.entries as unknown[]) || []).map((e) => this.parseAuditLogEntry(e));
+    const entries = ((data.entries as unknown[]) || []).map(e => this.parseAuditLogEntry(e));
     return {
       entries,
       total: (data.total as number) ?? entries.length,
