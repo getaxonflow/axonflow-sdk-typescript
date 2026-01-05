@@ -1728,10 +1728,9 @@ export class AxonFlow {
     }
 
     // API returns {"policies": [...]} wrapper via Agent proxy
-    const response = await this.orchestratorRequest<{ policies: DynamicPolicy[] } | DynamicPolicy[]>(
-      'GET',
-      path
-    );
+    const response = await this.orchestratorRequest<
+      { policies: DynamicPolicy[] } | DynamicPolicy[]
+    >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
     return Array.isArray(response) ? response : response.policies;
   }
@@ -1870,10 +1869,9 @@ export class AxonFlow {
     }
 
     // API returns {"policies": [...]} wrapper via Agent proxy
-    const response = await this.orchestratorRequest<{ policies: DynamicPolicy[] } | DynamicPolicy[]>(
-      'GET',
-      path
-    );
+    const response = await this.orchestratorRequest<
+      { policies: DynamicPolicy[] } | DynamicPolicy[]
+    >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
     return Array.isArray(response) ? response : response.policies;
   }
