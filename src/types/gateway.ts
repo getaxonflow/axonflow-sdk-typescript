@@ -31,6 +31,8 @@ export interface PolicyApprovalResult {
   contextId: string;
   /** Whether the request was approved */
   approved: boolean;
+  /** Whether response requires redaction (PII detected with redact action) */
+  requiresRedaction?: boolean;
   /** Filtered/approved data to send to LLM */
   approvedData: Record<string, unknown>;
   /** List of policies that were evaluated */

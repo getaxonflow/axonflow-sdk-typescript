@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Audit Log Reading**: Added `searchAuditLogs()` for searching audit logs with filters (user email, client ID, time range, request type)
 - **Tenant Audit Logs**: Added `getAuditLogsByTenant()` for retrieving audit logs scoped to a specific tenant
 - **Audit Types**: Added `AuditLogEntry`, `AuditSearchRequest`, `AuditQueryOptions`, and `AuditSearchResponse` types
+- **PII Redaction Support**: Added `requiresRedaction` field to `PolicyApprovalResult` (Issue #891)
+  - When `true`, PII was detected with redact action and response should be processed for redaction
+  - Supports new detection defaults: PII defaults to redact instead of block
 
 ### Changed
 
