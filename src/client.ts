@@ -1727,7 +1727,13 @@ export class AxonFlow {
       debugLog('Listing dynamic policies', { options });
     }
 
-    return this.orchestratorRequest<DynamicPolicy[]>('GET', path);
+    // API returns {"policies": [...]} wrapper via Agent proxy
+    const response = await this.orchestratorRequest<{ policies: DynamicPolicy[] } | DynamicPolicy[]>(
+      'GET',
+      path
+    );
+    // Handle both wrapped and unwrapped responses for compatibility
+    return Array.isArray(response) ? response : response.policies;
   }
 
   /**
@@ -1741,7 +1747,13 @@ export class AxonFlow {
       debugLog('Getting dynamic policy', { id });
     }
 
-    return this.orchestratorRequest<DynamicPolicy>('GET', `/api/v1/dynamic-policies/${id}`);
+    // API returns {"policy": {...}} wrapper via Agent proxy
+    const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
+      'GET',
+      `/api/v1/dynamic-policies/${id}`
+    );
+    // Handle both wrapped and unwrapped responses for compatibility
+    return 'policy' in response ? response.policy : response;
   }
 
   /**
@@ -1768,7 +1780,14 @@ export class AxonFlow {
       debugLog('Creating dynamic policy', { name: policy.name });
     }
 
-    return this.orchestratorRequest<DynamicPolicy>('POST', '/api/v1/dynamic-policies', policy);
+    // API returns {"policy": {...}} wrapper via Agent proxy
+    const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
+      'POST',
+      '/api/v1/dynamic-policies',
+      policy
+    );
+    // Handle both wrapped and unwrapped responses for compatibility
+    return 'policy' in response ? response.policy : response;
   }
 
   /**
@@ -1786,7 +1805,14 @@ export class AxonFlow {
       debugLog('Updating dynamic policy', { id, updates: Object.keys(policy) });
     }
 
-    return this.orchestratorRequest<DynamicPolicy>('PUT', `/api/v1/dynamic-policies/${id}`, policy);
+    // API returns {"policy": {...}} wrapper via Agent proxy
+    const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
+      'PUT',
+      `/api/v1/dynamic-policies/${id}`,
+      policy
+    );
+    // Handle both wrapped and unwrapped responses for compatibility
+    return 'policy' in response ? response.policy : response;
   }
 
   /**
@@ -1814,9 +1840,14 @@ export class AxonFlow {
       debugLog('Toggling dynamic policy', { id, enabled });
     }
 
-    return this.orchestratorRequest<DynamicPolicy>('PATCH', `/api/v1/dynamic-policies/${id}`, {
-      enabled,
-    });
+    // API returns {"policy": {...}} wrapper via Agent proxy
+    const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
+      'PATCH',
+      `/api/v1/dynamic-policies/${id}`,
+      { enabled }
+    );
+    // Handle both wrapped and unwrapped responses for compatibility
+    return 'policy' in response ? response.policy : response;
   }
 
   /**
@@ -1838,7 +1869,13 @@ export class AxonFlow {
       debugLog('Getting effective dynamic policies', { options });
     }
 
-    return this.orchestratorRequest<DynamicPolicy[]>('GET', path);
+    // API returns {"policies": [...]} wrapper via Agent proxy
+    const response = await this.orchestratorRequest<{ policies: DynamicPolicy[] } | DynamicPolicy[]>(
+      'GET',
+      path
+    );
+    // Handle both wrapped and unwrapped responses for compatibility
+    return Array.isArray(response) ? response : response.policies;
   }
 
   // ============================================================================

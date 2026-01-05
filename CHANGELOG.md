@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enables GDPR, HIPAA, and RBI compliance by restricting LLM routing to specific providers
 - **Category field**: Added `category` field to `CreateDynamicPolicyRequest` and `UpdateDynamicPolicyRequest`
 
+### Fixed
+
+- **Dynamic Policy Response Parsing**: Fixed all dynamic policy methods to correctly parse wrapped API responses (Issue #886)
+  - Agent proxy returns `{"policies": [...]}` and `{"policy": {...}}` wrappers
+  - Updated `listDynamicPolicies`, `getDynamicPolicy`, `createDynamicPolicy`, `updateDynamicPolicy`, `toggleDynamicPolicy`, `getEffectiveDynamicPolicies`
+  - Added fallback handling for both wrapped and unwrapped responses
+
 ## [2.0.0] - 2026-01-05
 
 ### Breaking Changes
