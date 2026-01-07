@@ -81,7 +81,6 @@ import {
   APIError,
   PolicyViolationError,
   ConfigurationError,
-  ConnectionError,
   ConnectorError,
   PlanExecutionError,
 } from './errors';

@@ -693,11 +693,13 @@ describe('Policy CRUD Methods', () => {
       expect(mockFetch).toHaveBeenCalled();
     });
 
-    it('should use apiKey for X-Client-Secret when licenseKey not set', async () => {
+    it('should use apiKey for X-Client-Secret when no other credentials set', async () => {
+      // Note: In v3.0.0+, tenant without clientId derives clientId from tenant (higher priority than apiKey)
+      // So we test apiKey WITHOUT tenant to verify the fallback behavior
       const apiKeyClient = new AxonFlow({
         endpoint: 'https://api.example.com',
         apiKey: 'test-api-key',
-        tenant: 'test',
+        // No tenant - ensures apiKey fallback is used
       });
 
       mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
