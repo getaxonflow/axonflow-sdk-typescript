@@ -1815,7 +1815,7 @@ export class AxonFlow {
       { policies: DynamicPolicy[] } | DynamicPolicy[]
     >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
-    return Array.isArray(response) ? response : response.policies;
+    return Array.isArray(response) ? response : (response.policies || []);
   }
 
   /**
@@ -1956,7 +1956,7 @@ export class AxonFlow {
       { policies: DynamicPolicy[] } | DynamicPolicy[]
     >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
-    return Array.isArray(response) ? response : response.policies;
+    return Array.isArray(response) ? response : (response.policies || []);
   }
 
   // ============================================================================
