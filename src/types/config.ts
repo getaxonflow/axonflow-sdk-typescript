@@ -9,10 +9,24 @@ export interface AxonFlowConfig {
   apiKey?: string;
 
   /**
-   * Your AxonFlow license key (recommended)
-   * Replaces the deprecated apiKey for license-based authentication
+   * Your AxonFlow license key (recommended for license-based deployments)
+   * Alternative to clientId/clientSecret authentication
    */
   licenseKey?: string;
+
+  /**
+   * Client ID for OAuth2-style authentication (recommended)
+   * Used with clientSecret for enterprise deployments.
+   * This is the authentication identity (WHO is calling).
+   */
+  clientId?: string;
+
+  /**
+   * Client secret for OAuth2-style authentication
+   * Used with clientId for enterprise deployments.
+   * This is the authentication credential.
+   */
+  clientSecret?: string;
 
   /**
    * AxonFlow API endpoint (optional)
@@ -31,7 +45,13 @@ export interface AxonFlowConfig {
   mode?: 'sandbox' | 'production';
 
   /**
-   * Tenant identifier for multi-tenant deployments
+   * Tenant identifier for multi-tenant deployments.
+   * This specifies WHICH organization context (X-Tenant-ID header).
+   * Separate from authentication identity (clientId).
+   *
+   * @deprecated Using tenant without clientId is deprecated.
+   * For authentication, use clientId/clientSecret instead.
+   * Keep tenant only for multi-tenant routing context.
    */
   tenant?: string;
 

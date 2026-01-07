@@ -76,7 +76,15 @@ import {
   BudgetCheckRequest,
   ListUsageRecordsOptions,
 } from './types';
-import { AuthenticationError, APIError, PolicyViolationError } from './errors';
+import {
+  AuthenticationError,
+  APIError,
+  PolicyViolationError,
+  ConfigurationError,
+  ConnectionError,
+  ConnectorError,
+  PlanExecutionError,
+} from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
 import { AnthropicInterceptor } from './interceptors/anthropic';
 import { BaseInterceptor } from './interceptors/base';
@@ -89,6 +97,8 @@ export class AxonFlow {
   private config: {
     apiKey?: string;
     licenseKey?: string;
+    clientId?: string;
+    clientSecret?: string;
     endpoint: string;
     mode: 'sandbox' | 'production';
     tenant: string;
@@ -102,17 +112,52 @@ export class AxonFlow {
   private sessionCookie: string | null = null;
 
   constructor(config: AxonFlowConfig) {
+    // Configuration validation
+    if (config.clientSecret && !config.clientId) {
+      throw new ConfigurationError(
+        'clientSecret requires clientId to be set. ' +
+          'Provide both clientId and clientSecret for OAuth2-style authentication.'
+      );
+    }
+
     // Set defaults first to determine endpoint
     const endpoint = config.endpoint || 'https://staging-eu.getaxonflow.com';
 
-    // Credentials are optional for community/self-hosted deployments
-    // Enterprise features (Gateway Mode, Policy CRUD) require credentials
-    const hasCredentials = !!(config.licenseKey || config.apiKey);
+    // Deprecation warnings
+    if (config.apiKey) {
+      console.warn(
+        '[AxonFlow] apiKey is deprecated. Use licenseKey or clientId/clientSecret instead. ' +
+          'See: https://docs.getaxonflow.com/sdk/migration/v3'
+      );
+    }
+
+    // Warn when tenant is used without clientId (legacy pattern)
+    if (config.tenant && !config.clientId) {
+      console.warn(
+        '[AxonFlow] Using tenant without clientId is deprecated. ' +
+          'For authentication, use clientId/clientSecret. ' +
+          'Keep tenant only for multi-tenant routing context. ' +
+          'See: https://docs.getaxonflow.com/sdk/migration/v3'
+      );
+    }
+
+    // Credentials check: OAuth2-style (clientId/clientSecret) OR license-based OR legacy apiKey
+    const hasCredentials = !!(
+      (config.clientId && config.clientSecret) ||
+      config.licenseKey ||
+      config.apiKey ||
+      config.clientId // clientId alone for backward compatibility with tenant pattern
+    );
 
     // Set configuration
+    // For backward compatibility: if tenant is provided without clientId, use tenant as clientId
+    const clientId = config.clientId || config.tenant;
+
     this.config = {
       apiKey: config.apiKey,
       licenseKey: config.licenseKey,
+      clientId: clientId,
+      clientSecret: config.clientSecret,
       endpoint,
       mode: config.mode || (hasCredentials ? 'production' : 'sandbox'),
       tenant: config.tenant || 'default',
@@ -134,16 +179,66 @@ export class AxonFlow {
     this.interceptors = [new OpenAIInterceptor(), new AnthropicInterceptor()];
 
     if (this.config.debug) {
+      // Determine auth method for logging
+      let authMethod: string;
+      if (this.config.clientId && this.config.clientSecret) {
+        authMethod = 'client-credentials';
+      } else if (this.config.licenseKey) {
+        authMethod = 'license-key';
+      } else if (this.config.clientId) {
+        authMethod = 'client-id-only';
+      } else if (this.config.apiKey) {
+        authMethod = 'api-key (deprecated)';
+      } else {
+        authMethod = 'community (no auth)';
+      }
+
       debugLog('AxonFlow initialized', {
         mode: this.config.mode,
         endpoint: this.config.endpoint,
-        authMethod: hasCredentials
-          ? this.config.licenseKey
-            ? 'license-key'
-            : 'api-key'
-          : 'community (no auth)',
+        authMethod,
       });
     }
+  }
+
+  /**
+   * Get authentication headers based on configured credentials.
+   * Priority order:
+   * 1. clientId + clientSecret (OAuth2-style, recommended for enterprise)
+   * 2. licenseKey (license-based, recommended for marketplace)
+   * 3. clientId only (simple client ID header)
+   * 4. apiKey (deprecated, maps to X-Client-Secret)
+   *
+   * Also adds X-Tenant-ID header if tenant is configured for multi-tenant routing.
+   *
+   * @returns Headers object with authentication headers
+   */
+  private getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    // OAuth2-style client credentials (highest priority)
+    if (this.config.clientId && this.config.clientSecret) {
+      const credentials = Buffer.from(
+        `${this.config.clientId}:${this.config.clientSecret}`
+      ).toString('base64');
+      headers['Authorization'] = `Basic ${credentials}`;
+    } else if (this.config.licenseKey) {
+      // License-based authentication
+      headers['X-License-Key'] = this.config.licenseKey;
+    } else if (this.config.clientId) {
+      // Client ID only (backward compatibility)
+      headers['X-Client-ID'] = this.config.clientId;
+    } else if (this.config.apiKey) {
+      // Deprecated apiKey (backward compatibility)
+      headers['X-Client-Secret'] = this.config.apiKey;
+    }
+
+    // Multi-tenant routing header (separate from auth)
+    if (this.config.tenant && this.config.tenant !== 'default') {
+      headers['X-Tenant-ID'] = this.config.tenant;
+    }
+
+    return headers;
   }
 
   /**
@@ -295,13 +390,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    // Add auth headers only when credentials are provided
-    // Community/self-hosted mode works without credentials
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -536,15 +626,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    // Add auth headers only when credentials are provided
-    // Community/self-hosted mode works without credentials
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    } else if (this.config.apiKey) {
-      headers['X-Client-Secret'] = this.config.apiKey;
-    }
 
     if (this.config.debug) {
       debugLog('Proxy Mode: executeQuery', {
@@ -728,11 +811,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -743,8 +823,10 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Connector query failed: ${response.status} ${response.statusText} - ${errorText}`
+      throw new ConnectorError(
+        `Connector query failed: ${response.status} ${response.statusText} - ${errorText}`,
+        connectorName,
+        'query'
       );
     }
 
@@ -781,11 +863,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    }
 
     // Use mapTimeout for MAP operations (default 2 minutes)
     const response = await fetch(url, {
@@ -797,15 +876,21 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Plan generation failed: ${response.status} ${response.statusText} - ${errorText}`
+      throw new PlanExecutionError(
+        `Plan generation failed: ${response.status} ${response.statusText} - ${errorText}`,
+        undefined,
+        'generation'
       );
     }
 
     const agentResponse = await response.json();
 
     if (!agentResponse.success) {
-      throw new Error(`Plan generation failed: ${agentResponse.error}`);
+      throw new PlanExecutionError(
+        `Plan generation failed: ${agentResponse.error}`,
+        undefined,
+        'generation'
+      );
     }
 
     // plan_id can be at top level or inside data
@@ -843,11 +928,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    }
 
     // Use mapTimeout for MAP operations (default 2 minutes)
     const response = await fetch(url, {
@@ -859,8 +941,10 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Plan execution failed: ${response.status} ${response.statusText} - ${errorText}`
+      throw new PlanExecutionError(
+        `Plan execution failed: ${response.status} ${response.statusText} - ${errorText}`,
+        planId,
+        'execution'
       );
     }
 
@@ -978,15 +1062,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    // Add auth headers only when credentials are provided
-    // Community/self-hosted mode works without credentials
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    } else if (this.config.apiKey) {
-      headers['X-Client-Secret'] = this.config.apiKey;
-    }
 
     if (this.config.debug) {
       debugLog('Gateway Mode: Pre-check', { query: options.query.substring(0, 50) });
@@ -1089,15 +1166,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    // Add auth headers only when credentials are provided
-    // Community/self-hosted mode works without credentials
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    } else if (this.config.apiKey) {
-      headers['X-Client-Secret'] = this.config.apiKey;
-    }
 
     if (this.config.debug) {
       debugLog('Gateway Mode: Audit', {
@@ -1299,24 +1369,20 @@ export class AxonFlow {
   // ============================================================================
 
   /**
-   * Build authentication headers for API requests
+   * Build authentication headers for API requests.
+   * Includes Content-Type and X-Org-ID for policy APIs.
+   * Uses getAuthHeaders() for authentication credentials.
    */
   private buildAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
 
     // Always include tenant ID for policy APIs (X-Org-ID header for server compatibility)
+    // Note: getAuthHeaders() already adds X-Tenant-ID when tenant is non-default
     if (this.config.tenant) {
       headers['X-Org-ID'] = this.config.tenant;
-    }
-
-    // Add auth headers only when credentials are provided
-    // Community/self-hosted mode works without credentials
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    } else if (this.config.apiKey) {
-      headers['X-Client-Secret'] = this.config.apiKey;
     }
 
     return headers;

@@ -5,7 +5,12 @@
 
 import { AxonFlow } from '../src/client';
 import { AxonFlowConfig } from '../src/types';
-import { PolicyViolationError, AuthenticationError, APIError } from '../src/errors';
+import {
+  PolicyViolationError,
+  AuthenticationError,
+  APIError,
+  ConfigurationError,
+} from '../src/errors';
 
 // Store original fetch
 const originalFetch = global.fetch;
@@ -30,9 +35,56 @@ describe('AxonFlow Client Unit Tests', () => {
       expect(client).toBeInstanceOf(AxonFlow);
     });
 
+    it('should create client with clientId/clientSecret (OAuth2-style)', () => {
+      const client = new AxonFlow({
+        clientId: 'my-client',
+        clientSecret: 'my-secret',
+        endpoint: 'http://localhost:8080',
+      });
+
+      expect(client).toBeDefined();
+      expect(client).toBeInstanceOf(AxonFlow);
+    });
+
+    it('should create client with clientId only', () => {
+      const client = new AxonFlow({
+        clientId: 'my-client',
+        endpoint: 'http://localhost:8080',
+      });
+
+      expect(client).toBeDefined();
+      expect(client).toBeInstanceOf(AxonFlow);
+    });
+
+    it('should create client with licenseKey', () => {
+      const client = new AxonFlow({
+        licenseKey: 'license-123',
+        endpoint: 'http://localhost:8080',
+      });
+
+      expect(client).toBeDefined();
+      expect(client).toBeInstanceOf(AxonFlow);
+    });
+
+    it('should throw ConfigurationError when clientSecret without clientId', () => {
+      expect(() => {
+        new AxonFlow({
+          clientSecret: 'my-secret',
+          endpoint: 'http://localhost:8080',
+        });
+      }).toThrow(ConfigurationError);
+
+      expect(() => {
+        new AxonFlow({
+          clientSecret: 'my-secret',
+        });
+      }).toThrow('clientSecret requires clientId to be set');
+    });
+
     it('should create client with full config', () => {
       const config: AxonFlowConfig = {
-        apiKey: 'test-key',
+        clientId: 'my-client',
+        clientSecret: 'my-secret',
         tenant: 'test-tenant',
         endpoint: 'https://custom.example.com',
         mode: 'production',
@@ -55,8 +107,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should use default values for optional config', () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
-        tenant: 'test-tenant',
+        clientId: 'my-client',
+        clientSecret: 'my-secret',
       });
 
       expect(client).toBeDefined();
@@ -66,8 +118,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should accept sandbox mode', () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
-        tenant: 'test-tenant',
+        clientId: 'my-client',
+        clientSecret: 'my-secret',
         mode: 'sandbox',
       });
 
@@ -76,12 +128,71 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should accept VPC endpoint', () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
-        tenant: 'test-tenant',
+        clientId: 'my-client',
+        clientSecret: 'my-secret',
         endpoint: 'https://vpc-endpoint.example.com:8443',
       });
 
       expect(client).toBeDefined();
+    });
+
+    it('should create client without credentials (community mode)', () => {
+      const client = new AxonFlow({
+        endpoint: 'http://localhost:8080',
+      });
+
+      expect(client).toBeDefined();
+    });
+
+    // Backward compatibility tests
+    it('should emit deprecation warning for apiKey (backward compatibility)', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      const client = new AxonFlow({
+        apiKey: 'deprecated-key',
+        tenant: 'test-tenant',
+      });
+
+      expect(client).toBeDefined();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('apiKey is deprecated')
+      );
+
+      warnSpy.mockRestore();
+    });
+
+    it('should emit deprecation warning for tenant without clientId', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      const client = new AxonFlow({
+        tenant: 'test-tenant',
+        endpoint: 'http://localhost:8080',
+      });
+
+      expect(client).toBeDefined();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Using tenant without clientId is deprecated')
+      );
+
+      warnSpy.mockRestore();
+    });
+
+    it('should NOT emit deprecation warning when clientId is provided with tenant', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      const client = new AxonFlow({
+        clientId: 'my-client',
+        clientSecret: 'my-secret',
+        tenant: 'test-tenant',
+        endpoint: 'http://localhost:8080',
+      });
+
+      expect(client).toBeDefined();
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('Using tenant without clientId is deprecated')
+      );
+
+      warnSpy.mockRestore();
     });
   });
 
@@ -961,7 +1072,7 @@ describe('AxonFlow Client Unit Tests', () => {
       }).not.toThrow();
     });
 
-    it('should not warn in debug mode without credentials (community mode)', () => {
+    it('should emit deprecation warning when tenant used without clientId (community mode)', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       new AxonFlow({
@@ -970,7 +1081,22 @@ describe('AxonFlow Client Unit Tests', () => {
         debug: true,
       });
 
-      // No warning should be produced - credentials are optional
+      // Deprecation warning for tenant without clientId pattern
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Using tenant without clientId is deprecated')
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('should NOT warn when using endpoint only (pure community mode)', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      new AxonFlow({
+        endpoint: 'http://localhost:8080',
+        debug: true,
+      });
+
+      // No deprecation warning - no tenant, no apiKey, just endpoint
       expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
     });

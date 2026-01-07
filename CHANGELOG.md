@@ -5,6 +5,94 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-01-07
+
+### Breaking Changes
+
+- **BREAKING**: Configuration pattern changed to OAuth2-style client credentials (ADR-028)
+  - Add `clientId` and `clientSecret` fields for authentication
+  - `tenant` field now only for multi-tenant routing context, not authentication
+  - Using `tenant` without `clientId` is deprecated and emits a warning
+
+### Added
+
+- **OAuth2-Style Authentication**: Added `clientId` and `clientSecret` config fields
+  - Aligns TypeScript SDK with Go, Python, and Java SDKs
+  - Industry-standard OAuth2 client credentials pattern
+  - `clientId` identifies WHO is calling (authentication identity)
+  - `clientSecret` is the authentication credential
+
+- **New Exception Types**: Added exception types for parity with Python/Java SDKs
+  - `ConfigurationError` - for invalid SDK configuration
+  - `ConnectionError` - for network/connection failures
+  - `ConnectorError` - for MCP connector operation failures
+  - `PlanExecutionError` - for Multi-Agent Planning failures
+
+- **Exception Details**: All errors now include a `details` property with structured metadata
+
+### Changed
+
+- **Authentication Priority**:
+  1. `clientId` + `clientSecret` (OAuth2-style, recommended)
+  2. `licenseKey` (license-based)
+  3. `clientId` only (backward compatibility)
+  4. `apiKey` (deprecated, backward compatibility)
+
+- **Header Generation**: Centralized auth header generation with `getAuthHeaders()` method
+  - OAuth2 credentials use `Authorization: Basic` header
+  - License key uses `X-License-Key` header
+  - Client ID only uses `X-Client-ID` header
+  - Tenant context uses `X-Tenant-ID` header (separate from auth)
+
+### Deprecated
+
+- `apiKey` config field - use `licenseKey` or `clientId`/`clientSecret` instead
+- Using `tenant` without `clientId` - use `clientId` for authentication identity
+
+### Migration Guide
+
+**Before (v2.x):**
+```typescript
+const client = new AxonFlow({
+  endpoint: 'http://localhost:8080',
+  tenant: 'my-app',           // Used for both auth and context
+  licenseKey: 'my-license',
+});
+```
+
+**After (v3.0.0):**
+```typescript
+const client = new AxonFlow({
+  endpoint: 'http://localhost:8080',
+  clientId: 'my-app',         // Authentication identity
+  clientSecret: 'my-secret',  // Authentication credential
+  tenant: 'org-123',          // Multi-tenant context (optional)
+});
+```
+
+**Exception Handling (v3.0.0):**
+```typescript
+import {
+  AxonFlowError,
+  ConfigurationError,
+  ConnectionError,
+  ConnectorError,
+  PlanExecutionError
+} from '@axonflow/sdk';
+
+try {
+  await client.generatePlan(request);
+} catch (error) {
+  if (error instanceof ConfigurationError) {
+    // Handle config issues
+  } else if (error instanceof PlanExecutionError) {
+    console.log('Plan failed:', error.planId, error.step);
+  }
+}
+```
+
+---
+
 ## [2.1.0] - 2026-01-05
 
 ### Added
