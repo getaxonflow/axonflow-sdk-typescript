@@ -54,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `apiKey` config field - use `licenseKey` or `clientId`/`clientSecret` instead
 - Using `tenant` without `clientId` - use `clientId` for authentication identity
 
+### Fixed
+
+- **getPlanStatus endpoint**: Fixed endpoint path from `/api/plans/{id}` to `/api/v1/plan/{id}` to match orchestrator API
+
 ### Migration Guide
 
 **Before (v2.x):**

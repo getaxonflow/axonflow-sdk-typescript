@@ -967,7 +967,7 @@ export class AxonFlow {
    * Get the status of a running or completed plan
    */
   async getPlanStatus(planId: string): Promise<PlanExecutionResponse> {
-    const url = `${this.config.endpoint}/api/plans/${planId}`;
+    const url = `${this.config.endpoint}/api/v1/plan/${planId}`;
 
     const response = await fetch(url, {
       method: 'GET',
