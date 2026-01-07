@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Exception Details**: All errors now include a `details` property with structured metadata
 
+- **Enterprise: Close PR** (`closePR`): Close a PR without merging and optionally delete the branch
+  - Useful for cleaning up test/demo PRs created by code governance examples
+  - Supports all providers: GitHub, GitLab, Bitbucket
+  - Requires enterprise portal authentication
+
 ### Changed
 
 - **Authentication Priority**:

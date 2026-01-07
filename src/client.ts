@@ -1414,8 +1414,8 @@ export class AxonFlow {
       throw new APIError(response.status, response.statusText, errorText);
     }
 
-    // Handle DELETE responses with no body
-    if (response.status === 204 || method === 'DELETE') {
+    // Handle 204 No Content responses
+    if (response.status === 204) {
       return undefined as T;
     }
 
@@ -2425,6 +2425,69 @@ export class AxonFlow {
   }
 
   /**
+   * Close a PR without merging and optionally delete the branch.
+   * Useful for cleaning up test PRs created by examples.
+   *
+   * @param prId - PR record ID
+   * @param deleteBranch - Whether to delete the associated branch (default: true)
+   * @returns Closed PR record
+   *
+   * @example
+   * ```typescript
+   * // Close PR and delete branch
+   * const pr = await axonflow.closePR('pr_123');
+   * console.log(`PR #${pr.prNumber} closed`);
+   *
+   * // Close PR but keep branch
+   * const pr = await axonflow.closePR('pr_123', false);
+   * ```
+   */
+  async closePR(prId: string, deleteBranch: boolean = true): Promise<PRRecord> {
+    if (this.config.debug) {
+      debugLog('Closing PR', { prId, deleteBranch });
+    }
+
+    const query = deleteBranch ? '?delete_branch=true' : '';
+    const response = await this.portalRequest<{
+      id: string;
+      pr_number: number;
+      pr_url: string;
+      title: string;
+      state: string;
+      owner: string;
+      repo: string;
+      head_branch: string;
+      base_branch: string;
+      files_count: number;
+      secrets_detected: number;
+      unsafe_patterns: number;
+      created_at: string;
+      closed_at?: string;
+      created_by?: string;
+      provider_type?: string;
+    }>('DELETE', `/api/v1/code-governance/prs/${prId}${query}`);
+
+    return {
+      id: response.id,
+      prNumber: response.pr_number,
+      prUrl: response.pr_url,
+      title: response.title,
+      state: response.state,
+      owner: response.owner,
+      repo: response.repo,
+      headBranch: response.head_branch,
+      baseBranch: response.base_branch,
+      filesCount: response.files_count,
+      secretsDetected: response.secrets_detected,
+      unsafePatterns: response.unsafe_patterns,
+      createdAt: response.created_at,
+      closedAt: response.closed_at,
+      createdBy: response.created_by,
+      providerType: response.provider_type,
+    };
+  }
+
+  /**
    * Sync PR status with the Git provider.
    * This updates the local record with the current state from GitHub/GitLab/Bitbucket.
    *
@@ -2683,8 +2746,8 @@ export class AxonFlow {
       throw new APIError(response.status, response.statusText, errorText);
     }
 
-    // Handle DELETE responses with no body
-    if (response.status === 204 || method === 'DELETE') {
+    // Handle 204 No Content responses
+    if (response.status === 204) {
       return undefined as T;
     }
 
@@ -2739,8 +2802,8 @@ export class AxonFlow {
       throw new APIError(response.status, response.statusText, errorText);
     }
 
-    // Handle DELETE responses with no body
-    if (response.status === 204 || method === 'DELETE') {
+    // Handle 204 No Content responses
+    if (response.status === 204) {
       return undefined as T;
     }
 
