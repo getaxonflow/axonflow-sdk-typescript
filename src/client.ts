@@ -556,9 +556,12 @@ export class AxonFlow {
    * ```
    */
   async executeQuery(options: ExecuteQueryOptions): Promise<ExecuteQueryResponse> {
+    // Default to "anonymous" if userToken is empty/undefined (community mode)
+    const effectiveUserToken = options.userToken || 'anonymous';
+
     const agentRequest = {
       query: options.query,
-      user_token: options.userToken,
+      user_token: effectiveUserToken,
       client_id: this.config.tenant,
       request_type: options.requestType,
       context: options.context || {},
