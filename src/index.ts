@@ -9,7 +9,7 @@
  * import { AxonFlow } from '@axonflow/sdk';
  * import OpenAI from 'openai';
  *
- * const axonflow = new AxonFlow({ licenseKey: 'your-key', endpoint: 'http://localhost:8080' });
+ * const axonflow = new AxonFlow({ clientId: 'your-client', clientSecret: 'your-secret', endpoint: 'http://localhost:8080' });
  * const openai = new OpenAI();
  *
  * // 1. Pre-check policies

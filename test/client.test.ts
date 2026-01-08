@@ -27,7 +27,7 @@ describe('AxonFlow Client Unit Tests', () => {
   describe('Client Initialization', () => {
     it('should create client with minimal config', () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
       });
 
@@ -56,9 +56,9 @@ describe('AxonFlow Client Unit Tests', () => {
       expect(client).toBeInstanceOf(AxonFlow);
     });
 
-    it('should create client with licenseKey', () => {
+    it('should create client with clientId and clientSecret', () => {
       const client = new AxonFlow({
-        licenseKey: 'license-123',
+        clientId: 'test-client', clientSecret: 'test-secret',
         endpoint: 'http://localhost:8080',
       });
 
@@ -144,72 +144,42 @@ describe('AxonFlow Client Unit Tests', () => {
       expect(client).toBeDefined();
     });
 
-    // Backward compatibility tests
-    it('should emit deprecation warning for apiKey (backward compatibility)', () => {
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
-
+    // Test community mode (no credentials)
+    it('should allow creation without credentials for community mode', () => {
       const client = new AxonFlow({
-        apiKey: 'deprecated-key',
-        tenant: 'test-tenant',
-      });
-
-      expect(client).toBeDefined();
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('apiKey is deprecated')
-      );
-
-      warnSpy.mockRestore();
-    });
-
-    it('should emit deprecation warning for tenant without clientId', () => {
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
-
-      const client = new AxonFlow({
-        tenant: 'test-tenant',
         endpoint: 'http://localhost:8080',
       });
 
-      expect(client).toBeDefined();
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Using tenant without clientId is deprecated')
-      );
-
-      warnSpy.mockRestore();
-    });
-
-    it('should NOT emit deprecation warning when clientId is provided with tenant', () => {
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
-
-      const client = new AxonFlow({
-        clientId: 'my-client',
-        clientSecret: 'my-secret',
-        tenant: 'test-tenant',
-        endpoint: 'http://localhost:8080',
-      });
-
-      expect(client).toBeDefined();
-      expect(warnSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining('Using tenant without clientId is deprecated')
-      );
-
-      warnSpy.mockRestore();
-    });
-  });
-
-  describe('Sandbox Factory Method', () => {
-    it('should create sandbox client with API key', () => {
-      const client = AxonFlow.sandbox('test-key');
       expect(client).toBeDefined();
       expect(client).toBeInstanceOf(AxonFlow);
     });
 
-    it('should create sandbox client with default key', () => {
+    it('should create client with clientId and clientSecret', () => {
+      const client = new AxonFlow({
+        clientId: 'my-client',
+        clientSecret: 'my-secret',
+        endpoint: 'http://localhost:8080',
+      });
+
+      expect(client).toBeDefined();
+      expect(client).toBeInstanceOf(AxonFlow);
+    });
+  });
+
+  describe('Sandbox Factory Method', () => {
+    it('should create sandbox client with credentials', () => {
+      const client = AxonFlow.sandbox('test-client', 'test-secret');
+      expect(client).toBeDefined();
+      expect(client).toBeInstanceOf(AxonFlow);
+    });
+
+    it('should create sandbox client with default credentials', () => {
       const client = AxonFlow.sandbox();
       expect(client).toBeDefined();
     });
 
-    it('should create sandbox client with custom key', () => {
-      const client = AxonFlow.sandbox('my-custom-key');
+    it('should create sandbox client with custom credentials', () => {
+      const client = AxonFlow.sandbox('my-client', 'my-secret');
       expect(client).toBeDefined();
     });
   });
@@ -218,34 +188,25 @@ describe('AxonFlow Client Unit Tests', () => {
     it('should allow client creation without credentials (community mode)', () => {
       expect(() => {
         new AxonFlow({
-          tenant: 'test-tenant',
-        } as AxonFlowConfig);
-      }).not.toThrow();
-    });
-
-    it('should accept licenseKey without apiKey', () => {
-      expect(() => {
-        new AxonFlow({
-          licenseKey: 'test-license-key',
-          tenant: 'test-tenant',
+          endpoint: 'http://localhost:8080',
         });
       }).not.toThrow();
     });
 
-    it('should accept apiKey without licenseKey (backward compatibility)', () => {
+    it('should accept clientId and clientSecret', () => {
       expect(() => {
         new AxonFlow({
-          apiKey: 'test-api-key',
-          tenant: 'test-tenant',
+          clientId: 'test-client',
+          clientSecret: 'test-secret',
         });
       }).not.toThrow();
     });
 
-    it('should accept both licenseKey and apiKey', () => {
+    it('should allow clientId and clientSecret with tenant', () => {
       expect(() => {
         new AxonFlow({
-          apiKey: 'test-api-key',
-          licenseKey: 'test-license-key',
+          clientId: 'test-client',
+          clientSecret: 'test-secret',
           tenant: 'test-tenant',
         });
       }).not.toThrow();
@@ -254,7 +215,7 @@ describe('AxonFlow Client Unit Tests', () => {
     it('should handle empty tenant', () => {
       expect(() => {
         new AxonFlow({
-          apiKey: 'test-key',
+          clientId: 'test-client', clientSecret: 'test-secret',
           tenant: '',
         });
       }).not.toThrow();
@@ -262,7 +223,7 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should handle custom timeout', () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         timeout: 60000,
       });
@@ -272,7 +233,7 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should handle custom retry config', () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         retry: {
           enabled: true,
@@ -287,7 +248,7 @@ describe('AxonFlow Client Unit Tests', () => {
   describe('Protect Method', () => {
     it('should accept async function', async () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         mode: 'production', // Use production mode for fail-open
       });
@@ -304,7 +265,7 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should accept function returning promise', async () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         mode: 'production',
       });
@@ -320,7 +281,7 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should pass through return value', async () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         mode: 'production',
       });
@@ -334,7 +295,7 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should handle function that throws', async () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         mode: 'production',
       });
@@ -350,7 +311,7 @@ describe('AxonFlow Client Unit Tests', () => {
   describe('Health Check', () => {
     it('should be able to call protect method', async () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         mode: 'production', // Fail-open mode
       });
@@ -407,7 +368,7 @@ describe('AxonFlow Client Unit Tests', () => {
   describe('Configuration Edge Cases', () => {
     it('should handle undefined config values', () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         endpoint: undefined,
         mode: undefined,
@@ -421,7 +382,7 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should handle very long timeout', () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         timeout: 300000, // 5 minutes
       });
@@ -431,7 +392,7 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should handle disabled retries', () => {
       const client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         retry: {
           enabled: false,
@@ -444,7 +405,8 @@ describe('AxonFlow Client Unit Tests', () => {
     it('should handle very long strings in config', () => {
       const longString = 'a'.repeat(1000);
       const client = new AxonFlow({
-        apiKey: longString,
+        clientId: longString,
+        clientSecret: longString,
         tenant: longString,
       });
 
@@ -455,12 +417,14 @@ describe('AxonFlow Client Unit Tests', () => {
   describe('Multiple Client Instances', () => {
     it('should support multiple independent clients', () => {
       const client1 = new AxonFlow({
-        apiKey: 'key1',
+        clientId: 'client1',
+        clientSecret: 'secret1',
         tenant: 'tenant1',
       });
 
       const client2 = new AxonFlow({
-        apiKey: 'key2',
+        clientId: 'client2',
+        clientSecret: 'secret2',
         tenant: 'tenant2',
       });
 
@@ -472,7 +436,8 @@ describe('AxonFlow Client Unit Tests', () => {
     it('should support sandbox and production clients simultaneously', () => {
       const sandboxClient = AxonFlow.sandbox();
       const prodClient = new AxonFlow({
-        apiKey: 'prod-key',
+        clientId: 'prod-client',
+        clientSecret: 'prod-secret',
         tenant: 'prod-tenant',
         mode: 'production',
       });
@@ -498,7 +463,7 @@ describe('AxonFlow Client Unit Tests', () => {
     beforeEach(() => {
       mockFetch.mockClear();
       client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         endpoint: 'http://localhost:8080',
       });
@@ -1072,7 +1037,7 @@ describe('AxonFlow Client Unit Tests', () => {
       }).not.toThrow();
     });
 
-    it('should emit deprecation warning when tenant used without clientId (community mode)', () => {
+    it('should allow tenant without clientId in community mode', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       new AxonFlow({
@@ -1081,10 +1046,8 @@ describe('AxonFlow Client Unit Tests', () => {
         debug: true,
       });
 
-      // Deprecation warning for tenant without clientId pattern
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Using tenant without clientId is deprecated')
-      );
+      // No deprecation warnings - tenant alone is valid for community mode
+      expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
     });
 
@@ -1096,7 +1059,7 @@ describe('AxonFlow Client Unit Tests', () => {
         debug: true,
       });
 
-      // No deprecation warning - no tenant, no apiKey, just endpoint
+      // No warnings expected - just endpoint in community mode
       expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
     });
@@ -1129,7 +1092,7 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should log in debug mode on healthCheck error', async () => {
       const debugClient = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test',
         endpoint: 'http://localhost:8080',
         debug: true,
@@ -1159,7 +1122,7 @@ describe('AxonFlow Client Unit Tests', () => {
     beforeEach(() => {
       mockFetch.mockClear();
       client = new AxonFlow({
-        apiKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         endpoint: 'http://localhost:8080',
       });
@@ -1502,7 +1465,7 @@ describe('AxonFlow Client Unit Tests', () => {
     describe('debug mode logging', () => {
       it('should log in debug mode for execution methods', async () => {
         const debugClient = new AxonFlow({
-          apiKey: 'test-key',
+          clientId: 'test-client', clientSecret: 'test-secret',
           tenant: 'test',
           endpoint: 'http://localhost:8080',
           debug: true,
@@ -2037,7 +2000,7 @@ describe('AxonFlow Client Unit Tests', () => {
       describe('protect() method branches', () => {
         it('should handle sandbox mode errors without fail-open', async () => {
           const sandboxClient = new AxonFlow({
-            apiKey: 'test-key',
+            clientId: 'test-client', clientSecret: 'test-secret',
             tenant: 'test-tenant',
             mode: 'sandbox',
           });
@@ -2054,7 +2017,7 @@ describe('AxonFlow Client Unit Tests', () => {
           mockFetch.mockRejectedValueOnce(new Error('governance service unavailable'));
 
           const sandboxClient = new AxonFlow({
-            apiKey: 'test-key',
+            clientId: 'test-client', clientSecret: 'test-secret',
             tenant: 'test-tenant',
             mode: 'sandbox',
             endpoint: 'http://localhost:8080',
@@ -2071,7 +2034,7 @@ describe('AxonFlow Client Unit Tests', () => {
           mockFetch.mockRejectedValueOnce(new Error('fetch failed'));
 
           const debugClient = new AxonFlow({
-            apiKey: 'test-key',
+            clientId: 'test-client', clientSecret: 'test-secret',
             tenant: 'test-tenant',
             mode: 'production',
             endpoint: 'http://localhost:8080',
@@ -2336,7 +2299,7 @@ describe('AxonFlow Client Unit Tests', () => {
 
         beforeEach(() => {
           debugClient = new AxonFlow({
-            apiKey: 'test-key',
+            clientId: 'test-client', clientSecret: 'test-secret',
             tenant: 'test-tenant',
             endpoint: 'http://localhost:8080',
             debug: true,
@@ -2642,10 +2605,11 @@ describe('AxonFlow Client Unit Tests', () => {
         });
       });
 
-      describe('queryConnector with licenseKey', () => {
-        it('should use licenseKey in queryConnector', async () => {
-          const clientWithLicense = new AxonFlow({
-            licenseKey: 'license-key-123',
+      describe('queryConnector with credentials', () => {
+        it('should use credentials in queryConnector', async () => {
+          const clientWithCredentials = new AxonFlow({
+            clientId: 'test-client',
+            clientSecret: 'test-secret',
             tenant: 'test-tenant',
             endpoint: 'http://localhost:8080',
           });
@@ -2659,13 +2623,14 @@ describe('AxonFlow Client Unit Tests', () => {
               }),
           });
 
-          await clientWithLicense.queryConnector('postgres', 'SELECT 1');
+          await clientWithCredentials.queryConnector('postgres', 'SELECT 1');
 
+          // OAuth2 Basic auth header should be present
           expect(mockFetch).toHaveBeenCalledWith(
             expect.any(String),
             expect.objectContaining({
               headers: expect.objectContaining({
-                'X-License-Key': 'license-key-123',
+                Authorization: expect.stringMatching(/^Basic /),
               }),
             })
           );

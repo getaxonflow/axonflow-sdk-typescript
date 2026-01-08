@@ -5,7 +5,7 @@
  * against the staging environment before npm release.
  *
  * Run with:
- *   AXONFLOW_LICENSE_KEY=<key> npm run test:e2e
+ *   AXONFLOW_CLIENT_ID=<id> AXONFLOW_CLIENT_SECRET=<secret> npm run test:e2e
  *
  * Or for local testing:
  *   AXONFLOW_AGENT_URL=http://localhost:8080 npm run test:e2e
@@ -22,17 +22,17 @@ function getTestConfig() {
 
   return {
     endpoint,
-    licenseKey: process.env.AXONFLOW_LICENSE_KEY,
-    tenant: process.env.AXONFLOW_CLIENT_ID || 'sdk-e2e-test',
+    clientId: process.env.AXONFLOW_CLIENT_ID || 'sdk-e2e-test',
+    clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
     debug: true,
     timeout: 30000,
     isLocalhost,
   };
 }
 
-// Skip if no license key and not localhost
+// Skip if no credentials and not localhost
 const config = getTestConfig();
-const shouldRun = process.env.RUN_E2E_TESTS === '1' || config.licenseKey || config.isLocalhost;
+const shouldRun = process.env.RUN_E2E_TESTS === '1' || config.clientSecret || config.isLocalhost;
 const describeE2E = shouldRun ? describe : describe.skip;
 
 describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
@@ -43,14 +43,14 @@ describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
     console.log('AxonFlow SDK E2E Test Suite');
     console.log('========================================');
     console.log(`Endpoint: ${config.endpoint}`);
-    console.log(`Tenant: ${config.tenant}`);
+    console.log(`ClientId: ${config.clientId}`);
     console.log(`Mode: ${config.isLocalhost ? 'Self-Hosted' : 'Cloud'}`);
     console.log('========================================\n');
 
     client = new AxonFlow({
       endpoint: config.endpoint,
-      licenseKey: config.licenseKey,
-      tenant: config.tenant,
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
       debug: true,
       timeout: 30000,
     });
@@ -67,7 +67,7 @@ describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
     });
 
     test('should create sandbox client', () => {
-      const sandbox = AxonFlow.sandbox('test-key');
+      const sandbox = AxonFlow.sandbox('test-client', 'test-secret');
       expect(sandbox).toBeDefined();
       console.log('✅ Sandbox client created');
     });
@@ -241,8 +241,8 @@ describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
       // Create a production-mode client for fail-open testing
       const prodClient = new AxonFlow({
         endpoint: config.endpoint,
-        licenseKey: config.licenseKey,
-        tenant: config.tenant,
+        clientId: config.clientId, clientSecret: config.clientSecret,
+        tenant: config.clientId,
         mode: 'production',
         debug: true,
       });
@@ -358,8 +358,8 @@ describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
     test('should handle timeout gracefully', async () => {
       const shortTimeoutClient = new AxonFlow({
         endpoint: config.endpoint,
-        licenseKey: config.licenseKey,
-        tenant: config.tenant,
+        clientId: config.clientId, clientSecret: config.clientSecret,
+        tenant: config.clientId,
         timeout: 1, // 1ms timeout - will definitely timeout
         debug: false,
       });
@@ -380,7 +380,7 @@ describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
     test('should handle invalid endpoint', async () => {
       const badClient = new AxonFlow({
         endpoint: 'https://invalid.nonexistent.endpoint.local',
-        licenseKey: 'test-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test',
         timeout: 5000,
         debug: false,

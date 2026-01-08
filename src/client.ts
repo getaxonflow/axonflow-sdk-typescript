@@ -94,8 +94,6 @@ import { generateRequestId, debugLog } from './utils/helpers';
  */
 export class AxonFlow {
   private config: {
-    apiKey?: string;
-    licenseKey?: string;
     clientId?: string;
     clientSecret?: string;
     endpoint: string;
@@ -122,40 +120,12 @@ export class AxonFlow {
     // Set defaults first to determine endpoint
     const endpoint = config.endpoint || 'https://staging-eu.getaxonflow.com';
 
-    // Deprecation warnings
-    if (config.apiKey) {
-      console.warn(
-        '[AxonFlow] apiKey is deprecated. Use licenseKey or clientId/clientSecret instead. ' +
-          'See: https://docs.getaxonflow.com/sdk/migration/v3'
-      );
-    }
-
-    // Warn when tenant is used without clientId (legacy pattern)
-    if (config.tenant && !config.clientId) {
-      console.warn(
-        '[AxonFlow] Using tenant without clientId is deprecated. ' +
-          'For authentication, use clientId/clientSecret. ' +
-          'Keep tenant only for multi-tenant routing context. ' +
-          'See: https://docs.getaxonflow.com/sdk/migration/v3'
-      );
-    }
-
-    // Credentials check: OAuth2-style (clientId/clientSecret) OR license-based OR legacy apiKey
-    const hasCredentials = !!(
-      (config.clientId && config.clientSecret) ||
-      config.licenseKey ||
-      config.apiKey ||
-      config.clientId // clientId alone for backward compatibility with tenant pattern
-    );
+    // Credentials check: OAuth2-style (clientId/clientSecret)
+    const hasCredentials = !!(config.clientId && config.clientSecret);
 
     // Set configuration
-    // For backward compatibility: if tenant is provided without clientId, use tenant as clientId
-    const clientId = config.clientId || config.tenant;
-
     this.config = {
-      apiKey: config.apiKey,
-      licenseKey: config.licenseKey,
-      clientId: clientId,
+      clientId: config.clientId,
       clientSecret: config.clientSecret,
       endpoint,
       mode: config.mode || (hasCredentials ? 'production' : 'sandbox'),
@@ -179,18 +149,7 @@ export class AxonFlow {
 
     if (this.config.debug) {
       // Determine auth method for logging
-      let authMethod: string;
-      if (this.config.clientId && this.config.clientSecret) {
-        authMethod = 'client-credentials';
-      } else if (this.config.licenseKey) {
-        authMethod = 'license-key';
-      } else if (this.config.clientId) {
-        authMethod = 'client-id-only';
-      } else if (this.config.apiKey) {
-        authMethod = 'api-key (deprecated)';
-      } else {
-        authMethod = 'community (no auth)';
-      }
+      const authMethod = hasCredentials ? 'client-credentials' : 'community (no auth)';
 
       debugLog('AxonFlow initialized', {
         mode: this.config.mode,
@@ -202,39 +161,22 @@ export class AxonFlow {
 
   /**
    * Get authentication headers based on configured credentials.
-   * Priority order:
-   * 1. clientId + clientSecret (OAuth2-style, recommended for enterprise)
-   * 2. licenseKey (license-based, recommended for marketplace)
-   * 3. clientId only (simple client ID header)
-   * 4. apiKey (deprecated, maps to X-Client-Secret)
    *
-   * Also adds X-Tenant-ID header if tenant is configured for multi-tenant routing.
+   * Uses OAuth2-style Basic auth: Authorization: Basic base64(clientId:clientSecret)
+   * Also adds X-Tenant-ID header from clientId for tenant context.
    *
    * @returns Headers object with authentication headers
    */
   private getAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {};
 
-    // OAuth2-style client credentials (highest priority)
+    // OAuth2-style client credentials
     if (this.config.clientId && this.config.clientSecret) {
       const credentials = Buffer.from(
         `${this.config.clientId}:${this.config.clientSecret}`
       ).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
-    } else if (this.config.licenseKey) {
-      // License-based authentication
-      headers['X-License-Key'] = this.config.licenseKey;
-    } else if (this.config.clientId) {
-      // Client ID only (backward compatibility)
-      headers['X-Client-ID'] = this.config.clientId;
-    } else if (this.config.apiKey) {
-      // Deprecated apiKey (backward compatibility)
-      headers['X-Client-Secret'] = this.config.apiKey;
-    }
-
-    // Multi-tenant routing header (separate from auth)
-    if (this.config.tenant && this.config.tenant !== 'default') {
-      headers['X-Tenant-ID'] = this.config.tenant;
+      headers['X-Tenant-ID'] = this.config.clientId;
     }
 
     return headers;
@@ -375,8 +317,8 @@ export class AxonFlow {
     // Transform SDK request to Agent API format
     const agentRequest = {
       query: request.aiRequest.prompt,
-      user_token: this.config.apiKey || '',
-      client_id: this.config.tenant,
+      user_token: '',
+      client_id: this.config.clientId || this.config.tenant,
       request_type: 'llm_chat',
       context: {
         provider: request.aiRequest.provider,
@@ -464,9 +406,13 @@ export class AxonFlow {
   /**
    * Create a sandbox client for testing
    */
-  static sandbox(apiKey: string = 'demo-key'): AxonFlow {
+  static sandbox(
+    clientId: string = 'demo-client',
+    clientSecret: string = 'demo-secret'
+  ): AxonFlow {
     return new AxonFlow({
-      apiKey,
+      clientId,
+      clientSecret,
       mode: 'sandbox',
       endpoint: 'https://staging-eu.getaxonflow.com',
       debug: true,
@@ -797,8 +743,8 @@ export class AxonFlow {
   ): Promise<ConnectorResponse> {
     const agentRequest = {
       query,
-      user_token: this.config.apiKey || '',
-      client_id: this.config.tenant,
+      user_token: '',
+      client_id: this.config.clientId || this.config.tenant,
       request_type: 'mcp-query',
       context: {
         connector: connectorName,

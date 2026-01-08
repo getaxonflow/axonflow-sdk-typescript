@@ -47,7 +47,7 @@ describe('Code Governance Methods', () => {
     jest.clearAllMocks();
     client = new AxonFlow({
       endpoint: 'http://localhost:8080',
-      licenseKey: 'test-license-key',
+      clientId: 'test-client', clientSecret: 'test-secret',
       tenant: 'test-tenant',
     });
     // Login to portal before each test since Code Governance requires auth
@@ -696,7 +696,7 @@ describe('Code Governance Methods', () => {
     it('should log debug info when debug mode is enabled', async () => {
       const debugClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         debug: true,
       });
@@ -781,7 +781,7 @@ describe('Code Governance Methods', () => {
     it('should log debug info on portal request with body', async () => {
       const debugClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         debug: true,
       });
@@ -821,7 +821,7 @@ describe('Code Governance Methods', () => {
     it('should handle login failure', async () => {
       const freshClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
       });
 
@@ -835,7 +835,7 @@ describe('Code Governance Methods', () => {
     it('should use session_id fallback when no cookie header', async () => {
       const freshClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
       });
 
@@ -862,7 +862,7 @@ describe('Code Governance Methods', () => {
       // Fresh client is not logged in
       const freshClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
       });
       expect(freshClient.isLoggedIn()).toBe(false);
@@ -882,7 +882,7 @@ describe('Code Governance Methods', () => {
     it('should handle logout when not logged in', async () => {
       const freshClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
       });
 
@@ -906,7 +906,7 @@ describe('Code Governance Methods', () => {
     it('should log debug info during portal login', async () => {
       const debugClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         debug: true,
       });
@@ -935,7 +935,7 @@ describe('Code Governance Methods', () => {
     it('should log debug info during portal logout', async () => {
       const debugClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client', clientSecret: 'test-secret',
         tenant: 'test-tenant',
         debug: true,
       });

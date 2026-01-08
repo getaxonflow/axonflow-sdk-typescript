@@ -5,22 +5,27 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.0] - 2026-01-07
+## [3.0.0] - 2026-01-08
 
 ### Breaking Changes
 
-- **BREAKING**: Configuration pattern changed to OAuth2-style client credentials (ADR-028)
-  - Add `clientId` and `clientSecret` fields for authentication
-  - `tenant` field now only for multi-tenant routing context, not authentication
-  - Using `tenant` without `clientId` is deprecated and emits a warning
+- **BREAKING**: Removed `apiKey` and `licenseKey` configuration fields
+  - Use `clientId` and `clientSecret` for OAuth2-style authentication instead
+  - Removed `X-License-Key` header support
+  - Removed `X-Client-Secret` header fallback
+  - Authentication now uses only `Authorization: Basic base64(clientId:clientSecret)`
+
+- **BREAKING**: Changed `sandbox()` method signature
+  - Old: `AxonFlow.sandbox(apiKey?: string)`
+  - New: `AxonFlow.sandbox(clientId?: string, clientSecret?: string)`
 
 ### Added
 
-- **OAuth2-Style Authentication**: Added `clientId` and `clientSecret` config fields
-  - Aligns TypeScript SDK with Go, Python, and Java SDKs
+- **OAuth2-Style Authentication**: Uses `clientId` and `clientSecret` config fields
   - Industry-standard OAuth2 client credentials pattern
   - `clientId` identifies WHO is calling (authentication identity)
   - `clientSecret` is the authentication credential
+  - Generates `Authorization: Basic` header
 
 - **New Exception Types**: Added exception types for parity with Python/Java SDKs
   - `ConfigurationError` - for invalid SDK configuration
@@ -35,24 +40,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports all providers: GitHub, GitLab, Bitbucket
   - Requires enterprise portal authentication
 
-### Changed
+### Removed
 
-- **Authentication Priority**:
-  1. `clientId` + `clientSecret` (OAuth2-style, recommended)
-  2. `licenseKey` (license-based)
-  3. `clientId` only (backward compatibility)
-  4. `apiKey` (deprecated, backward compatibility)
-
-- **Header Generation**: Centralized auth header generation with `getAuthHeaders()` method
-  - OAuth2 credentials use `Authorization: Basic` header
-  - License key uses `X-License-Key` header
-  - Client ID only uses `X-Client-ID` header
-  - Tenant context uses `X-Tenant-ID` header (separate from auth)
-
-### Deprecated
-
-- `apiKey` config field - use `licenseKey` or `clientId`/`clientSecret` instead
-- Using `tenant` without `clientId` - use `clientId` for authentication identity
+- `apiKey` config field - use `clientId`/`clientSecret` instead
+- `licenseKey` config field - use `clientId`/`clientSecret` instead
+- `X-License-Key` header support
+- `X-Client-Secret` header fallback
+- `X-Client-ID` header (replaced by OAuth2 Basic auth)
 
 ### Fixed
 
@@ -62,10 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Before (v2.x):**
 ```typescript
+// Using apiKey (deprecated)
 const client = new AxonFlow({
-  endpoint: 'http://localhost:8080',
-  tenant: 'my-app',           // Used for both auth and context
-  licenseKey: 'my-license',
+  apiKey: 'my-api-key',
+});
+
+// Using licenseKey (deprecated)
+const client = new AxonFlow({
+  licenseKey: 'my-license-key',
 });
 ```
 
@@ -73,9 +71,8 @@ const client = new AxonFlow({
 ```typescript
 const client = new AxonFlow({
   endpoint: 'http://localhost:8080',
-  clientId: 'my-app',         // Authentication identity
+  clientId: 'my-client',      // Authentication identity
   clientSecret: 'my-secret',  // Authentication credential
-  tenant: 'org-123',          // Multi-tenant context (optional)
 });
 ```
 

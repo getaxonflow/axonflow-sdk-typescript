@@ -3,19 +3,7 @@
  */
 export interface AxonFlowConfig {
   /**
-   * Your AxonFlow API key
-   * @deprecated Use licenseKey instead for license-based authentication
-   */
-  apiKey?: string;
-
-  /**
-   * Your AxonFlow license key (recommended for license-based deployments)
-   * Alternative to clientId/clientSecret authentication
-   */
-  licenseKey?: string;
-
-  /**
-   * Client ID for OAuth2-style authentication (recommended)
+   * Client ID for OAuth2-style authentication
    * Used with clientSecret for enterprise deployments.
    * This is the authentication identity (WHO is calling).
    */

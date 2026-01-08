@@ -13,7 +13,8 @@ import { AxonFlow, ExecuteQueryOptions, PolicyViolationError } from '../../src';
 async function main() {
   // Initialize client
   const axonflow = new AxonFlow({
-    licenseKey: process.env.AXONFLOW_LICENSE_KEY || 'demo-key',
+    clientId: process.env.AXONFLOW_CLIENT_ID || 'demo-client',
+    clientSecret: process.env.AXONFLOW_CLIENT_SECRET || 'demo-secret',
     endpoint: process.env.AXONFLOW_AGENT_URL || 'https://staging-eu.getaxonflow.com',
     debug: true,
   });
