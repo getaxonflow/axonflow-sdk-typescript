@@ -4,6 +4,10 @@
 
 import {
   AxonFlowError,
+  ConfigurationError,
+  ConnectionError,
+  ConnectorError,
+  PlanExecutionError,
   PolicyViolationError,
   AuthenticationError,
   RateLimitError,
@@ -21,9 +25,112 @@ describe('AxonFlow Error Classes', () => {
       expect(error.message).toBe('Test error message');
     });
 
+    it('should create base error with details', () => {
+      const error = new AxonFlowError('Test error', { foo: 'bar', count: 42 });
+      expect(error.details).toEqual({ foo: 'bar', count: 42 });
+    });
+
+    it('should default details to empty object', () => {
+      const error = new AxonFlowError('Test error');
+      expect(error.details).toEqual({});
+    });
+
     it('should have proper prototype chain', () => {
       const error = new AxonFlowError('Test');
       expect(Object.getPrototypeOf(error)).toBe(AxonFlowError.prototype);
+    });
+  });
+
+  describe('ConfigurationError', () => {
+    it('should create error with message', () => {
+      const error = new ConfigurationError('Invalid configuration');
+      expect(error).toBeInstanceOf(AxonFlowError);
+      expect(error).toBeInstanceOf(ConfigurationError);
+      expect(error.name).toBe('ConfigurationError');
+      expect(error.message).toBe('Invalid configuration');
+    });
+
+    it('should have proper prototype chain', () => {
+      const error = new ConfigurationError('Test');
+      expect(Object.getPrototypeOf(error)).toBe(ConfigurationError.prototype);
+    });
+  });
+
+  describe('ConnectionError', () => {
+    it('should create error with message', () => {
+      const error = new ConnectionError('Failed to connect');
+      expect(error).toBeInstanceOf(AxonFlowError);
+      expect(error).toBeInstanceOf(ConnectionError);
+      expect(error.name).toBe('ConnectionError');
+      expect(error.message).toBe('Failed to connect');
+    });
+
+    it('should include cause when provided', () => {
+      const cause = new Error('ECONNREFUSED');
+      const error = new ConnectionError('Failed to connect', cause);
+      expect(error.cause).toBe(cause);
+      expect(error.details).toEqual({ cause: 'ECONNREFUSED' });
+    });
+
+    it('should have proper prototype chain', () => {
+      const error = new ConnectionError('Test');
+      expect(Object.getPrototypeOf(error)).toBe(ConnectionError.prototype);
+    });
+  });
+
+  describe('ConnectorError', () => {
+    it('should create error with message', () => {
+      const error = new ConnectorError('Query failed');
+      expect(error).toBeInstanceOf(AxonFlowError);
+      expect(error).toBeInstanceOf(ConnectorError);
+      expect(error.name).toBe('ConnectorError');
+      expect(error.message).toBe('Query failed');
+    });
+
+    it('should include connector and operation', () => {
+      const error = new ConnectorError('Query failed', 'amadeus', 'search');
+      expect(error.connector).toBe('amadeus');
+      expect(error.operation).toBe('search');
+      expect(error.details).toEqual({ connector: 'amadeus', operation: 'search' });
+    });
+
+    it('should handle undefined connector and operation', () => {
+      const error = new ConnectorError('Query failed');
+      expect(error.connector).toBeUndefined();
+      expect(error.operation).toBeUndefined();
+    });
+
+    it('should have proper prototype chain', () => {
+      const error = new ConnectorError('Test');
+      expect(Object.getPrototypeOf(error)).toBe(ConnectorError.prototype);
+    });
+  });
+
+  describe('PlanExecutionError', () => {
+    it('should create error with message', () => {
+      const error = new PlanExecutionError('Execution failed');
+      expect(error).toBeInstanceOf(AxonFlowError);
+      expect(error).toBeInstanceOf(PlanExecutionError);
+      expect(error.name).toBe('PlanExecutionError');
+      expect(error.message).toBe('Execution failed');
+    });
+
+    it('should include planId and step', () => {
+      const error = new PlanExecutionError('Step failed', 'plan-123', 'data-fetch');
+      expect(error.planId).toBe('plan-123');
+      expect(error.step).toBe('data-fetch');
+      expect(error.details).toEqual({ planId: 'plan-123', step: 'data-fetch' });
+    });
+
+    it('should handle undefined planId and step', () => {
+      const error = new PlanExecutionError('Generation failed');
+      expect(error.planId).toBeUndefined();
+      expect(error.step).toBeUndefined();
+    });
+
+    it('should have proper prototype chain', () => {
+      const error = new PlanExecutionError('Test');
+      expect(Object.getPrototypeOf(error)).toBe(PlanExecutionError.prototype);
     });
   });
 

@@ -5,6 +5,45 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-01-08
+
+### Added
+
+- **OAuth2-style client credentials**: New `clientId` and `clientSecret` configuration options following OAuth2 client credentials pattern.
+  - `clientId` is used for request identification (required for most API calls)
+  - `clientSecret` is optional - community/self-hosted deployments work without it
+  - The old `tenant` field still works as a fallback for `clientId`
+
+- **Improved error types**: Added `ConnectorError` and `PlanExecutionError` classes for better error handling in connector and MAP operations.
+
+- **Enterprise: Close PR** (`closePR`): Close a PR without merging and optionally delete the branch
+  - Useful for cleaning up test/demo PRs created by code governance examples
+  - Supports all providers: GitHub, GitLab, Bitbucket
+  - Requires enterprise portal authentication
+
+### Changed
+
+- **Simplified authentication**: For community mode, simply provide `clientId` for request identification. No `clientSecret` needed.
+
+```typescript
+// Community mode - no secret needed
+const client = new AxonFlow({
+  endpoint: 'http://localhost:8080',
+  clientId: 'my-app',  // Used for request identification
+});
+```
+
+### Fixed
+
+- **getPlanStatus endpoint**: Fixed endpoint path from `/api/plans/{id}` to `/api/v1/plan/{id}` to match orchestrator API
+
+### Enterprise
+
+- OAuth2 Basic auth: `Authorization: Basic base64(clientId:clientSecret)` replaces `X-License-Key` header
+- Removed `licenseKey` and `apiKey` configuration options (use `clientId`/`clientSecret`)
+
+---
+
 ## [2.1.0] - 2026-01-05
 
 ### Added

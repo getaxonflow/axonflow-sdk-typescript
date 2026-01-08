@@ -10,10 +10,10 @@
 import { AxonFlow } from '@axonflow/sdk';
 
 async function main() {
-  const apiKey = process.env.AXONFLOW_API_KEY || 'demo-key';
-  const tenant = process.env.AXONFLOW_TENANT || 'demo-tenant';
+  const clientId = process.env.AXONFLOW_CLIENT_ID || 'demo-client';
+  const clientSecret = process.env.AXONFLOW_CLIENT_SECRET || 'demo-secret';
 
-  const client = new AxonFlow({ apiKey, tenant, debug: true });
+  const client = new AxonFlow({ clientId, clientSecret, debug: true });
 
   // List connectors
   console.log('='.repeat(60));

@@ -9,7 +9,7 @@
  * import { AxonFlow } from '@axonflow/sdk';
  * import OpenAI from 'openai';
  *
- * const axonflow = new AxonFlow({ licenseKey: 'your-key', endpoint: 'http://localhost:8080' });
+ * const axonflow = new AxonFlow({ clientId: 'your-client', clientSecret: 'your-secret', endpoint: 'http://localhost:8080' });
  * const openai = new OpenAI();
  *
  * // 1. Pre-check policies
@@ -67,6 +67,10 @@ export { wrapBedrockClient } from './interceptors/bedrock';
 // Export error classes for proper error handling
 export {
   AxonFlowError,
+  ConfigurationError,
+  ConnectionError,
+  ConnectorError,
+  PlanExecutionError,
   PolicyViolationError,
   AuthenticationError,
   RateLimitError,
@@ -181,7 +185,7 @@ export type {
 } from './types/cost-controls';
 
 // Export version
-export const VERSION = '1.7.0';
+export const VERSION = '3.0.0';
 
 // Default export for convenience
 import { AxonFlow } from './client';

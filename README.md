@@ -26,7 +26,8 @@ import OpenAI from 'openai';
 // Initialize clients
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const axonflow = new AxonFlow({
-  licenseKey: process.env.AXONFLOW_LICENSE_KEY,
+  clientId: process.env.AXONFLOW_CLIENT_ID,
+  clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
   endpoint: process.env.AXONFLOW_ENDPOINT || 'http://localhost:8080'
 });
 
@@ -75,7 +76,8 @@ For simpler integrations, Proxy Mode handles policy checking and auditing in a s
 import { AxonFlow } from '@axonflow/sdk';
 
 const axonflow = new AxonFlow({
-  licenseKey: process.env.AXONFLOW_LICENSE_KEY,
+  clientId: process.env.AXONFLOW_CLIENT_ID,
+  clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
   endpoint: 'http://localhost:8080'
 });
 
@@ -163,15 +165,6 @@ docker-compose up
 - ✅ Same API as production
 - ✅ Automatically detects localhost and skips authentication
 
-### Legacy API Key Auth (Deprecated)
-
-> **⚠️ Deprecated**: `apiKey` authentication is deprecated. Please migrate to license-based authentication using `licenseKey`.
-
-```typescript
-// Legacy method (still supported for backward compatibility)
-const axonflow = new AxonFlow({ apiKey: process.env.AXONFLOW_API_KEY });
-```
-
 ## Proxy Mode (executeQuery)
 
 Proxy Mode routes all requests through AxonFlow's `/api/request` endpoint, providing a simpler integration pattern with automatic policy enforcement:
@@ -182,7 +175,8 @@ Proxy Mode routes all requests through AxonFlow's `/api/request` endpoint, provi
 import { AxonFlow, PolicyViolationError } from '@axonflow/sdk';
 
 const axonflow = new AxonFlow({
-  licenseKey: process.env.AXONFLOW_LICENSE_KEY
+  clientId: process.env.AXONFLOW_CLIENT_ID,
+  clientSecret: process.env.AXONFLOW_CLIENT_SECRET
 });
 
 // Execute a chat query with policy enforcement
@@ -298,7 +292,8 @@ import { AxonFlow } from '@axonflow/sdk';
 import { useState } from 'react';
 
 const axonflow = new AxonFlow({
-  licenseKey: process.env.REACT_APP_AXONFLOW_LICENSE_KEY,
+  clientId: process.env.REACT_APP_AXONFLOW_CLIENT_ID,
+  clientSecret: process.env.REACT_APP_AXONFLOW_CLIENT_SECRET,
   endpoint: process.env.REACT_APP_AXONFLOW_ENDPOINT || 'http://localhost:8080'
 });
 
@@ -341,7 +336,8 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const axonflow = new AxonFlow({
-  licenseKey: process.env.AXONFLOW_LICENSE_KEY,
+  clientId: process.env.AXONFLOW_CLIENT_ID,
+  clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
   endpoint: process.env.AXONFLOW_ENDPOINT || 'http://localhost:8080'
 });
 
@@ -396,12 +392,14 @@ export default async function handler(req, res) {
 
 ```typescript
 const axonflow = new AxonFlow({
-  apiKey: 'your-api-key',           // Required (use client_id from AxonFlow)
+  // Authentication (OAuth2 client credentials)
+  clientId: 'your-client-id',         // Required for cloud/enterprise
+  clientSecret: 'your-client-secret', // Required for cloud/enterprise
 
   // Optional settings
   mode: 'production',                // or 'sandbox' for testing
   endpoint: 'https://staging-eu.getaxonflow.com', // Default public endpoint
-  tenant: 'your-tenant-id',         // For multi-tenant setups (use client_id)
+  tenant: 'your-tenant-id',         // For multi-tenant setups
   debug: true,                       // Enable debug logging
 
   // Retry configuration
@@ -425,9 +423,9 @@ For customers running within AWS VPC, use the private endpoint for sub-10ms late
 
 ```typescript
 const axonflow = new AxonFlow({
-  apiKey: 'your-client-id',
+  clientId: process.env.AXONFLOW_CLIENT_ID,
+  clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
   endpoint: 'https://vpc-private-endpoint.getaxonflow.com:8443',  // VPC private endpoint
-  tenant: 'your-client-id',
   mode: 'production'
 });
 ```
@@ -442,7 +440,7 @@ const axonflow = new AxonFlow({
 
 ```typescript
 // Use sandbox mode for testing without affecting production
-const axonflow = AxonFlow.sandbox('demo-key');
+const axonflow = AxonFlow.sandbox('demo-client', 'demo-secret');
 
 // Test with PII detection (will be blocked)
 try {
@@ -498,10 +496,11 @@ try {
 
 ## Production Best Practices
 
-1. **Environment Variables**: Never hardcode API keys
+1. **Environment Variables**: Never hardcode credentials
    ```typescript
    const axonflow = new AxonFlow({
-     apiKey: process.env.AXONFLOW_API_KEY
+     clientId: process.env.AXONFLOW_CLIENT_ID,
+     clientSecret: process.env.AXONFLOW_CLIENT_SECRET
    });
    ```
 
@@ -514,7 +513,8 @@ try {
 3. **Tenant Isolation**: Use tenant IDs for multi-tenant apps
    ```typescript
    const axonflow = new AxonFlow({
-     apiKey: 'your-key',
+     clientId: process.env.AXONFLOW_CLIENT_ID,
+     clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
      tenant: getCurrentTenantId()
    });
    ```
@@ -738,9 +738,10 @@ if (status.status === 'running') {
 import { AxonFlow } from '@axonflow/sdk';
 
 async function planTrip() {
-  // Initialize client with license key
+  // Initialize client with OAuth2 credentials
   const axonflow = new AxonFlow({
-    licenseKey: process.env.AXONFLOW_LICENSE_KEY,
+    clientId: process.env.AXONFLOW_CLIENT_ID,
+    clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
     debug: true
   });
 
@@ -770,33 +771,35 @@ planTrip().catch(console.error);
 
 ## Migration Guide
 
-### Migrating from API Key to License Key
+### Migrating to OAuth2 Client Credentials
 
-If you're currently using `apiKey` authentication, migrate to license-based authentication:
+If you're using older authentication methods (`apiKey` or `licenseKey`), migrate to OAuth2 client credentials:
 
-**Before:**
+**Before (v2.x):**
 ```typescript
 const axonflow = new AxonFlow({
   apiKey: process.env.AXONFLOW_API_KEY
 });
-```
-
-**After:**
-```typescript
+// or
 const axonflow = new AxonFlow({
   licenseKey: process.env.AXONFLOW_LICENSE_KEY
 });
 ```
 
-**How to get a license key:**
-1. Contact AxonFlow support at [dev@getaxonflow.com](mailto:dev@getaxonflow.com)
-2. License keys are provided as part of your AxonFlow subscription
-3. Store keys securely in environment variables or secrets management systems
+**After (v3.x):**
+```typescript
+const axonflow = new AxonFlow({
+  clientId: process.env.AXONFLOW_CLIENT_ID,
+  clientSecret: process.env.AXONFLOW_CLIENT_SECRET
+});
+```
 
-**Backward Compatibility:**
-- The SDK maintains full backward compatibility with `apiKey`
-- No breaking changes - existing code continues to work
-- You can migrate at your own pace
+**How to get credentials:**
+1. Contact AxonFlow support at [dev@getaxonflow.com](mailto:dev@getaxonflow.com)
+2. Credentials are provided as part of your AxonFlow subscription
+3. Store credentials securely in environment variables or secrets management systems
+
+**Self-hosted users:** No credentials required for localhost endpoints.
 
 ## License
 

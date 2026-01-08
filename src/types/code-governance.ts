@@ -149,6 +149,8 @@ export interface PRRecord {
   unsafePatterns: number;
   /** Creation timestamp */
   createdAt: string;
+  /** Closed timestamp (if closed) */
+  closedAt?: string;
   /** User who created the PR */
   createdBy?: string;
   /** Provider type */

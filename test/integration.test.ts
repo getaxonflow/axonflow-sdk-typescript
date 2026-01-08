@@ -6,15 +6,15 @@
 import { AxonFlow } from '../src/client';
 
 describe('AxonFlow SDK Integration Tests', () => {
-  // Use a test client ID (should exist in the Agent database)
+  // Use test credentials (should exist in the Agent database)
   const TEST_CLIENT_ID = 'healthcare-acme';
-  const TEST_USER_TOKEN = 'test-token-123';
+  const TEST_CLIENT_SECRET = 'test-secret-123';
 
   describe('Public Endpoint', () => {
     it('should connect to public endpoint', async () => {
       const axonflow = new AxonFlow({
-        apiKey: TEST_USER_TOKEN,
-        tenant: TEST_CLIENT_ID,
+        clientId: TEST_CLIENT_ID,
+        clientSecret: TEST_CLIENT_SECRET,
         endpoint: 'https://staging-eu.getaxonflow.com',
         debug: true,
       });
@@ -40,8 +40,8 @@ describe('AxonFlow SDK Integration Tests', () => {
   describe('VPC Private Endpoint', () => {
     it('should connect to VPC private endpoint', async () => {
       const axonflow = new AxonFlow({
-        apiKey: TEST_USER_TOKEN,
-        tenant: TEST_CLIENT_ID,
+        clientId: TEST_CLIENT_ID,
+        clientSecret: TEST_CLIENT_SECRET,
         endpoint: 'https://staging-eu.getaxonflow.com',
         debug: true,
       });
@@ -66,7 +66,7 @@ describe('AxonFlow SDK Integration Tests', () => {
 
   describe('Sandbox Mode', () => {
     it('should create sandbox client', () => {
-      const axonflow = AxonFlow.sandbox('test-key');
+      const axonflow = AxonFlow.sandbox('test-client', 'test-secret');
       expect(axonflow).toBeDefined();
     });
   });

@@ -55,8 +55,8 @@ describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
     test('should create client with empty string credentials for localhost', () => {
       const client = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        apiKey: '',
-        licenseKey: '',
+        clientId: '',
+        clientSecret: '',
         tenant: 'default',
         debug: true,
       });
@@ -68,8 +68,8 @@ describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
     test('should create client with undefined credentials for localhost', () => {
       const client = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        apiKey: undefined,
-        licenseKey: undefined,
+        clientId: undefined,
+        clientSecret: undefined,
         tenant: 'default',
       });
 
@@ -282,7 +282,7 @@ describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
       // and is connecting the SDK with minimal configuration
       const client = new AxonFlow({
         endpoint: config.endpoint,
-        // No apiKey, no licenseKey, default tenant
+        // No credentials, default tenant
       });
 
       // Health check should work
@@ -325,8 +325,8 @@ describe('7. Auth Headers Based on Credentials', () => {
     // Create a client with credentials configured
     const client = new AxonFlow({
       endpoint: 'http://localhost:8080',
-      licenseKey: 'test-license-key',
-      apiKey: 'test-api-key',
+      clientId: 'test-client',
+      clientSecret: 'test-secret',
       tenant: 'default',
       debug: true,
     });
@@ -362,8 +362,9 @@ describe('7. Auth Headers Based on Credentials', () => {
         requestType: 'chat',
       });
 
-      // Auth headers SHOULD be present when credentials are provided
-      expect(capturedHeaders['X-License-Key']).toBe('test-license-key');
+      // OAuth2 Basic auth header SHOULD be present when credentials are provided
+      expect(capturedHeaders['Authorization']).toMatch(/^Basic /);
+      expect(capturedHeaders['X-Tenant-ID']).toBe('test-client');
 
       // Content-Type should still be present
       expect(capturedHeaders['Content-Type']).toBe('application/json');
@@ -409,8 +410,8 @@ describe('7. Auth Headers Based on Credentials', () => {
       });
 
       // Verify auth headers are NOT present when no credentials configured
-      expect(capturedHeaders['X-License-Key']).toBeUndefined();
-      expect(capturedHeaders['X-Client-Secret']).toBeUndefined();
+      expect(capturedHeaders['Authorization']).toBeUndefined();
+      expect(capturedHeaders['X-Tenant-ID']).toBeUndefined();
 
       console.log('✅ Auth headers correctly NOT sent in community mode (no credentials)');
     } finally {

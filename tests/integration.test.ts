@@ -18,8 +18,8 @@ const describeIntegration = process.env.RUN_INTEGRATION_TESTS ? describe : descr
 function getTestConfig() {
   return {
     endpoint: process.env.AXONFLOW_AGENT_URL || 'http://localhost:8080',
-    tenant: process.env.AXONFLOW_CLIENT_ID || 'demo-client',
-    apiKey: process.env.AXONFLOW_CLIENT_SECRET || 'demo-secret',
+    clientId: process.env.AXONFLOW_CLIENT_ID || 'demo-client',
+    clientSecret: process.env.AXONFLOW_CLIENT_SECRET || 'demo-secret',
     debug: true,
     timeout: 30000,
   };

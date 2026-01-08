@@ -13,19 +13,19 @@ import { AxonFlow } from '@axonflow/sdk';
 async function main() {
   // Load configuration from environment variables
   const agentURL = process.env.AXONFLOW_AGENT_URL || 'https://staging-eu.getaxonflow.com';
-  const apiKey = process.env.AXONFLOW_API_KEY;
-  const tenant = process.env.AXONFLOW_TENANT;
+  const clientId = process.env.AXONFLOW_CLIENT_ID;
+  const clientSecret = process.env.AXONFLOW_CLIENT_SECRET;
 
-  if (!apiKey || !tenant) {
-    console.error('❌ AXONFLOW_API_KEY and AXONFLOW_TENANT must be set');
+  if (!clientId || !clientSecret) {
+    console.error('❌ AXONFLOW_CLIENT_ID and AXONFLOW_CLIENT_SECRET must be set');
     process.exit(1);
   }
 
   // Create client with simple initialization
   console.log('Initializing AxonFlow client...');
   const client = new AxonFlow({
-    apiKey,
-    tenant,
+    clientId,
+    clientSecret,
     endpoint: agentURL,
     debug: true,
   });

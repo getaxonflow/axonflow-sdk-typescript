@@ -13,8 +13,8 @@ async function testSDK() {
   console.log('='.repeat(60));
 
   const axonflow = new AxonFlow({
-    apiKey: 'test-user-token',
-    tenant: 'healthcare-acme',
+    clientId: 'healthcare-acme',
+    clientSecret: 'test-secret',
     endpoint: 'https://staging-eu.getaxonflow.com',
     debug: true,
   });

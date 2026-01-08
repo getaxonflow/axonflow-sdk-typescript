@@ -76,7 +76,14 @@ import {
   BudgetCheckRequest,
   ListUsageRecordsOptions,
 } from './types';
-import { AuthenticationError, APIError, PolicyViolationError } from './errors';
+import {
+  AuthenticationError,
+  APIError,
+  PolicyViolationError,
+  ConfigurationError,
+  ConnectorError,
+  PlanExecutionError,
+} from './errors';
 import { OpenAIInterceptor } from './interceptors/openai';
 import { AnthropicInterceptor } from './interceptors/anthropic';
 import { BaseInterceptor } from './interceptors/base';
@@ -87,8 +94,8 @@ import { generateRequestId, debugLog } from './utils/helpers';
  */
 export class AxonFlow {
   private config: {
-    apiKey?: string;
-    licenseKey?: string;
+    clientId?: string;
+    clientSecret?: string;
     endpoint: string;
     mode: 'sandbox' | 'production';
     tenant: string;
@@ -102,17 +109,24 @@ export class AxonFlow {
   private sessionCookie: string | null = null;
 
   constructor(config: AxonFlowConfig) {
+    // Configuration validation
+    if (config.clientSecret && !config.clientId) {
+      throw new ConfigurationError(
+        'clientSecret requires clientId to be set. ' +
+          'Provide both clientId and clientSecret for OAuth2-style authentication.'
+      );
+    }
+
     // Set defaults first to determine endpoint
     const endpoint = config.endpoint || 'https://staging-eu.getaxonflow.com';
 
-    // Credentials are optional for community/self-hosted deployments
-    // Enterprise features (Gateway Mode, Policy CRUD) require credentials
-    const hasCredentials = !!(config.licenseKey || config.apiKey);
+    // Credentials check: OAuth2-style (clientId/clientSecret)
+    const hasCredentials = !!(config.clientId && config.clientSecret);
 
     // Set configuration
     this.config = {
-      apiKey: config.apiKey,
-      licenseKey: config.licenseKey,
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
       endpoint,
       mode: config.mode || (hasCredentials ? 'production' : 'sandbox'),
       tenant: config.tenant || 'default',
@@ -134,16 +148,38 @@ export class AxonFlow {
     this.interceptors = [new OpenAIInterceptor(), new AnthropicInterceptor()];
 
     if (this.config.debug) {
+      // Determine auth method for logging
+      const authMethod = hasCredentials ? 'client-credentials' : 'community (no auth)';
+
       debugLog('AxonFlow initialized', {
         mode: this.config.mode,
         endpoint: this.config.endpoint,
-        authMethod: hasCredentials
-          ? this.config.licenseKey
-            ? 'license-key'
-            : 'api-key'
-          : 'community (no auth)',
+        authMethod,
       });
     }
+  }
+
+  /**
+   * Get authentication headers based on configured credentials.
+   *
+   * Uses OAuth2-style Basic auth: Authorization: Basic base64(clientId:clientSecret)
+   * Also adds X-Tenant-ID header from clientId for tenant context.
+   *
+   * @returns Headers object with authentication headers
+   */
+  private getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    // OAuth2-style client credentials
+    if (this.config.clientId && this.config.clientSecret) {
+      const credentials = Buffer.from(
+        `${this.config.clientId}:${this.config.clientSecret}`
+      ).toString('base64');
+      headers['Authorization'] = `Basic ${credentials}`;
+      headers['X-Tenant-ID'] = this.config.clientId;
+    }
+
+    return headers;
   }
 
   /**
@@ -281,8 +317,8 @@ export class AxonFlow {
     // Transform SDK request to Agent API format
     const agentRequest = {
       query: request.aiRequest.prompt,
-      user_token: this.config.apiKey || '',
-      client_id: this.config.tenant,
+      user_token: '',
+      client_id: this.config.clientId || this.config.tenant,
       request_type: 'llm_chat',
       context: {
         provider: request.aiRequest.provider,
@@ -295,13 +331,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    // Add auth headers only when credentials are provided
-    // Community/self-hosted mode works without credentials
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -375,9 +406,10 @@ export class AxonFlow {
   /**
    * Create a sandbox client for testing
    */
-  static sandbox(apiKey: string = 'demo-key'): AxonFlow {
+  static sandbox(clientId: string = 'demo-client', clientSecret: string = 'demo-secret'): AxonFlow {
     return new AxonFlow({
-      apiKey,
+      clientId,
+      clientSecret,
       mode: 'sandbox',
       endpoint: 'https://staging-eu.getaxonflow.com',
       debug: true,
@@ -524,9 +556,12 @@ export class AxonFlow {
    * ```
    */
   async executeQuery(options: ExecuteQueryOptions): Promise<ExecuteQueryResponse> {
+    // Default to "anonymous" if userToken is empty/undefined (community mode)
+    const effectiveUserToken = options.userToken || 'anonymous';
+
     const agentRequest = {
       query: options.query,
-      user_token: options.userToken,
+      user_token: effectiveUserToken,
       client_id: this.config.tenant,
       request_type: options.requestType,
       context: options.context || {},
@@ -536,15 +571,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    // Add auth headers only when credentials are provided
-    // Community/self-hosted mode works without credentials
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    } else if (this.config.apiKey) {
-      headers['X-Client-Secret'] = this.config.apiKey;
-    }
 
     if (this.config.debug) {
       debugLog('Proxy Mode: executeQuery', {
@@ -715,8 +743,8 @@ export class AxonFlow {
   ): Promise<ConnectorResponse> {
     const agentRequest = {
       query,
-      user_token: this.config.apiKey || '',
-      client_id: this.config.tenant,
+      user_token: '',
+      client_id: this.config.clientId || this.config.tenant,
       request_type: 'mcp-query',
       context: {
         connector: connectorName,
@@ -728,11 +756,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -743,8 +768,10 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Connector query failed: ${response.status} ${response.statusText} - ${errorText}`
+      throw new ConnectorError(
+        `Connector query failed: ${response.status} ${response.statusText} - ${errorText}`,
+        connectorName,
+        'query'
       );
     }
 
@@ -781,11 +808,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    }
 
     // Use mapTimeout for MAP operations (default 2 minutes)
     const response = await fetch(url, {
@@ -797,15 +821,21 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Plan generation failed: ${response.status} ${response.statusText} - ${errorText}`
+      throw new PlanExecutionError(
+        `Plan generation failed: ${response.status} ${response.statusText} - ${errorText}`,
+        undefined,
+        'generation'
       );
     }
 
     const agentResponse = await response.json();
 
     if (!agentResponse.success) {
-      throw new Error(`Plan generation failed: ${agentResponse.error}`);
+      throw new PlanExecutionError(
+        `Plan generation failed: ${agentResponse.error}`,
+        undefined,
+        'generation'
+      );
     }
 
     // plan_id can be at top level or inside data
@@ -843,11 +873,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    }
 
     // Use mapTimeout for MAP operations (default 2 minutes)
     const response = await fetch(url, {
@@ -859,8 +886,10 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Plan execution failed: ${response.status} ${response.statusText} - ${errorText}`
+      throw new PlanExecutionError(
+        `Plan execution failed: ${response.status} ${response.statusText} - ${errorText}`,
+        planId,
+        'execution'
       );
     }
 
@@ -884,7 +913,7 @@ export class AxonFlow {
    * Get the status of a running or completed plan
    */
   async getPlanStatus(planId: string): Promise<PlanExecutionResponse> {
-    const url = `${this.config.endpoint}/api/plans/${planId}`;
+    const url = `${this.config.endpoint}/api/v1/plan/${planId}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -978,15 +1007,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    // Add auth headers only when credentials are provided
-    // Community/self-hosted mode works without credentials
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    } else if (this.config.apiKey) {
-      headers['X-Client-Secret'] = this.config.apiKey;
-    }
 
     if (this.config.debug) {
       debugLog('Gateway Mode: Pre-check', { query: options.query.substring(0, 50) });
@@ -1089,15 +1111,8 @@ export class AxonFlow {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
-
-    // Add auth headers only when credentials are provided
-    // Community/self-hosted mode works without credentials
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    } else if (this.config.apiKey) {
-      headers['X-Client-Secret'] = this.config.apiKey;
-    }
 
     if (this.config.debug) {
       debugLog('Gateway Mode: Audit', {
@@ -1299,24 +1314,20 @@ export class AxonFlow {
   // ============================================================================
 
   /**
-   * Build authentication headers for API requests
+   * Build authentication headers for API requests.
+   * Includes Content-Type and X-Org-ID for policy APIs.
+   * Uses getAuthHeaders() for authentication credentials.
    */
   private buildAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
     };
 
     // Always include tenant ID for policy APIs (X-Org-ID header for server compatibility)
+    // Note: getAuthHeaders() already adds X-Tenant-ID when tenant is non-default
     if (this.config.tenant) {
       headers['X-Org-ID'] = this.config.tenant;
-    }
-
-    // Add auth headers only when credentials are provided
-    // Community/self-hosted mode works without credentials
-    if (this.config.licenseKey) {
-      headers['X-License-Key'] = this.config.licenseKey;
-    } else if (this.config.apiKey) {
-      headers['X-Client-Secret'] = this.config.apiKey;
     }
 
     return headers;
@@ -1349,8 +1360,8 @@ export class AxonFlow {
       throw new APIError(response.status, response.statusText, errorText);
     }
 
-    // Handle DELETE responses with no body
-    if (response.status === 204 || method === 'DELETE') {
+    // Handle 204 No Content responses
+    if (response.status === 204) {
       return undefined as T;
     }
 
@@ -1750,7 +1761,7 @@ export class AxonFlow {
       { policies: DynamicPolicy[] } | DynamicPolicy[]
     >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
-    return Array.isArray(response) ? response : response.policies;
+    return Array.isArray(response) ? response : response.policies || [];
   }
 
   /**
@@ -1891,7 +1902,7 @@ export class AxonFlow {
       { policies: DynamicPolicy[] } | DynamicPolicy[]
     >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
-    return Array.isArray(response) ? response : response.policies;
+    return Array.isArray(response) ? response : response.policies || [];
   }
 
   // ============================================================================
@@ -2360,6 +2371,69 @@ export class AxonFlow {
   }
 
   /**
+   * Close a PR without merging and optionally delete the branch.
+   * Useful for cleaning up test PRs created by examples.
+   *
+   * @param prId - PR record ID
+   * @param deleteBranch - Whether to delete the associated branch (default: true)
+   * @returns Closed PR record
+   *
+   * @example
+   * ```typescript
+   * // Close PR and delete branch
+   * const pr = await axonflow.closePR('pr_123');
+   * console.log(`PR #${pr.prNumber} closed`);
+   *
+   * // Close PR but keep branch
+   * const pr = await axonflow.closePR('pr_123', false);
+   * ```
+   */
+  async closePR(prId: string, deleteBranch: boolean = true): Promise<PRRecord> {
+    if (this.config.debug) {
+      debugLog('Closing PR', { prId, deleteBranch });
+    }
+
+    const query = deleteBranch ? '?delete_branch=true' : '';
+    const response = await this.portalRequest<{
+      id: string;
+      pr_number: number;
+      pr_url: string;
+      title: string;
+      state: string;
+      owner: string;
+      repo: string;
+      head_branch: string;
+      base_branch: string;
+      files_count: number;
+      secrets_detected: number;
+      unsafe_patterns: number;
+      created_at: string;
+      closed_at?: string;
+      created_by?: string;
+      provider_type?: string;
+    }>('DELETE', `/api/v1/code-governance/prs/${prId}${query}`);
+
+    return {
+      id: response.id,
+      prNumber: response.pr_number,
+      prUrl: response.pr_url,
+      title: response.title,
+      state: response.state,
+      owner: response.owner,
+      repo: response.repo,
+      headBranch: response.head_branch,
+      baseBranch: response.base_branch,
+      filesCount: response.files_count,
+      secretsDetected: response.secrets_detected,
+      unsafePatterns: response.unsafe_patterns,
+      createdAt: response.created_at,
+      closedAt: response.closed_at,
+      createdBy: response.created_by,
+      providerType: response.provider_type,
+    };
+  }
+
+  /**
    * Sync PR status with the Git provider.
    * This updates the local record with the current state from GitHub/GitLab/Bitbucket.
    *
@@ -2618,8 +2692,8 @@ export class AxonFlow {
       throw new APIError(response.status, response.statusText, errorText);
     }
 
-    // Handle DELETE responses with no body
-    if (response.status === 204 || method === 'DELETE') {
+    // Handle 204 No Content responses
+    if (response.status === 204) {
       return undefined as T;
     }
 
@@ -2674,8 +2748,8 @@ export class AxonFlow {
       throw new APIError(response.status, response.statusText, errorText);
     }
 
-    // Handle DELETE responses with no body
-    if (response.status === 204 || method === 'DELETE') {
+    // Handle 204 No Content responses
+    if (response.status === 204) {
       return undefined as T;
     }
 

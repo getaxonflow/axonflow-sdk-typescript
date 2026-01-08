@@ -47,7 +47,8 @@ describe('Code Governance Methods', () => {
     jest.clearAllMocks();
     client = new AxonFlow({
       endpoint: 'http://localhost:8080',
-      licenseKey: 'test-license-key',
+      clientId: 'test-client',
+      clientSecret: 'test-secret',
       tenant: 'test-tenant',
     });
     // Login to portal before each test since Code Governance requires auth
@@ -469,6 +470,64 @@ describe('Code Governance Methods', () => {
         );
       });
     });
+
+    describe('closePR', () => {
+      it('should close PR and delete branch by default', async () => {
+        const closedPR = { ...samplePRRecord, state: 'closed', closed_at: '2025-01-02T00:00:00Z' };
+        mockFetch.mockReturnValueOnce(mockResponse(closedPR));
+
+        const result = await client.closePR('pr_123');
+
+        expect(result.state).toBe('closed');
+        expect(result.closedAt).toBe('2025-01-02T00:00:00Z');
+        expect(mockFetch).toHaveBeenCalledWith(
+          'http://localhost:8080/api/v1/code-governance/prs/pr_123?delete_branch=true',
+          expect.objectContaining({
+            method: 'DELETE',
+          })
+        );
+      });
+
+      it('should close PR without deleting branch when specified', async () => {
+        const closedPR = { ...samplePRRecord, state: 'closed', closed_at: '2025-01-02T00:00:00Z' };
+        mockFetch.mockReturnValueOnce(mockResponse(closedPR));
+
+        const result = await client.closePR('pr_123', false);
+
+        expect(result.state).toBe('closed');
+        expect(mockFetch).toHaveBeenCalledWith(
+          'http://localhost:8080/api/v1/code-governance/prs/pr_123',
+          expect.objectContaining({
+            method: 'DELETE',
+          })
+        );
+      });
+
+      it('should transform snake_case to camelCase in response', async () => {
+        const closedPR = {
+          ...samplePRRecord,
+          state: 'closed',
+          closed_at: '2025-01-02T00:00:00Z',
+        };
+        mockFetch.mockReturnValueOnce(mockResponse(closedPR));
+
+        const result = await client.closePR('pr_123');
+
+        expect(result.headBranch).toBe('feat/validation');
+        expect(result.baseBranch).toBe('main');
+        expect(result.filesCount).toBe(3);
+        expect(result.secretsDetected).toBe(0);
+        expect(result.unsafePatterns).toBe(0);
+        expect(result.createdAt).toBe('2025-01-01T00:00:00Z');
+        expect(result.closedAt).toBe('2025-01-02T00:00:00Z');
+      });
+
+      it('should throw APIError on 404', async () => {
+        mockFetch.mockReturnValueOnce(mockResponse({ error: 'PR not found' }, 404));
+
+        await expect(client.closePR('nonexistent')).rejects.toThrow('Not Found');
+      });
+    });
   });
 
   // ========================================================================
@@ -638,7 +697,8 @@ describe('Code Governance Methods', () => {
     it('should log debug info when debug mode is enabled', async () => {
       const debugClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         debug: true,
       });
@@ -723,7 +783,8 @@ describe('Code Governance Methods', () => {
     it('should log debug info on portal request with body', async () => {
       const debugClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         debug: true,
       });
@@ -763,7 +824,8 @@ describe('Code Governance Methods', () => {
     it('should handle login failure', async () => {
       const freshClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
       });
 
@@ -777,7 +839,8 @@ describe('Code Governance Methods', () => {
     it('should use session_id fallback when no cookie header', async () => {
       const freshClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
       });
 
@@ -804,7 +867,8 @@ describe('Code Governance Methods', () => {
       // Fresh client is not logged in
       const freshClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
       });
       expect(freshClient.isLoggedIn()).toBe(false);
@@ -824,7 +888,8 @@ describe('Code Governance Methods', () => {
     it('should handle logout when not logged in', async () => {
       const freshClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
       });
 
@@ -848,7 +913,8 @@ describe('Code Governance Methods', () => {
     it('should log debug info during portal login', async () => {
       const debugClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         debug: true,
       });
@@ -877,7 +943,8 @@ describe('Code Governance Methods', () => {
     it('should log debug info during portal logout', async () => {
       const debugClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        licenseKey: 'test-license-key',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         debug: true,
       });

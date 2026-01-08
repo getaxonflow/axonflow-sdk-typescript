@@ -14,8 +14,8 @@ export type RequestType = 'chat' | 'sql' | 'mcp-query' | 'multi-agent-plan' | 'e
  * Options for executing a query through AxonFlow proxy
  */
 export interface ExecuteQueryOptions {
-  /** User authentication token (JWT or session token) */
-  userToken: string;
+  /** User authentication token (JWT or session token). If empty/undefined, defaults to "anonymous" for audit purposes. */
+  userToken?: string;
   /** The query or prompt to process */
   query: string;
   /** Type of request */

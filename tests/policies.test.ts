@@ -25,7 +25,8 @@ describe('Policy CRUD Methods', () => {
     jest.clearAllMocks();
     client = new AxonFlow({
       endpoint: 'http://localhost:8080',
-      licenseKey: 'test-license-key',
+      clientId: 'test-client',
+      clientSecret: 'test-secret',
       tenant: 'test-tenant',
     });
   });
@@ -664,7 +665,7 @@ describe('Policy CRUD Methods', () => {
   // ========================================================================
 
   describe('Authentication Headers', () => {
-    it('should include X-License-Key header when licenseKey is set', async () => {
+    it('should include OAuth2 Basic auth header when credentials are set', async () => {
       mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
 
       await client.listStaticPolicies();
@@ -674,73 +675,75 @@ describe('Policy CRUD Methods', () => {
         expect.objectContaining({
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
+            Authorization: expect.stringMatching(/^Basic /),
           }),
         })
       );
     });
 
-    it('should not include auth headers for localhost', async () => {
+    it('should not include auth headers when no credentials are provided', async () => {
       const localClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        tenant: 'test',
+        // No credentials
       });
 
       mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
 
       await localClient.listStaticPolicies();
 
-      // Check that the call was made (headers will be included but not auth ones)
+      // Check that the call was made
       expect(mockFetch).toHaveBeenCalled();
+
+      // Verify no Authorization header
+      const callArgs = mockFetch.mock.calls[0];
+      const headers = callArgs[1].headers;
+      expect(headers['Authorization']).toBeUndefined();
     });
 
-    it('should use apiKey for X-Client-Secret when licenseKey not set', async () => {
-      const apiKeyClient = new AxonFlow({
+    it('should use OAuth2 Basic auth format', async () => {
+      const credentialsClient = new AxonFlow({
         endpoint: 'https://api.example.com',
-        apiKey: 'test-api-key',
-        tenant: 'test',
+        clientId: 'my-client',
+        clientSecret: 'my-secret',
       });
 
       mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
 
-      await apiKeyClient.listStaticPolicies();
+      await credentialsClient.listStaticPolicies();
 
+      // OAuth2 Basic auth: base64(clientId:clientSecret)
+      const expectedAuth = 'Basic ' + Buffer.from('my-client:my-secret').toString('base64');
       expect(mockFetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           headers: expect.objectContaining({
-            'X-Client-Secret': 'test-api-key',
+            Authorization: expectedAuth,
           }),
         })
       );
     });
 
-    it('should prefer licenseKey over apiKey when both are set', async () => {
-      const dualAuthClient = new AxonFlow({
+    it('should include X-Tenant-ID header from clientId', async () => {
+      const credentialsClient = new AxonFlow({
         endpoint: 'https://api.example.com',
-        licenseKey: 'test-license-key',
-        apiKey: 'test-api-key',
-        tenant: 'test',
+        clientId: 'my-client',
+        clientSecret: 'my-secret',
       });
 
       mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
 
-      await dualAuthClient.listStaticPolicies();
+      await credentialsClient.listStaticPolicies();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'X-License-Key': 'test-license-key',
-          }),
-        })
-      );
+      const callArgs = mockFetch.mock.calls[0];
+      const headers = callArgs[1].headers;
+      expect(headers['X-Tenant-ID']).toBe('my-client');
     });
 
-    it('should include auth headers when credentials are provided', async () => {
+    it('should include auth headers when credentials are provided for localhost', async () => {
       const localClient = new AxonFlow({
         endpoint: 'http://127.0.0.1:8080',
-        licenseKey: 'test-license-key',
-        tenant: 'test',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
       });
 
       mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
@@ -750,7 +753,7 @@ describe('Policy CRUD Methods', () => {
       // Auth headers SHOULD be included when credentials are provided
       const callArgs = mockFetch.mock.calls[0];
       const headers = callArgs[1].headers;
-      expect(headers['X-License-Key']).toBe('test-license-key');
+      expect(headers['Authorization']).toMatch(/^Basic /);
     });
   });
 
