@@ -5,97 +5,42 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.0] - 2026-01-08
-
-### Breaking Changes
-
-- **BREAKING**: Removed `apiKey` and `licenseKey` configuration fields
-  - Use `clientId` and `clientSecret` for OAuth2-style authentication instead
-  - Removed `X-License-Key` header support
-  - Removed `X-Client-Secret` header fallback
-  - Authentication now uses only `Authorization: Basic base64(clientId:clientSecret)`
-
-- **BREAKING**: Changed `sandbox()` method signature
-  - Old: `AxonFlow.sandbox(apiKey?: string)`
-  - New: `AxonFlow.sandbox(clientId?: string, clientSecret?: string)`
+## [2.2.0] - 2026-01-08
 
 ### Added
 
-- **OAuth2-Style Authentication**: Uses `clientId` and `clientSecret` config fields
-  - Industry-standard OAuth2 client credentials pattern
-  - `clientId` identifies WHO is calling (authentication identity)
-  - `clientSecret` is the authentication credential
-  - Generates `Authorization: Basic` header
+- **OAuth2-style client credentials**: New `clientId` and `clientSecret` configuration options following OAuth2 client credentials pattern.
+  - `clientId` is used for request identification (required for most API calls)
+  - `clientSecret` is optional - community/self-hosted deployments work without it
+  - The old `tenant` field still works as a fallback for `clientId`
 
-- **New Exception Types**: Added exception types for parity with Python/Java SDKs
-  - `ConfigurationError` - for invalid SDK configuration
-  - `ConnectionError` - for network/connection failures
-  - `ConnectorError` - for MCP connector operation failures
-  - `PlanExecutionError` - for Multi-Agent Planning failures
-
-- **Exception Details**: All errors now include a `details` property with structured metadata
+- **Improved error types**: Added `ConnectorError` and `PlanExecutionError` classes for better error handling in connector and MAP operations.
 
 - **Enterprise: Close PR** (`closePR`): Close a PR without merging and optionally delete the branch
   - Useful for cleaning up test/demo PRs created by code governance examples
   - Supports all providers: GitHub, GitLab, Bitbucket
   - Requires enterprise portal authentication
 
-### Removed
+### Changed
 
-- `apiKey` config field - use `clientId`/`clientSecret` instead
-- `licenseKey` config field - use `clientId`/`clientSecret` instead
-- `X-License-Key` header support
-- `X-Client-Secret` header fallback
-- `X-Client-ID` header (replaced by OAuth2 Basic auth)
+- **Simplified authentication**: For community mode, simply provide `clientId` for request identification. No `clientSecret` needed.
+
+```typescript
+// Community mode - no secret needed
+const client = new AxonFlow({
+  endpoint: 'http://localhost:8080',
+  clientId: 'my-app',  // Used for request identification
+});
+```
 
 ### Fixed
 
 - **getPlanStatus endpoint**: Fixed endpoint path from `/api/plans/{id}` to `/api/v1/plan/{id}` to match orchestrator API
 
-### Migration Guide
+### Enterprise
 
-**Before (v2.x):**
-```typescript
-// Using apiKey (deprecated)
-const client = new AxonFlow({
-  apiKey: 'my-api-key',
-});
-
-// Using licenseKey (deprecated)
-const client = new AxonFlow({
-  licenseKey: 'my-license-key',
-});
-```
-
-**After (v3.0.0):**
-```typescript
-const client = new AxonFlow({
-  endpoint: 'http://localhost:8080',
-  clientId: 'my-client',      // Authentication identity
-  clientSecret: 'my-secret',  // Authentication credential
-});
-```
-
-**Exception Handling (v3.0.0):**
-```typescript
-import {
-  AxonFlowError,
-  ConfigurationError,
-  ConnectionError,
-  ConnectorError,
-  PlanExecutionError
-} from '@axonflow/sdk';
-
-try {
-  await client.generatePlan(request);
-} catch (error) {
-  if (error instanceof ConfigurationError) {
-    // Handle config issues
-  } else if (error instanceof PlanExecutionError) {
-    console.log('Plan failed:', error.planId, error.step);
-  }
-}
-```
+- OAuth2 Basic auth: `Authorization: Basic base64(clientId:clientSecret)` replaces `X-License-Key` header
+- Removed `licenseKey` and `apiKey` configuration options (use `clientId`/`clientSecret`)
 
 ---
 
