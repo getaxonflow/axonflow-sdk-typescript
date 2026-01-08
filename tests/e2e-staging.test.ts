@@ -241,7 +241,8 @@ describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
       // Create a production-mode client for fail-open testing
       const prodClient = new AxonFlow({
         endpoint: config.endpoint,
-        clientId: config.clientId, clientSecret: config.clientSecret,
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
         tenant: config.clientId,
         mode: 'production',
         debug: true,
@@ -358,7 +359,8 @@ describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
     test('should handle timeout gracefully', async () => {
       const shortTimeoutClient = new AxonFlow({
         endpoint: config.endpoint,
-        clientId: config.clientId, clientSecret: config.clientSecret,
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
         tenant: config.clientId,
         timeout: 1, // 1ms timeout - will definitely timeout
         debug: false,
@@ -380,7 +382,8 @@ describeE2E('E2E Tests - SDK v1.2.1 Pre-Release Validation', () => {
     test('should handle invalid endpoint', async () => {
       const badClient = new AxonFlow({
         endpoint: 'https://invalid.nonexistent.endpoint.local',
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test',
         timeout: 5000,
         debug: false,

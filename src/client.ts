@@ -406,10 +406,7 @@ export class AxonFlow {
   /**
    * Create a sandbox client for testing
    */
-  static sandbox(
-    clientId: string = 'demo-client',
-    clientSecret: string = 'demo-secret'
-  ): AxonFlow {
+  static sandbox(clientId: string = 'demo-client', clientSecret: string = 'demo-secret'): AxonFlow {
     return new AxonFlow({
       clientId,
       clientSecret,
@@ -1761,7 +1758,7 @@ export class AxonFlow {
       { policies: DynamicPolicy[] } | DynamicPolicy[]
     >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
-    return Array.isArray(response) ? response : (response.policies || []);
+    return Array.isArray(response) ? response : response.policies || [];
   }
 
   /**
@@ -1902,7 +1899,7 @@ export class AxonFlow {
       { policies: DynamicPolicy[] } | DynamicPolicy[]
     >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
-    return Array.isArray(response) ? response : (response.policies || []);
+    return Array.isArray(response) ? response : response.policies || [];
   }
 
   // ============================================================================

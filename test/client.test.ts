@@ -27,7 +27,8 @@ describe('AxonFlow Client Unit Tests', () => {
   describe('Client Initialization', () => {
     it('should create client with minimal config', () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
       });
 
@@ -58,7 +59,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should create client with clientId and clientSecret', () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         endpoint: 'http://localhost:8080',
       });
 
@@ -215,7 +217,8 @@ describe('AxonFlow Client Unit Tests', () => {
     it('should handle empty tenant', () => {
       expect(() => {
         new AxonFlow({
-          clientId: 'test-client', clientSecret: 'test-secret',
+          clientId: 'test-client',
+          clientSecret: 'test-secret',
           tenant: '',
         });
       }).not.toThrow();
@@ -223,7 +226,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should handle custom timeout', () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         timeout: 60000,
       });
@@ -233,7 +237,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should handle custom retry config', () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         retry: {
           enabled: true,
@@ -248,7 +253,8 @@ describe('AxonFlow Client Unit Tests', () => {
   describe('Protect Method', () => {
     it('should accept async function', async () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         mode: 'production', // Use production mode for fail-open
       });
@@ -265,7 +271,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should accept function returning promise', async () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         mode: 'production',
       });
@@ -281,7 +288,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should pass through return value', async () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         mode: 'production',
       });
@@ -295,7 +303,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should handle function that throws', async () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         mode: 'production',
       });
@@ -311,7 +320,8 @@ describe('AxonFlow Client Unit Tests', () => {
   describe('Health Check', () => {
     it('should be able to call protect method', async () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         mode: 'production', // Fail-open mode
       });
@@ -368,7 +378,8 @@ describe('AxonFlow Client Unit Tests', () => {
   describe('Configuration Edge Cases', () => {
     it('should handle undefined config values', () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         endpoint: undefined,
         mode: undefined,
@@ -382,7 +393,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should handle very long timeout', () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         timeout: 300000, // 5 minutes
       });
@@ -392,7 +404,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should handle disabled retries', () => {
       const client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         retry: {
           enabled: false,
@@ -463,7 +476,8 @@ describe('AxonFlow Client Unit Tests', () => {
     beforeEach(() => {
       mockFetch.mockClear();
       client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         endpoint: 'http://localhost:8080',
       });
@@ -1092,7 +1106,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
     it('should log in debug mode on healthCheck error', async () => {
       const debugClient = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test',
         endpoint: 'http://localhost:8080',
         debug: true,
@@ -1122,7 +1137,8 @@ describe('AxonFlow Client Unit Tests', () => {
     beforeEach(() => {
       mockFetch.mockClear();
       client = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
         endpoint: 'http://localhost:8080',
       });
@@ -1465,7 +1481,8 @@ describe('AxonFlow Client Unit Tests', () => {
     describe('debug mode logging', () => {
       it('should log in debug mode for execution methods', async () => {
         const debugClient = new AxonFlow({
-          clientId: 'test-client', clientSecret: 'test-secret',
+          clientId: 'test-client',
+          clientSecret: 'test-secret',
           tenant: 'test',
           endpoint: 'http://localhost:8080',
           debug: true,
@@ -2000,7 +2017,8 @@ describe('AxonFlow Client Unit Tests', () => {
       describe('protect() method branches', () => {
         it('should handle sandbox mode errors without fail-open', async () => {
           const sandboxClient = new AxonFlow({
-            clientId: 'test-client', clientSecret: 'test-secret',
+            clientId: 'test-client',
+            clientSecret: 'test-secret',
             tenant: 'test-tenant',
             mode: 'sandbox',
           });
@@ -2017,7 +2035,8 @@ describe('AxonFlow Client Unit Tests', () => {
           mockFetch.mockRejectedValueOnce(new Error('governance service unavailable'));
 
           const sandboxClient = new AxonFlow({
-            clientId: 'test-client', clientSecret: 'test-secret',
+            clientId: 'test-client',
+            clientSecret: 'test-secret',
             tenant: 'test-tenant',
             mode: 'sandbox',
             endpoint: 'http://localhost:8080',
@@ -2034,7 +2053,8 @@ describe('AxonFlow Client Unit Tests', () => {
           mockFetch.mockRejectedValueOnce(new Error('fetch failed'));
 
           const debugClient = new AxonFlow({
-            clientId: 'test-client', clientSecret: 'test-secret',
+            clientId: 'test-client',
+            clientSecret: 'test-secret',
             tenant: 'test-tenant',
             mode: 'production',
             endpoint: 'http://localhost:8080',
@@ -2299,7 +2319,8 @@ describe('AxonFlow Client Unit Tests', () => {
 
         beforeEach(() => {
           debugClient = new AxonFlow({
-            clientId: 'test-client', clientSecret: 'test-secret',
+            clientId: 'test-client',
+            clientSecret: 'test-secret',
             tenant: 'test-tenant',
             endpoint: 'http://localhost:8080',
             debug: true,

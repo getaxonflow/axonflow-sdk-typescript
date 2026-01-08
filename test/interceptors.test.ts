@@ -23,7 +23,8 @@ describe('LLM Provider Interceptors', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAxonFlow = new AxonFlow({
-      clientId: 'test-client', clientSecret: 'test-secret',
+      clientId: 'test-client',
+      clientSecret: 'test-secret',
       tenant: 'test-tenant',
     }) as jest.Mocked<AxonFlow>;
   });
@@ -475,7 +476,8 @@ describe('LLM Provider Interceptors', () => {
       const { createGovernedOllamaChat } = await import('../src/interceptors/ollama');
 
       const mockAxonFlowBlocking = new AxonFlow({
-        clientId: 'test-client', clientSecret: 'test-secret',
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
         tenant: 'test-tenant',
       }) as jest.Mocked<AxonFlow>;
 
@@ -628,7 +630,8 @@ describe('LLM Provider Interceptors', () => {
         const { createGovernedOllamaChat } = await import('../src/interceptors/ollama');
 
         const mockAxonFlowNoContext = new AxonFlow({
-          clientId: 'test-client', clientSecret: 'test-secret',
+          clientId: 'test-client',
+          clientSecret: 'test-secret',
           tenant: 'test-tenant',
         }) as jest.Mocked<AxonFlow>;
 

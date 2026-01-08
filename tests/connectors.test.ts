@@ -17,7 +17,8 @@ describe('Connector and Orchestrator Methods', () => {
     jest.clearAllMocks();
     client = new AxonFlow({
       endpoint: 'http://localhost:8080',
-      clientId: 'test-client', clientSecret: 'test-secret',
+      clientId: 'test-client',
+      clientSecret: 'test-secret',
       tenant: 'test-tenant',
     });
   });
