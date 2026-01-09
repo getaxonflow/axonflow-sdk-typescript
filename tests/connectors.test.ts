@@ -290,21 +290,19 @@ describe('Connector and Orchestrator Methods', () => {
     });
 
     it('should throw error when connector is missing', async () => {
-      await expect(
-        client.mcpQuery({ connector: '', statement: 'SELECT 1' })
-      ).rejects.toThrow('connector name is required');
+      await expect(client.mcpQuery({ connector: '', statement: 'SELECT 1' })).rejects.toThrow(
+        'connector name is required'
+      );
     });
 
     it('should throw error when statement is missing', async () => {
-      await expect(
-        client.mcpQuery({ connector: 'postgres', statement: '' })
-      ).rejects.toThrow('statement is required');
+      await expect(client.mcpQuery({ connector: 'postgres', statement: '' })).rejects.toThrow(
+        'statement is required'
+      );
     });
 
     it('should handle policy block (403)', async () => {
-      mockFetch.mockReturnValueOnce(
-        mockResponse({ error: 'Request blocked: SQLi detected' }, 403)
-      );
+      mockFetch.mockReturnValueOnce(mockResponse({ error: 'Request blocked: SQLi detected' }, 403));
 
       await expect(
         client.mcpQuery({
