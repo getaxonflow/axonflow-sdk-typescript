@@ -30,6 +30,7 @@ export interface ConnectorInstallRequest {
  */
 export interface PolicyMatchInfo {
   policy_id: string;
+  policy_name: string;
   category: string;
   severity: string;
   action: string;
@@ -39,7 +40,7 @@ export interface PolicyMatchInfo {
  * Policy evaluation information included in MCP responses
  * Provides transparency into policy enforcement decisions
  */
-export interface PolicyInfo {
+export interface MCPPolicyInfo {
   policies_evaluated: number;
   blocked: boolean;
   block_reason?: string;
@@ -58,7 +59,7 @@ export interface ConnectorResponse {
   /** JSON paths of fields that were redacted (e.g., "data.rows[0].ssn") */
   redacted_fields?: string[];
   /** Policy evaluation details for this request/response cycle */
-  policy_info?: PolicyInfo;
+  policy_info?: MCPPolicyInfo;
 }
 
 /**
