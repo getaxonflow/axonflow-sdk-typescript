@@ -790,6 +790,117 @@ export class AxonFlow {
   }
 
   /**
+   * Execute a query directly against the MCP connector endpoint.
+   *
+   * This method calls the agent's /mcp/resources/query endpoint which provides:
+   * - Request-phase policy evaluation (SQLi blocking, PII blocking)
+   * - Response-phase policy evaluation (PII redaction)
+   * - PolicyInfo metadata in responses
+   *
+   * @example
+   * ```typescript
+   * const response = await axonflow.mcpQuery({
+   *   connector: 'postgres',
+   *   statement: 'SELECT * FROM customers LIMIT 10',
+   * });
+   *
+   * if (response.redacted) {
+   *   console.log('Fields redacted:', response.redacted_fields);
+   * }
+   * console.log('Policies evaluated:', response.policy_info?.policies_evaluated);
+   * ```
+   *
+   * @param options - Query options including connector name and SQL statement
+   * @returns ConnectorResponse with data, redaction info, and policy_info
+   * @throws ConnectorError if the request is blocked by policy or fails
+   */
+  async mcpQuery(options: {
+    connector: string;
+    statement: string;
+    options?: Record<string, any>;
+  }): Promise<ConnectorResponse> {
+    if (!options.connector) {
+      throw new ConnectorError('connector name is required', undefined, 'mcpQuery');
+    }
+    if (!options.statement) {
+      throw new ConnectorError('statement is required', undefined, 'mcpQuery');
+    }
+
+    const url = `${this.config.endpoint}/mcp/resources/query`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
+    };
+
+    const body = {
+      connector: options.connector,
+      statement: options.statement,
+      options: options.options || {},
+    };
+
+    if (this.config.debug) {
+      debugLog('MCP Query', {
+        connector: options.connector,
+        statement: options.statement.substring(0, 50),
+      });
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    const responseData = await response.json();
+
+    // Handle policy blocks (403 responses)
+    if (!response.ok) {
+      throw new ConnectorError(
+        responseData.error || `MCP query failed: ${response.status} ${response.statusText}`,
+        options.connector,
+        'mcpQuery'
+      );
+    }
+
+    if (this.config.debug) {
+      debugLog('MCP Query result', {
+        connector: options.connector,
+        success: responseData.success,
+        redacted: responseData.redacted,
+        policiesEvaluated: responseData.policy_info?.policies_evaluated,
+      });
+    }
+
+    return {
+      success: responseData.success,
+      data: responseData.data,
+      error: responseData.error,
+      meta: responseData.meta,
+      redacted: responseData.redacted,
+      redacted_fields: responseData.redacted_fields,
+      policy_info: responseData.policy_info,
+    };
+  }
+
+  /**
+   * Execute a statement against an MCP connector (alias for mcpQuery).
+   *
+   * Same as mcpQuery but follows the naming convention of other execute* methods.
+   *
+   * @param options - Query options including connector name and SQL statement
+   * @returns ConnectorResponse with data, redaction info, and policy_info
+   */
+  async mcpExecute(options: {
+    connector: string;
+    statement: string;
+    options?: Record<string, any>;
+  }): Promise<ConnectorResponse> {
+    return this.mcpQuery(options);
+  }
+
+  /**
    * Generate a multi-agent execution plan from a natural language query
    * @param query - Natural language query describing the task
    * @param domain - Optional domain hint (travel, healthcare, etc.)

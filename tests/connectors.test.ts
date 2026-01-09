@@ -225,4 +225,116 @@ describe('Connector and Orchestrator Methods', () => {
       expect(callBody.context.params).toEqual({ id: 1 });
     });
   });
+
+  // ========================================================================
+  // MCP Query Tests (Policy Enforcement)
+  // ========================================================================
+
+  describe('mcpQuery', () => {
+    it('should execute a query with policy enforcement', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse({
+          success: true,
+          data: [{ id: 1, name: 'Test' }],
+          redacted: false,
+          policy_info: {
+            policies_evaluated: 5,
+            blocked: false,
+            redactions_applied: 0,
+            processing_time_ms: 2,
+          },
+        })
+      );
+
+      const result = await client.mcpQuery({
+        connector: 'postgres',
+        statement: 'SELECT * FROM users',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1);
+      expect(result.policy_info?.policies_evaluated).toBe(5);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/mcp/resources/query',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"connector":"postgres"'),
+        })
+      );
+    });
+
+    it('should handle redacted response', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse({
+          success: true,
+          data: [{ id: 1, ssn: '***REDACTED***' }],
+          redacted: true,
+          redacted_fields: ['data[0].ssn'],
+          policy_info: {
+            policies_evaluated: 5,
+            blocked: false,
+            redactions_applied: 1,
+            processing_time_ms: 3,
+          },
+        })
+      );
+
+      const result = await client.mcpQuery({
+        connector: 'postgres',
+        statement: 'SELECT * FROM customers',
+      });
+
+      expect(result.redacted).toBe(true);
+      expect(result.redacted_fields).toContain('data[0].ssn');
+      expect(result.policy_info?.redactions_applied).toBe(1);
+    });
+
+    it('should throw error when connector is missing', async () => {
+      await expect(client.mcpQuery({ connector: '', statement: 'SELECT 1' })).rejects.toThrow(
+        'connector name is required'
+      );
+    });
+
+    it('should throw error when statement is missing', async () => {
+      await expect(client.mcpQuery({ connector: 'postgres', statement: '' })).rejects.toThrow(
+        'statement is required'
+      );
+    });
+
+    it('should handle policy block (403)', async () => {
+      mockFetch.mockReturnValueOnce(mockResponse({ error: 'Request blocked: SQLi detected' }, 403));
+
+      await expect(
+        client.mcpQuery({
+          connector: 'postgres',
+          statement: 'SELECT * FROM users; DROP TABLE users;--',
+        })
+      ).rejects.toThrow('blocked');
+    });
+  });
+
+  describe('mcpExecute', () => {
+    it('should execute a statement (alias for mcpQuery)', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse({
+          success: true,
+          data: { affected_rows: 1 },
+          policy_info: {
+            policies_evaluated: 3,
+            blocked: false,
+            redactions_applied: 0,
+            processing_time_ms: 1,
+          },
+        })
+      );
+
+      const result = await client.mcpExecute({
+        connector: 'postgres',
+        statement: 'UPDATE users SET name = $1 WHERE id = $2',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.policy_info?.policies_evaluated).toBe(3);
+    });
+  });
 });
