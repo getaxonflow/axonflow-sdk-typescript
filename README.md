@@ -419,7 +419,7 @@ const axonflow = new AxonFlow({
 
 ### VPC Private Endpoint (Low-Latency)
 
-For customers running within AWS VPC, use the private endpoint for sub-10ms latency:
+For customers running within AWS VPC, use the private endpoint for lowest latency:
 
 ```typescript
 const axonflow = new AxonFlow({
@@ -428,11 +428,13 @@ const axonflow = new AxonFlow({
   endpoint: 'https://vpc-private-endpoint.getaxonflow.com:8443',  // VPC private endpoint
   mode: 'production'
 });
+
+// VPC deployment provides lowest latency due to intra-VPC routing
 ```
 
-**Performance:**
-- Public endpoint: ~100ms (internet routing)
-- VPC private endpoint: <10ms P99 (intra-VPC routing)
+**Network Latency Characteristics:**
+- Public endpoint: Higher latency (internet routing overhead)
+- VPC private endpoint: Lower latency (intra-VPC routing)
 
 **Note:** VPC endpoints require AWS VPC peering setup with AxonFlow infrastructure.
 
