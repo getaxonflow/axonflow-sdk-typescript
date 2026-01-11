@@ -521,11 +521,87 @@ try {
    });
    ```
 
+## Examples
+
+Complete working examples for all features are available in the [examples folder](https://github.com/getaxonflow/axonflow/tree/main/examples).
+
+### Community Features
+
+```typescript
+// PII Detection - Automatically detect sensitive data
+const result = await axonflow.getPolicyApprovedContext({
+  userToken: 'user-123',
+  query: 'My SSN is 123-45-6789'
+});
+// result.approved = true, result.requiresRedaction = true (SSN detected)
+
+// SQL Injection Detection - Block malicious queries
+const result = await axonflow.getPolicyApprovedContext({
+  userToken: 'user-123',
+  query: "SELECT * FROM users; DROP TABLE users;"
+});
+// result.approved = false, result.blockReason = "SQL injection detected"
+
+// Static Policies - List and manage built-in policies
+const policies = await axonflow.listPolicies();
+// Returns: [{name: "pii-detection", enabled: true}, ...]
+
+// Dynamic Policies - Create runtime policies
+await axonflow.createDynamicPolicy({
+  name: 'block-competitor-queries',
+  conditions: { contains: ['competitor', 'pricing'] },
+  action: 'block'
+});
+
+// MCP Connectors - Query external data sources
+const resp = await axonflow.queryConnector('postgres-db', 'SELECT name FROM customers', {});
+// resp.data contains query results
+
+// Multi-Agent Planning - Orchestrate complex workflows
+const plan = await axonflow.generatePlan('Research AI regulations', 'legal');
+const result = await axonflow.executePlan(plan.planId);
+
+// Audit Logging - Track all LLM interactions
+await axonflow.auditLLMCall({
+  contextId: ctx.contextId,
+  responseSummary: 'AI response summary',
+  provider: 'openai',
+  model: 'gpt-4',
+  tokenUsage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+  latencyMs: 450
+});
+```
+
+### Enterprise Features
+
+These features require an AxonFlow Enterprise license:
+
+```typescript
+// Code Governance - Automated PR reviews with AI
+const prResult = await axonflow.reviewPullRequest({
+  repoOwner: 'your-org',
+  repoName: 'your-repo',
+  prNumber: 123,
+  checkTypes: ['security', 'style', 'performance']
+});
+
+// Cost Controls - Budget management for LLM usage
+const budget = await axonflow.getBudget('team-engineering');
+// Returns: { limit: 1000.00, used: 234.56, remaining: 765.44 }
+
+// MCP Policy Enforcement - Automatic PII redaction in connector responses
+const resp = await axonflow.queryConnector('postgres', 'SELECT * FROM customers', {});
+// resp.policyInfo.redacted = true
+// resp.policyInfo.redactedFields = ['ssn', 'credit_card']
+```
+
+For enterprise features, contact [sales@getaxonflow.com](mailto:sales@getaxonflow.com).
+
 ## Support
 
-- Documentation: https://docs.axonflow.com
-- Email: support@axonflow.com
-- GitHub: https://github.com/axonflow/sdk-typescript
+- **Documentation**: https://docs.getaxonflow.com
+- **Issues**: https://github.com/getaxonflow/axonflow-sdk-typescript/issues
+- **Email**: dev@getaxonflow.com
 
 ## MCP Connector Marketplace
 
