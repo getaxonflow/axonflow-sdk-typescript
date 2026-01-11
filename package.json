@@ -76,6 +76,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@scarf/scarf": "^1.4.0",
     "openai": "^6.15.0"
   },
   "publishConfig": {
