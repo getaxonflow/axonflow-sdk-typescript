@@ -751,6 +751,48 @@ console.log('Message sent:', result.success);
 
 For complete connector documentation, see [https://docs.getaxonflow.com/mcp](https://docs.getaxonflow.com/mcp)
 
+## MCP Policy Features (v3.2.0)
+
+### Exfiltration Detection
+
+Prevent large-scale data extraction with automatic row and byte limits:
+
+```typescript
+// Query with exfiltration limits (default: 10K rows, 10MB)
+const response = await axonflow.queryConnector('postgres', 'SELECT * FROM customers', {});
+
+// Check exfiltration info
+if (response.policyInfo?.exfiltrationCheck?.exceeded) {
+  console.log('Data limit exceeded:', response.policyInfo.exfiltrationCheck.limitType);
+  // limitType: 'rows' | 'bytes'
+}
+
+// Configure limits via environment:
+// MCP_MAX_ROWS_PER_QUERY=1000
+// MCP_MAX_BYTES_PER_QUERY=5242880
+```
+
+### Dynamic Policy Evaluation
+
+Enable Orchestrator-based policy evaluation for rate limiting, budget controls, and more:
+
+```typescript
+// Response includes dynamic policy info when enabled
+const response = await axonflow.queryConnector('postgres', 'SELECT id FROM users', {});
+
+// Check dynamic policy evaluation results
+const dynamicInfo = response.policyInfo?.dynamicPolicyInfo;
+if (dynamicInfo?.orchestratorReachable) {
+  console.log('Policies evaluated:', dynamicInfo.policiesEvaluated);
+  dynamicInfo.matchedPolicies?.forEach(policy => {
+    console.log(`  ${policy.policyName}: ${policy.action}`);
+  });
+}
+
+// Enable via environment:
+// MCP_DYNAMIC_POLICIES_ENABLED=true
+```
+
 ## Multi-Agent Planning (MAP)
 
 Generate and execute complex multi-step plans using AI agent orchestration:
