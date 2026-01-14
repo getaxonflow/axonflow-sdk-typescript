@@ -47,6 +47,59 @@ export interface MCPPolicyInfo {
   redactions_applied: number;
   processing_time_ms: number;
   matched_policies?: PolicyMatchInfo[];
+  /** Exfiltration check information (Issue #966) */
+  exfiltration_check?: ExfiltrationCheckInfo;
+  /** Dynamic policy evaluation results (Issue #968) */
+  dynamic_policy_info?: DynamicPolicyInfo;
+}
+
+/**
+ * Information about exfiltration limit checks (Issue #966)
+ * Helps prevent large-scale data extraction via MCP queries
+ */
+export interface ExfiltrationCheckInfo {
+  /** Number of rows in the response */
+  rows_returned: number;
+  /** Configured maximum rows per query */
+  row_limit: number;
+  /** Size of the response data in bytes */
+  bytes_returned: number;
+  /** Configured maximum bytes per response */
+  byte_limit: number;
+  /** Whether the response is within configured limits */
+  within_limits: boolean;
+}
+
+/**
+ * Information about dynamic policy evaluation (Issue #968)
+ * Dynamic policies are evaluated by the Orchestrator and can include
+ * rate limiting, budget controls, time-based access, and role-based access
+ */
+export interface DynamicPolicyInfo {
+  /** Number of dynamic policies checked */
+  policies_evaluated: number;
+  /** Details about policies that matched */
+  matched_policies?: DynamicPolicyMatch[];
+  /** Whether the Orchestrator was reachable */
+  orchestrator_reachable: boolean;
+  /** Time taken for dynamic policy evaluation */
+  processing_time_ms: number;
+}
+
+/**
+ * Details about a matched dynamic policy
+ */
+export interface DynamicPolicyMatch {
+  /** Unique identifier of the policy */
+  policy_id: string;
+  /** Human-readable name of the policy */
+  policy_name: string;
+  /** Type of policy (rate-limit, budget, time-access, role-access, mcp, connector) */
+  policy_type: string;
+  /** Action taken (allow, block, log, etc.) */
+  action: string;
+  /** Context for the policy match */
+  reason?: string;
 }
 
 export interface ConnectorResponse {
