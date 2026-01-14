@@ -54,7 +54,7 @@
   "homepage": "https://getaxonflow.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/getaxonflow/axonflow-sdk-typescript"
+    "url": "git+https://github.com/getaxonflow/axonflow-sdk-typescript.git"
   },
   "bugs": {
     "url": "https://github.com/getaxonflow/axonflow-sdk-typescript/issues"
