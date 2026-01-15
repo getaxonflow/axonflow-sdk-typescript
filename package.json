@@ -79,7 +79,6 @@
     "openai": "^6.15.0"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": false
+    "access": "public"
   }
 }
