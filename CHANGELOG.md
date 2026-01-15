@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports rate limiting, budget controls, time-based access, and role-based access policies
   - Optional feature - enable via `MCP_DYNAMIC_POLICIES_ENABLED=true`
 
+- **Analytics**: Added optional install analytics via Scarf (opt-out: `SCARF_NO_ANALYTICS=1`)
+
 ---
 
 ## [2.3.0] - 2026-01-09
