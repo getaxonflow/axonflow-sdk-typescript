@@ -29,6 +29,19 @@ jobs:
     - name: Build
       run: npm run build
 
+    - name: Debug npm config
+      run: |
+        echo "=== .npmrc contents ==="
+        cat .npmrc
+        echo ""
+        echo "=== npm config list ==="
+        npm config list
+        echo ""
+        echo "=== npm whoami ==="
+        npm whoami || echo "Not logged in or token invalid"
+      env:
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
     - name: Publish to npm
       run: npm publish --access public
       env:
