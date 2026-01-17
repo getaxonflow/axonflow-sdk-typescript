@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `abortWorkflow()` - Abort workflow with reason
   - `resumeWorkflow()` - Resume after approval
   - New types: `WorkflowStatus`, `WorkflowSource`, `GateDecision`, `StepType`, `ApprovalStatus`, `MarkStepCompletedRequest`
-  - Helper utilities in `WorkflowHelpers`: `isAllowed()`, `isBlocked()`, `requiresApproval()`, `isTerminal()`
+  - Helper utilities in `WorkflowHelpers`: `isAllowed()`, `isBlocked()`, `requiresApproval()` (gate decisions)
+  - Helper utilities in `WorkflowHelpers`: `isTerminal()` (workflow status)
 
 - **MCP Exfiltration Detection** (Issue #966): `MCPPolicyInfo` now includes `exfiltration_check` with row/volume limit information
   - `ExfiltrationCheckInfo` type with `rows_returned`, `row_limit`, `bytes_returned`, `byte_limit`, `within_limits` fields
