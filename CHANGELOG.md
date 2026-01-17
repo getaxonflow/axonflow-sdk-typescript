@@ -5,9 +5,22 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.4.0] - 2026-01-14
+## [2.5.0] - 2026-01-17
 
 ### Added
+
+- **Workflow Control Plane** (Issue #834): Governance gates for external orchestrators
+  - "LangChain runs the workflow. AxonFlow decides when it's allowed to move forward."
+  - `createWorkflow()` - Register workflows from LangChain/LangGraph/CrewAI/external
+  - `stepGate()` - Check if step is allowed to proceed (allow/block/require_approval)
+  - `markStepCompleted()` - Mark a step as completed with optional output data
+  - `getWorkflow()` - Get workflow status and step history
+  - `listWorkflows()` - List workflows with filters (status, source, pagination)
+  - `completeWorkflow()` - Mark workflow as completed
+  - `abortWorkflow()` - Abort workflow with reason
+  - `resumeWorkflow()` - Resume after approval
+  - New types: `WorkflowStatus`, `WorkflowSource`, `GateDecision`, `StepType`, `ApprovalStatus`, `MarkStepCompletedRequest`
+  - Helper utilities in `WorkflowHelpers`: `isAllowed()`, `isBlocked()`, `requiresApproval()`, `isTerminal()`
 
 - **MCP Exfiltration Detection** (Issue #966): `MCPPolicyInfo` now includes `exfiltration_check` with row/volume limit information
   - `ExfiltrationCheckInfo` type with `rows_returned`, `row_limit`, `bytes_returned`, `byte_limit`, `within_limits` fields
