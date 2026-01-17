@@ -75,6 +75,16 @@ import {
   ListBudgetsOptions,
   BudgetCheckRequest,
   ListUsageRecordsOptions,
+  // Workflow Control Plane types
+  CreateWorkflowRequest,
+  CreateWorkflowResponse,
+  StepGateRequest,
+  StepGateResponse,
+  WorkflowStatusResponse,
+  ListWorkflowsOptions,
+  ListWorkflowsResponse,
+  AbortWorkflowRequest,
+  MarkStepCompletedRequest,
 } from './types';
 import {
   AuthenticationError,
@@ -3623,5 +3633,225 @@ export class AxonFlow {
     }
 
     return response.text();
+  }
+
+  // =============================================================================
+  // Workflow Control Plane (Issue #834)
+  // =============================================================================
+
+  /**
+   * Create a new workflow for governance tracking.
+   *
+   * Call this at the start of your external orchestrator workflow (LangChain, LangGraph, CrewAI, etc.)
+   * to register it with AxonFlow for governance tracking.
+   *
+   * @example
+   * ```typescript
+   * const workflow = await client.createWorkflow({
+   *   workflow_name: 'customer-support-agent',
+   *   source: 'langgraph',
+   *   total_steps: 5,
+   *   metadata: { customer_id: 'cust-123' }
+   * });
+   * console.log(`Workflow created: ${workflow.workflow_id}`);
+   * ```
+   */
+  async createWorkflow(request: CreateWorkflowRequest): Promise<CreateWorkflowResponse> {
+    const response = await this.orchestratorRequest<CreateWorkflowResponse>(
+      'POST',
+      '/api/v1/workflows',
+      request
+    );
+    return response;
+  }
+
+  /**
+   * Get the status of a workflow.
+   *
+   * @example
+   * ```typescript
+   * const status = await client.getWorkflow('wf_123');
+   * console.log(`Status: ${status.status}, Step: ${status.current_step_index}`);
+   * ```
+   */
+  async getWorkflow(workflowId: string): Promise<WorkflowStatusResponse> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+
+    const response = await this.orchestratorRequest<WorkflowStatusResponse>(
+      'GET',
+      `/api/v1/workflows/${workflowId}`
+    );
+    return response;
+  }
+
+  /**
+   * Check if a workflow step is allowed to proceed (step gate).
+   *
+   * This is the core governance method. Call this before executing each step
+   * in your workflow to check if the step is allowed based on policies.
+   *
+   * @example
+   * ```typescript
+   * const gate = await client.stepGate('wf_123', 'step-generate-code', {
+   *   step_name: 'Generate Code',
+   *   step_type: 'llm_call',
+   *   model: 'gpt-4',
+   *   provider: 'openai',
+   *   step_input: { prompt: 'Generate a hello world function' }
+   * });
+   *
+   * if (gate.decision === 'block') {
+   *   throw new Error(`Step blocked: ${gate.reason}`);
+   * }
+   * if (gate.decision === 'require_approval') {
+   *   console.log(`Approval required: ${gate.approval_url}`);
+   *   return;
+   * }
+   * // Step is allowed, proceed with execution
+   * ```
+   */
+  async stepGate(
+    workflowId: string,
+    stepId: string,
+    request: StepGateRequest
+  ): Promise<StepGateResponse> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+    if (!stepId) {
+      throw new ConfigurationError('Step ID is required');
+    }
+
+    const response = await this.orchestratorRequest<StepGateResponse>(
+      'POST',
+      `/api/v1/workflows/${workflowId}/steps/${stepId}/gate`,
+      request
+    );
+    return response;
+  }
+
+  /**
+   * Complete a workflow successfully.
+   *
+   * Call this when your workflow has completed all steps successfully.
+   *
+   * @example
+   * ```typescript
+   * await client.completeWorkflow('wf_123');
+   * ```
+   */
+  async completeWorkflow(workflowId: string): Promise<void> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+
+    await this.orchestratorRequest('POST', `/api/v1/workflows/${workflowId}/complete`, {});
+  }
+
+  /**
+   * Abort a workflow.
+   *
+   * Call this when you need to stop a workflow due to an error or user request.
+   *
+   * @example
+   * ```typescript
+   * await client.abortWorkflow('wf_123', 'User cancelled the operation');
+   * ```
+   */
+  async abortWorkflow(workflowId: string, reason?: string): Promise<void> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+
+    const request: AbortWorkflowRequest = reason ? { reason } : {};
+    await this.orchestratorRequest('POST', `/api/v1/workflows/${workflowId}/abort`, request);
+  }
+
+  /**
+   * Mark a workflow step as completed.
+   *
+   * Call this after a step has been executed successfully.
+   *
+   * @example
+   * ```typescript
+   * await client.markStepCompleted('wf_123', 'step-1', {
+   *   output: { result: 'success' }
+   * });
+   * ```
+   */
+  async markStepCompleted(
+    workflowId: string,
+    stepId: string,
+    request?: MarkStepCompletedRequest
+  ): Promise<void> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+    if (!stepId) {
+      throw new ConfigurationError('Step ID is required');
+    }
+
+    await this.orchestratorRequest(
+      'POST',
+      `/api/v1/workflows/${workflowId}/steps/${stepId}/complete`,
+      request || {}
+    );
+  }
+
+  /**
+   * Resume a workflow after approval.
+   *
+   * Call this after a step has been approved to continue the workflow.
+   *
+   * @example
+   * ```typescript
+   * // After approval received via webhook or polling
+   * await client.resumeWorkflow('wf_123');
+   * ```
+   */
+  async resumeWorkflow(workflowId: string): Promise<void> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+
+    await this.orchestratorRequest('POST', `/api/v1/workflows/${workflowId}/resume`, {});
+  }
+
+  /**
+   * List workflows with optional filters.
+   *
+   * @example
+   * ```typescript
+   * const result = await client.listWorkflows({
+   *   status: 'in_progress',
+   *   source: 'langgraph',
+   *   limit: 10
+   * });
+   * console.log(`Found ${result.total} workflows`);
+   * ```
+   */
+  async listWorkflows(options?: ListWorkflowsOptions): Promise<ListWorkflowsResponse> {
+    const params = new URLSearchParams();
+
+    if (options?.status) {
+      params.set('status', options.status);
+    }
+    if (options?.source) {
+      params.set('source', options.source);
+    }
+    if (options?.limit !== undefined) {
+      params.set('limit', options.limit.toString());
+    }
+    if (options?.offset !== undefined) {
+      params.set('offset', options.offset.toString());
+    }
+
+    const queryString = params.toString();
+    const path = queryString ? `/api/v1/workflows?${queryString}` : '/api/v1/workflows';
+
+    const response = await this.orchestratorRequest<ListWorkflowsResponse>('GET', path);
+    return response;
   }
 }
