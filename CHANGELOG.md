@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Helper utilities in `WorkflowHelpers`: `isAllowed()`, `isBlocked()`, `requiresApproval()` (gate decisions)
   - Helper utilities in `WorkflowHelpers`: `isTerminal()` (workflow status)
 
+- **Workflow Policy Enforcement** (Issues #1019, #1020, #1021): Policy transparency for workflow operations
+  - `StepGateResponse` now includes `policiesEvaluated` and `policiesMatched` fields with `PolicyMatch` type
+  - `PolicyMatch` interface with `policy_id`, `policy_name`, `action`, `reason` for policy transparency
+  - `PolicyEvaluationResult` interface for MAP execution with `allowed`, `applied_policies`, `risk_score`
+  - Workflow operations (`workflow_created`, `workflow_step_gate`, `workflow_completed`) logged to audit trail
+
 - **MCP Exfiltration Detection** (Issue #966): `MCPPolicyInfo` now includes `exfiltration_check` with row/volume limit information
   - `ExfiltrationCheckInfo` type with `rows_returned`, `row_limit`, `bytes_returned`, `byte_limit`, `within_limits` fields
   - Prevents large-scale data extraction via MCP queries
