@@ -9,6 +9,8 @@
  * "LangChain runs the workflow. AxonFlow decides when it's allowed to move forward."
  */
 
+import { PolicyMatch } from './planning';
+
 /**
  * Workflow status values.
  */
@@ -94,6 +96,10 @@ export interface StepGateResponse {
   policy_ids?: string[];
   /** URL to the approval portal (if decision is require_approval) */
   approval_url?: string;
+  /** All policies that were evaluated during the gate check (Issue #1021) */
+  policiesEvaluated?: PolicyMatch[];
+  /** Policies that matched and influenced the decision (Issue #1021) */
+  policiesMatched?: PolicyMatch[];
 }
 
 /**
