@@ -184,6 +184,21 @@ export type {
   PricingListResponse,
 } from './types/cost-controls';
 
+// Export Unified Execution types (Issue #1075 - EPIC #1074)
+export type {
+  ExecutionType,
+  ExecutionStatusValue,
+  StepStatusValue,
+  UnifiedStepType,
+  UnifiedGateDecision,
+  UnifiedApprovalStatus,
+  UnifiedStepStatus,
+  ExecutionStatus,
+  UnifiedListExecutionsRequest,
+  UnifiedListExecutionsResponse,
+} from './types/execution';
+export { ExecutionHelpers } from './types/execution';
+
 // Export version
 export const VERSION = '3.0.0';
 
