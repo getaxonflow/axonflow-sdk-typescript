@@ -3990,7 +3990,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to register system: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapSystemResponse(await response.json());
@@ -4009,7 +4009,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to get system: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapSystemResponse(await response.json());
@@ -4041,7 +4041,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to update system: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapSystemResponse(await response.json());
@@ -4068,7 +4068,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to list systems: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     const data = await response.json();
@@ -4089,7 +4089,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to activate system: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapSystemResponse(await response.json());
@@ -4108,7 +4108,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to retire system: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapSystemResponse(await response.json());
@@ -4127,7 +4127,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to get registry summary: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     const data = await response.json();
@@ -4163,7 +4163,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to create assessment: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapAssessmentResponse(await response.json());
@@ -4182,7 +4182,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to get assessment: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapAssessmentResponse(await response.json());
@@ -4216,7 +4216,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to update assessment: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapAssessmentResponse(await response.json());
@@ -4242,7 +4242,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to list assessments: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     const data = await response.json();
@@ -4263,7 +4263,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to submit assessment: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapAssessmentResponse(await response.json());
@@ -4287,7 +4287,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to approve assessment: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapAssessmentResponse(await response.json());
@@ -4311,7 +4311,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to reject assessment: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapAssessmentResponse(await response.json());
@@ -4331,7 +4331,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to get kill switch: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapKillSwitchResponse(await response.json());
@@ -4358,7 +4358,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to configure kill switch: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapKillSwitchResponse(await response.json());
@@ -4383,7 +4383,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to check kill switch: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapKillSwitchResponse(await response.json());
@@ -4407,7 +4407,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to trigger kill switch: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapKillSwitchResponse(await response.json());
@@ -4431,7 +4431,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to restore kill switch: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapKillSwitchResponse(await response.json());
@@ -4451,7 +4451,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to enable kill switch: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapKillSwitchResponse(await response.json());
@@ -4472,7 +4472,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to disable kill switch: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     return this.mapKillSwitchResponse(await response.json());
@@ -4495,7 +4495,7 @@ export class AxonFlow {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to get kill switch history: ${response.status} - ${errorText}`);
+      throw new APIError(response.status, response.statusText, errorText);
     }
 
     const data = await response.json();
