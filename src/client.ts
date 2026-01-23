@@ -4163,15 +4163,17 @@ export class AxonFlow {
     if (request.assessmentDate) body.assessment_date = request.assessmentDate.toISOString();
     if (request.fairnessScore !== undefined) body.fairness_score = request.fairnessScore;
     if (request.ethicsScore !== undefined) body.ethics_score = request.ethicsScore;
-    if (request.accountabilityScore !== undefined) body.accountability_score = request.accountabilityScore;
-    if (request.transparencyScore !== undefined) body.transparency_score = request.transparencyScore;
+    if (request.accountabilityScore !== undefined)
+      body.accountability_score = request.accountabilityScore;
+    if (request.transparencyScore !== undefined)
+      body.transparency_score = request.transparencyScore;
     if (request.fairnessDetails) body.fairness_details = request.fairnessDetails;
     if (request.ethicsDetails) body.ethics_details = request.ethicsDetails;
     if (request.accountabilityDetails) body.accountability_details = request.accountabilityDetails;
     if (request.transparencyDetails) body.transparency_details = request.transparencyDetails;
     if (request.recommendations) body.recommendations = request.recommendations;
     if (request.findings) {
-      body.findings = request.findings.map((f) => ({
+      body.findings = request.findings.map(f => ({
         id: f.id,
         pillar: f.pillar,
         severity: f.severity,
@@ -4240,7 +4242,7 @@ export class AxonFlow {
     if (request.transparencyDetails !== undefined)
       body.transparency_details = request.transparencyDetails;
     if (request.findings !== undefined) {
-      body.findings = request.findings.map((f) => ({
+      body.findings = request.findings.map(f => ({
         id: f.id,
         pillar: f.pillar,
         severity: f.severity,
@@ -4588,9 +4590,11 @@ export class AxonFlow {
       // Handle both API formats: event_type (SDK expected) vs action (API actual)
       eventType: e.event_type || e.action,
       // Build eventData from additional fields if not present
-      eventData: e.event_data || (e.previous_status || e.new_status || e.reason
-        ? { previousStatus: e.previous_status, newStatus: e.new_status, reason: e.reason }
-        : undefined),
+      eventData:
+        e.event_data ||
+        (e.previous_status || e.new_status || e.reason
+          ? { previousStatus: e.previous_status, newStatus: e.new_status, reason: e.reason }
+          : undefined),
       // Handle both API formats: created_by vs performed_by
       createdBy: e.created_by || e.performed_by,
       // Handle both API formats: created_at vs performed_at
