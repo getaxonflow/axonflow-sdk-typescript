@@ -3957,7 +3957,7 @@ export class AxonFlow {
       restoreKillSwitch: this.masfeatRestoreKillSwitch.bind(this),
       enableKillSwitch: this.masfeatEnableKillSwitch.bind(this),
       disableKillSwitch: this.masfeatDisableKillSwitch.bind(this),
-      getKillSwitchHistory: this.masfeatGetKillSwitchHistory.bind(this)
+      getKillSwitchHistory: this.masfeatGetKillSwitchHistory.bind(this),
     };
   }
 
@@ -3975,17 +3975,17 @@ export class AxonFlow {
       risk_rating_impact: request.customerImpact,
       risk_rating_complexity: request.modelComplexity,
       risk_rating_reliance: request.humanReliance,
-      metadata: request.metadata
+      metadata: request.metadata,
     };
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4002,9 +4002,9 @@ export class AxonFlow {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4015,7 +4015,10 @@ export class AxonFlow {
     return this.mapSystemResponse(await response.json());
   }
 
-  private async masfeatUpdateSystem(systemId: string, request: UpdateSystemRequest): Promise<AISystemRegistry> {
+  private async masfeatUpdateSystem(
+    systemId: string,
+    request: UpdateSystemRequest
+  ): Promise<AISystemRegistry> {
     const url = `${this.config.endpoint}/api/v1/masfeat/registry/${systemId}`;
 
     const body: Record<string, any> = {};
@@ -4033,10 +4036,10 @@ export class AxonFlow {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4061,9 +4064,9 @@ export class AxonFlow {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4083,10 +4086,10 @@ export class AxonFlow {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify({ status: 'active' }),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4103,9 +4106,9 @@ export class AxonFlow {
     const response = await fetch(url, {
       method: 'DELETE',
       headers: {
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4122,9 +4125,9 @@ export class AxonFlow {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4140,7 +4143,7 @@ export class AxonFlow {
       mediumMaterialityCount: data.medium_materiality_count ?? data.medium_materiality ?? 0,
       lowMaterialityCount: data.low_materiality_count ?? data.low_materiality ?? 0,
       byUseCase: data.by_use_case || {},
-      byStatus: data.by_status || {}
+      byStatus: data.by_status || {},
     };
   }
 
@@ -4150,17 +4153,17 @@ export class AxonFlow {
     const body = {
       system_id: request.systemId,
       assessment_type: request.assessmentType || 'periodic',
-      assessors: request.assessors
+      assessors: request.assessors,
     };
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4177,9 +4180,9 @@ export class AxonFlow {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4190,18 +4193,25 @@ export class AxonFlow {
     return this.mapAssessmentResponse(await response.json());
   }
 
-  private async masfeatUpdateAssessment(assessmentId: string, request: UpdateAssessmentRequest): Promise<FEATAssessment> {
+  private async masfeatUpdateAssessment(
+    assessmentId: string,
+    request: UpdateAssessmentRequest
+  ): Promise<FEATAssessment> {
     const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}`;
 
     const body: Record<string, any> = {};
     if (request.fairnessScore !== undefined) body.fairness_score = request.fairnessScore;
     if (request.ethicsScore !== undefined) body.ethics_score = request.ethicsScore;
-    if (request.accountabilityScore !== undefined) body.accountability_score = request.accountabilityScore;
-    if (request.transparencyScore !== undefined) body.transparency_score = request.transparencyScore;
+    if (request.accountabilityScore !== undefined)
+      body.accountability_score = request.accountabilityScore;
+    if (request.transparencyScore !== undefined)
+      body.transparency_score = request.transparencyScore;
     if (request.fairnessDetails !== undefined) body.fairness_details = request.fairnessDetails;
     if (request.ethicsDetails !== undefined) body.ethics_details = request.ethicsDetails;
-    if (request.accountabilityDetails !== undefined) body.accountability_details = request.accountabilityDetails;
-    if (request.transparencyDetails !== undefined) body.transparency_details = request.transparencyDetails;
+    if (request.accountabilityDetails !== undefined)
+      body.accountability_details = request.accountabilityDetails;
+    if (request.transparencyDetails !== undefined)
+      body.transparency_details = request.transparencyDetails;
     if (request.findings !== undefined) body.findings = request.findings;
     if (request.recommendations !== undefined) body.recommendations = request.recommendations;
     if (request.assessors !== undefined) body.assessors = request.assessors;
@@ -4210,10 +4220,10 @@ export class AxonFlow {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4224,7 +4234,9 @@ export class AxonFlow {
     return this.mapAssessmentResponse(await response.json());
   }
 
-  private async masfeatListAssessments(options?: ListAssessmentsOptions): Promise<FEATAssessment[]> {
+  private async masfeatListAssessments(
+    options?: ListAssessmentsOptions
+  ): Promise<FEATAssessment[]> {
     const params = new URLSearchParams();
     if (options?.systemId) params.append('system_id', options.systemId);
     if (options?.status) params.append('status', options.status);
@@ -4237,9 +4249,9 @@ export class AxonFlow {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4258,9 +4270,9 @@ export class AxonFlow {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4271,20 +4283,23 @@ export class AxonFlow {
     return this.mapAssessmentResponse(await response.json());
   }
 
-  private async masfeatApproveAssessment(assessmentId: string, request: ApproveAssessmentRequest): Promise<FEATAssessment> {
+  private async masfeatApproveAssessment(
+    assessmentId: string,
+    request: ApproveAssessmentRequest
+  ): Promise<FEATAssessment> {
     const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}/approve`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify({
         approved_by: request.approvedBy,
-        comments: request.comments
+        comments: request.comments,
       }),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4295,20 +4310,23 @@ export class AxonFlow {
     return this.mapAssessmentResponse(await response.json());
   }
 
-  private async masfeatRejectAssessment(assessmentId: string, request: RejectAssessmentRequest): Promise<FEATAssessment> {
+  private async masfeatRejectAssessment(
+    assessmentId: string,
+    request: RejectAssessmentRequest
+  ): Promise<FEATAssessment> {
     const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}/reject`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify({
         rejected_by: request.rejectedBy,
-        reason: request.reason
+        reason: request.reason,
       }),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4326,9 +4344,9 @@ export class AxonFlow {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4339,23 +4357,29 @@ export class AxonFlow {
     return this.mapKillSwitchResponse(await response.json());
   }
 
-  private async masfeatConfigureKillSwitch(systemId: string, request: ConfigureKillSwitchRequest): Promise<KillSwitch> {
+  private async masfeatConfigureKillSwitch(
+    systemId: string,
+    request: ConfigureKillSwitchRequest
+  ): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/configure`;
 
     const body: Record<string, any> = {};
-    if (request.accuracyThreshold !== undefined) body.accuracy_threshold = request.accuracyThreshold;
+    if (request.accuracyThreshold !== undefined)
+      body.accuracy_threshold = request.accuracyThreshold;
     if (request.biasThreshold !== undefined) body.bias_threshold = request.biasThreshold;
-    if (request.errorRateThreshold !== undefined) body.error_rate_threshold = request.errorRateThreshold;
-    if (request.autoTriggerEnabled !== undefined) body.auto_trigger_enabled = request.autoTriggerEnabled;
+    if (request.errorRateThreshold !== undefined)
+      body.error_rate_threshold = request.errorRateThreshold;
+    if (request.autoTriggerEnabled !== undefined)
+      body.auto_trigger_enabled = request.autoTriggerEnabled;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4366,21 +4390,24 @@ export class AxonFlow {
     return this.mapKillSwitchResponse(await response.json());
   }
 
-  private async masfeatCheckKillSwitch(systemId: string, request: CheckKillSwitchRequest): Promise<KillSwitch> {
+  private async masfeatCheckKillSwitch(
+    systemId: string,
+    request: CheckKillSwitchRequest
+  ): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/check`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify({
         accuracy: request.accuracy,
         bias_score: request.biasScore,
-        error_rate: request.errorRate
+        error_rate: request.errorRate,
       }),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4391,20 +4418,23 @@ export class AxonFlow {
     return this.mapKillSwitchResponse(await response.json());
   }
 
-  private async masfeatTriggerKillSwitch(systemId: string, request: TriggerKillSwitchRequest): Promise<KillSwitch> {
+  private async masfeatTriggerKillSwitch(
+    systemId: string,
+    request: TriggerKillSwitchRequest
+  ): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/trigger`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify({
         reason: request.reason,
-        triggered_by: request.triggeredBy
+        triggered_by: request.triggeredBy,
       }),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4415,20 +4445,23 @@ export class AxonFlow {
     return this.mapKillSwitchResponse(await response.json());
   }
 
-  private async masfeatRestoreKillSwitch(systemId: string, request: RestoreKillSwitchRequest): Promise<KillSwitch> {
+  private async masfeatRestoreKillSwitch(
+    systemId: string,
+    request: RestoreKillSwitchRequest
+  ): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/restore`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify({
         reason: request.reason,
-        restored_by: request.restoredBy
+        restored_by: request.restoredBy,
       }),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4446,9 +4479,9 @@ export class AxonFlow {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4459,17 +4492,20 @@ export class AxonFlow {
     return this.mapKillSwitchResponse(await response.json());
   }
 
-  private async masfeatDisableKillSwitch(systemId: string, request?: DisableKillSwitchRequest): Promise<KillSwitch> {
+  private async masfeatDisableKillSwitch(
+    systemId: string,
+    request?: DisableKillSwitchRequest
+  ): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/disable`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
       body: JSON.stringify({ reason: request?.reason }),
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4480,7 +4516,10 @@ export class AxonFlow {
     return this.mapKillSwitchResponse(await response.json());
   }
 
-  private async masfeatGetKillSwitchHistory(systemId: string, limit?: number): Promise<KillSwitchEvent[]> {
+  private async masfeatGetKillSwitchHistory(
+    systemId: string,
+    limit?: number
+  ): Promise<KillSwitchEvent[]> {
     const params = new URLSearchParams();
     if (limit) params.append('limit', limit.toString());
 
@@ -4490,9 +4529,9 @@ export class AxonFlow {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        ...this.getAuthHeaders()
+        ...this.getAuthHeaders(),
       },
-      signal: AbortSignal.timeout(this.config.timeout)
+      signal: AbortSignal.timeout(this.config.timeout),
     });
 
     if (!response.ok) {
@@ -4511,7 +4550,7 @@ export class AxonFlow {
       eventType: e.event_type,
       eventData: e.event_data,
       createdBy: e.created_by,
-      createdAt: new Date(e.created_at)
+      createdAt: new Date(e.created_at),
     }));
   }
 
@@ -4535,7 +4574,7 @@ export class AxonFlow {
       metadata: data.metadata,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
-      createdBy: data.created_by
+      createdBy: data.created_by,
     };
   }
 
@@ -4564,7 +4603,7 @@ export class AxonFlow {
       approvedAt: data.approved_at ? new Date(data.approved_at) : undefined,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
-      createdBy: data.created_by
+      createdBy: data.created_by,
     };
   }
 
@@ -4588,7 +4627,7 @@ export class AxonFlow {
       restoredAt: data.restored_at ? new Date(data.restored_at) : undefined,
       restoredBy: data.restored_by,
       createdAt: new Date(data.created_at),
-      updatedAt: new Date(data.updated_at)
+      updatedAt: new Date(data.updated_at),
     };
   }
 }
