@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.7.0] - 2026-01-23
 
+> **Note:** This release includes all features originally planned for v2.6.0, which was not published due to npm registry issues.
+
 ### Added
 
 - **MAS FEAT Compliance Module** (Enterprise): Singapore financial services AI governance
@@ -18,24 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Kill Switch: `masfeat.getKillSwitch()`, `masfeat.configureKillSwitch()`, `masfeat.checkKillSwitch()`, `masfeat.triggerKillSwitch()`, `masfeat.restoreKillSwitch()`, `masfeat.enableKillSwitch()`, `masfeat.disableKillSwitch()`, `masfeat.getKillSwitchHistory()`
   - Automatic model shutdown based on accuracy, bias, and error rate thresholds
   - New types: `AISystemRegistry`, `AISystemUseCase`, `MaterialityClassification`, `SystemStatus`, `FEATAssessment`, `FEATAssessmentStatus`, `FEATPillar`, `KillSwitch`, `KillSwitchStatus`, `KillSwitchEvent`, `KillSwitchEventType`, `RegistrySummary`
-
-- **proxyLLMCall()**: New primary method for Proxy Mode with improved documentation
-  - Clearly describes Proxy Mode behavior (AxonFlow makes the LLM call on your behalf)
-  - Documents when to use Proxy Mode vs Gateway Mode
-  - Same functionality as executeQuery, but with clearer naming
-
-### Deprecated
-
-- **executeQuery()**: Deprecated in favor of proxyLLMCall()
-  - Will be removed in v3.0.0
-  - Emits deprecation warning in debug mode
-  - Remains functional as a wrapper around proxyLLMCall()
-
----
-
-## [2.6.0] - 2026-01-18
-
-### Added
 
 - **Workflow Control Plane** (Issue #834): Governance gates for external orchestrators
   - "LangChain runs the workflow. AxonFlow decides when it's allowed to move forward."
@@ -68,7 +52,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports rate limiting, budget controls, time-based access, and role-based access policies
   - Optional feature - enable via `MCP_DYNAMIC_POLICIES_ENABLED=true`
 
+- **proxyLLMCall()**: New primary method for Proxy Mode with improved documentation
+  - Clearly describes Proxy Mode behavior (AxonFlow makes the LLM call on your behalf)
+  - Documents when to use Proxy Mode vs Gateway Mode
+  - Same functionality as executeQuery, but with clearer naming
+
 - **Analytics**: Added optional install analytics via Scarf (opt-out: `SCARF_NO_ANALYTICS=1`)
+
+### Deprecated
+
+- **executeQuery()**: Deprecated in favor of proxyLLMCall()
+  - Will be removed in v3.0.0
+  - Emits deprecation warning in debug mode
+  - Remains functional as a wrapper around proxyLLMCall()
 
 ---
 
