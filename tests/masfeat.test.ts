@@ -486,4 +486,165 @@ describe('MAS FEAT Compliance Module', () => {
       expect(result[0].createdBy).toBe('admin');
     });
   });
+
+  describe('updateSystem', () => {
+    it('should update a system', async () => {
+      const systemResponse = {
+        id: 'sys-123',
+        org_id: 'org-456',
+        system_id: 'model-v1',
+        system_name: 'Updated Model',
+        use_case: 'credit_scoring',
+        owner_team: 'new-team',
+        materiality: 'high',
+        status: 'active',
+        created_at: '2026-01-23T12:00:00Z',
+        updated_at: '2026-01-23T12:00:00Z',
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(systemResponse));
+
+      const result = await client.masfeat.updateSystem('sys-123', {
+        systemName: 'Updated Model',
+        ownerTeam: 'new-team',
+      });
+
+      expect(result.systemName).toBe('Updated Model');
+    });
+  });
+
+  describe('retireSystem', () => {
+    it('should retire a system', async () => {
+      const systemResponse = {
+        id: 'sys-123',
+        org_id: 'org-456',
+        system_id: 'model-v1',
+        system_name: 'Test Model',
+        use_case: 'credit_scoring',
+        owner_team: 'team',
+        materiality: 'high',
+        status: 'retired',
+        created_at: '2026-01-23T12:00:00Z',
+        updated_at: '2026-01-23T12:00:00Z',
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(systemResponse));
+
+      const result = await client.masfeat.retireSystem('sys-123');
+
+      expect(result.status).toBe('retired');
+    });
+  });
+
+  describe('listAssessments', () => {
+    it('should list assessments', async () => {
+      const assessmentsResponse = [
+        {
+          id: 'assess-1',
+          org_id: 'org-456',
+          system_id: 'sys-789',
+          assessment_type: 'annual',
+          status: 'completed',
+          assessment_date: '2026-01-23T12:00:00Z',
+          created_at: '2026-01-23T12:00:00Z',
+          updated_at: '2026-01-23T12:00:00Z',
+        },
+      ];
+
+      mockFetch.mockResolvedValueOnce(mockResponse(assessmentsResponse));
+
+      const result = await client.masfeat.listAssessments();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('assess-1');
+    });
+  });
+
+  describe('rejectAssessment', () => {
+    it('should reject an assessment', async () => {
+      const assessmentResponse = {
+        id: 'assess-123',
+        org_id: 'org-456',
+        system_id: 'sys-789',
+        assessment_type: 'annual',
+        status: 'rejected',
+        assessment_date: '2026-01-23T12:00:00Z',
+        created_at: '2026-01-23T12:00:00Z',
+        updated_at: '2026-01-23T12:00:00Z',
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(assessmentResponse));
+
+      const result = await client.masfeat.rejectAssessment('assess-123', {
+        reason: 'Incomplete data',
+      });
+
+      expect(result.status).toBe('rejected');
+    });
+  });
+
+  describe('checkKillSwitch', () => {
+    it('should check kill switch status with metrics', async () => {
+      const statusResponse = {
+        id: 'ks-123',
+        org_id: 'org-456',
+        system_id: 'sys-789',
+        status: 'enabled',
+        auto_trigger_enabled: true,
+        accuracy_threshold: 0.95,
+        created_at: '2026-01-23T12:00:00Z',
+        updated_at: '2026-01-23T12:00:00Z',
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(statusResponse));
+
+      const result = await client.masfeat.checkKillSwitch('sys-789', {
+        accuracy: 0.92,
+        biasScore: 0.05,
+      });
+
+      expect(result.status).toBe('enabled');
+      expect(result.accuracyThreshold).toBe(0.95);
+    });
+  });
+
+  describe('enableKillSwitch', () => {
+    it('should enable a kill switch', async () => {
+      const killSwitchResponse = {
+        id: 'ks-123',
+        org_id: 'org-456',
+        system_id: 'sys-789',
+        status: 'enabled',
+        auto_trigger_enabled: true,
+        created_at: '2026-01-23T12:00:00Z',
+        updated_at: '2026-01-23T12:00:00Z',
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(killSwitchResponse));
+
+      const result = await client.masfeat.enableKillSwitch('sys-789');
+
+      expect(result.status).toBe('enabled');
+    });
+  });
+
+  describe('disableKillSwitch', () => {
+    it('should disable a kill switch', async () => {
+      const killSwitchResponse = {
+        id: 'ks-123',
+        org_id: 'org-456',
+        system_id: 'sys-789',
+        status: 'disabled',
+        auto_trigger_enabled: false,
+        created_at: '2026-01-23T12:00:00Z',
+        updated_at: '2026-01-23T12:00:00Z',
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(killSwitchResponse));
+
+      const result = await client.masfeat.disableKillSwitch('sys-789', { reason: 'Maintenance' });
+
+      expect(result.status).toBe('disabled');
+    });
+  });
 });
