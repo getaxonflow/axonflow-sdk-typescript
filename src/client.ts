@@ -85,6 +85,25 @@ import {
   ListWorkflowsResponse,
   AbortWorkflowRequest,
   MarkStepCompletedRequest,
+  // MAS FEAT types (Enterprise)
+  RegisterSystemRequest,
+  UpdateSystemRequest,
+  AISystemRegistry,
+  RegistrySummary,
+  ListSystemsOptions,
+  CreateAssessmentRequest,
+  UpdateAssessmentRequest,
+  FEATAssessment,
+  ApproveAssessmentRequest,
+  RejectAssessmentRequest,
+  ListAssessmentsOptions,
+  KillSwitch,
+  ConfigureKillSwitchRequest,
+  CheckKillSwitchRequest,
+  TriggerKillSwitchRequest,
+  RestoreKillSwitchRequest,
+  DisableKillSwitchRequest,
+  KillSwitchEvent,
 } from './types';
 import {
   AuthenticationError,
@@ -3878,5 +3897,688 @@ export class AxonFlow {
 
     const response = await this.orchestratorRequest<ListWorkflowsResponse>('GET', path);
     return response;
+  }
+
+  // ===========================================================================
+  // MAS FEAT Compliance Methods (Enterprise)
+  // ===========================================================================
+
+  /**
+   * MAS FEAT compliance module for Singapore regulatory compliance.
+   *
+   * Enterprise Feature: Requires AxonFlow Enterprise license.
+   *
+   * @example
+   * ```typescript
+   * // Register an AI system
+   * const system = await axonflow.masfeat.registerSystem({
+   *   systemId: 'credit-scoring-v1',
+   *   systemName: 'Credit Scoring AI',
+   *   useCase: 'credit_scoring',
+   *   ownerTeam: 'Risk Management',
+   *   customerImpact: 4,
+   *   modelComplexity: 3,
+   *   humanReliance: 5
+   * });
+   *
+   * // Configure kill switch
+   * const ks = await axonflow.masfeat.configureKillSwitch('credit-scoring-v1', {
+   *   accuracyThreshold: 0.85,
+   *   biasThreshold: 0.15,
+   *   autoTriggerEnabled: true
+   * });
+   * ```
+   */
+  get masfeat() {
+    return {
+      // Registry methods
+      registerSystem: this.masfeatRegisterSystem.bind(this),
+      getSystem: this.masfeatGetSystem.bind(this),
+      updateSystem: this.masfeatUpdateSystem.bind(this),
+      listSystems: this.masfeatListSystems.bind(this),
+      activateSystem: this.masfeatActivateSystem.bind(this),
+      retireSystem: this.masfeatRetireSystem.bind(this),
+      getRegistrySummary: this.masfeatGetRegistrySummary.bind(this),
+
+      // Assessment methods
+      createAssessment: this.masfeatCreateAssessment.bind(this),
+      getAssessment: this.masfeatGetAssessment.bind(this),
+      updateAssessment: this.masfeatUpdateAssessment.bind(this),
+      listAssessments: this.masfeatListAssessments.bind(this),
+      submitAssessment: this.masfeatSubmitAssessment.bind(this),
+      approveAssessment: this.masfeatApproveAssessment.bind(this),
+      rejectAssessment: this.masfeatRejectAssessment.bind(this),
+
+      // Kill switch methods
+      getKillSwitch: this.masfeatGetKillSwitch.bind(this),
+      configureKillSwitch: this.masfeatConfigureKillSwitch.bind(this),
+      checkKillSwitch: this.masfeatCheckKillSwitch.bind(this),
+      triggerKillSwitch: this.masfeatTriggerKillSwitch.bind(this),
+      restoreKillSwitch: this.masfeatRestoreKillSwitch.bind(this),
+      enableKillSwitch: this.masfeatEnableKillSwitch.bind(this),
+      disableKillSwitch: this.masfeatDisableKillSwitch.bind(this),
+      getKillSwitchHistory: this.masfeatGetKillSwitchHistory.bind(this)
+    };
+  }
+
+  // Registry Methods
+  private async masfeatRegisterSystem(request: RegisterSystemRequest): Promise<AISystemRegistry> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/registry`;
+    const body = {
+      system_id: request.systemId,
+      system_name: request.systemName,
+      description: request.description,
+      use_case: request.useCase,
+      owner_team: request.ownerTeam,
+      technical_owner: request.technicalOwner,
+      business_owner: request.businessOwner,
+      customer_impact: request.customerImpact,
+      model_complexity: request.modelComplexity,
+      human_reliance: request.humanReliance,
+      metadata: request.metadata
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to register system: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapSystemResponse(await response.json());
+  }
+
+  private async masfeatGetSystem(systemId: string): Promise<AISystemRegistry> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/registry/${systemId}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get system: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapSystemResponse(await response.json());
+  }
+
+  private async masfeatUpdateSystem(systemId: string, request: UpdateSystemRequest): Promise<AISystemRegistry> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/registry/${systemId}`;
+
+    const body: Record<string, any> = {};
+    if (request.systemName !== undefined) body.system_name = request.systemName;
+    if (request.description !== undefined) body.description = request.description;
+    if (request.ownerTeam !== undefined) body.owner_team = request.ownerTeam;
+    if (request.technicalOwner !== undefined) body.technical_owner = request.technicalOwner;
+    if (request.businessOwner !== undefined) body.business_owner = request.businessOwner;
+    if (request.customerImpact !== undefined) body.customer_impact = request.customerImpact;
+    if (request.modelComplexity !== undefined) body.model_complexity = request.modelComplexity;
+    if (request.humanReliance !== undefined) body.human_reliance = request.humanReliance;
+    if (request.metadata !== undefined) body.metadata = request.metadata;
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to update system: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapSystemResponse(await response.json());
+  }
+
+  private async masfeatListSystems(options?: ListSystemsOptions): Promise<AISystemRegistry[]> {
+    const params = new URLSearchParams();
+    if (options?.status) params.append('status', options.status);
+    if (options?.useCase) params.append('use_case', options.useCase);
+    if (options?.materiality) params.append('materiality', options.materiality);
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.offset) params.append('offset', options.offset.toString());
+
+    const queryString = params.toString();
+    const url = `${this.config.endpoint}/api/v1/masfeat/registry${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to list systems: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return (data || []).map((s: any) => this.mapSystemResponse(s));
+  }
+
+  private async masfeatActivateSystem(systemId: string): Promise<AISystemRegistry> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/registry/${systemId}/activate`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to activate system: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapSystemResponse(await response.json());
+  }
+
+  private async masfeatRetireSystem(systemId: string): Promise<AISystemRegistry> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/registry/${systemId}`;
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to retire system: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapSystemResponse(await response.json());
+  }
+
+  private async masfeatGetRegistrySummary(): Promise<RegistrySummary> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/registry/summary`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get registry summary: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return {
+      totalSystems: data.total_systems,
+      activeSystems: data.active_systems,
+      highMaterialityCount: data.high_materiality_count,
+      mediumMaterialityCount: data.medium_materiality_count,
+      lowMaterialityCount: data.low_materiality_count,
+      byUseCase: data.by_use_case || {},
+      byStatus: data.by_status || {}
+    };
+  }
+
+  // Assessment Methods
+  private async masfeatCreateAssessment(request: CreateAssessmentRequest): Promise<FEATAssessment> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/assessments`;
+    const body = {
+      system_id: request.systemId,
+      assessment_type: request.assessmentType || 'periodic',
+      assessors: request.assessors
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create assessment: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapAssessmentResponse(await response.json());
+  }
+
+  private async masfeatGetAssessment(assessmentId: string): Promise<FEATAssessment> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get assessment: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapAssessmentResponse(await response.json());
+  }
+
+  private async masfeatUpdateAssessment(assessmentId: string, request: UpdateAssessmentRequest): Promise<FEATAssessment> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}`;
+
+    const body: Record<string, any> = {};
+    if (request.fairnessScore !== undefined) body.fairness_score = request.fairnessScore;
+    if (request.ethicsScore !== undefined) body.ethics_score = request.ethicsScore;
+    if (request.accountabilityScore !== undefined) body.accountability_score = request.accountabilityScore;
+    if (request.transparencyScore !== undefined) body.transparency_score = request.transparencyScore;
+    if (request.fairnessDetails !== undefined) body.fairness_details = request.fairnessDetails;
+    if (request.ethicsDetails !== undefined) body.ethics_details = request.ethicsDetails;
+    if (request.accountabilityDetails !== undefined) body.accountability_details = request.accountabilityDetails;
+    if (request.transparencyDetails !== undefined) body.transparency_details = request.transparencyDetails;
+    if (request.findings !== undefined) body.findings = request.findings;
+    if (request.recommendations !== undefined) body.recommendations = request.recommendations;
+    if (request.assessors !== undefined) body.assessors = request.assessors;
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to update assessment: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapAssessmentResponse(await response.json());
+  }
+
+  private async masfeatListAssessments(options?: ListAssessmentsOptions): Promise<FEATAssessment[]> {
+    const params = new URLSearchParams();
+    if (options?.systemId) params.append('system_id', options.systemId);
+    if (options?.status) params.append('status', options.status);
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.offset) params.append('offset', options.offset.toString());
+
+    const queryString = params.toString();
+    const url = `${this.config.endpoint}/api/v1/masfeat/assessments${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to list assessments: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return (data || []).map((a: any) => this.mapAssessmentResponse(a));
+  }
+
+  private async masfeatSubmitAssessment(assessmentId: string): Promise<FEATAssessment> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}/submit`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to submit assessment: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapAssessmentResponse(await response.json());
+  }
+
+  private async masfeatApproveAssessment(assessmentId: string, request: ApproveAssessmentRequest): Promise<FEATAssessment> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}/approve`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify({
+        approved_by: request.approvedBy,
+        comments: request.comments
+      }),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to approve assessment: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapAssessmentResponse(await response.json());
+  }
+
+  private async masfeatRejectAssessment(assessmentId: string, request: RejectAssessmentRequest): Promise<FEATAssessment> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}/reject`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify({
+        rejected_by: request.rejectedBy,
+        reason: request.reason
+      }),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to reject assessment: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapAssessmentResponse(await response.json());
+  }
+
+  // Kill Switch Methods
+  private async masfeatGetKillSwitch(systemId: string): Promise<KillSwitch> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get kill switch: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapKillSwitchResponse(await response.json());
+  }
+
+  private async masfeatConfigureKillSwitch(systemId: string, request: ConfigureKillSwitchRequest): Promise<KillSwitch> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/configure`;
+
+    const body: Record<string, any> = {};
+    if (request.accuracyThreshold !== undefined) body.accuracy_threshold = request.accuracyThreshold;
+    if (request.biasThreshold !== undefined) body.bias_threshold = request.biasThreshold;
+    if (request.errorRateThreshold !== undefined) body.error_rate_threshold = request.errorRateThreshold;
+    if (request.autoTriggerEnabled !== undefined) body.auto_trigger_enabled = request.autoTriggerEnabled;
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to configure kill switch: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapKillSwitchResponse(await response.json());
+  }
+
+  private async masfeatCheckKillSwitch(systemId: string, request: CheckKillSwitchRequest): Promise<KillSwitch> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/check`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify({
+        accuracy: request.accuracy,
+        bias_score: request.biasScore,
+        error_rate: request.errorRate
+      }),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to check kill switch: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapKillSwitchResponse(await response.json());
+  }
+
+  private async masfeatTriggerKillSwitch(systemId: string, request: TriggerKillSwitchRequest): Promise<KillSwitch> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/trigger`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify({
+        reason: request.reason,
+        triggered_by: request.triggeredBy
+      }),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to trigger kill switch: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapKillSwitchResponse(await response.json());
+  }
+
+  private async masfeatRestoreKillSwitch(systemId: string, request: RestoreKillSwitchRequest): Promise<KillSwitch> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/restore`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify({
+        reason: request.reason,
+        restored_by: request.restoredBy
+      }),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to restore kill switch: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapKillSwitchResponse(await response.json());
+  }
+
+  private async masfeatEnableKillSwitch(systemId: string): Promise<KillSwitch> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/enable`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to enable kill switch: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapKillSwitchResponse(await response.json());
+  }
+
+  private async masfeatDisableKillSwitch(systemId: string, request?: DisableKillSwitchRequest): Promise<KillSwitch> {
+    const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/disable`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders()
+      },
+      body: JSON.stringify({ reason: request?.reason }),
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to disable kill switch: ${response.status} - ${errorText}`);
+    }
+
+    return this.mapKillSwitchResponse(await response.json());
+  }
+
+  private async masfeatGetKillSwitchHistory(systemId: string, limit?: number): Promise<KillSwitchEvent[]> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+
+    const queryString = params.toString();
+    const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/history${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...this.getAuthHeaders()
+      },
+      signal: AbortSignal.timeout(this.config.timeout)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get kill switch history: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return (data || []).map((e: any) => ({
+      id: e.id,
+      killSwitchId: e.kill_switch_id,
+      eventType: e.event_type,
+      eventData: e.event_data,
+      createdBy: e.created_by,
+      createdAt: new Date(e.created_at)
+    }));
+  }
+
+  // Helper methods for MAS FEAT
+  private mapSystemResponse(data: any): AISystemRegistry {
+    return {
+      id: data.id,
+      orgId: data.org_id,
+      systemId: data.system_id,
+      systemName: data.system_name,
+      description: data.description,
+      useCase: data.use_case,
+      ownerTeam: data.owner_team,
+      technicalOwner: data.technical_owner,
+      businessOwner: data.business_owner,
+      customerImpact: data.customer_impact,
+      modelComplexity: data.model_complexity,
+      humanReliance: data.human_reliance,
+      materiality: data.materiality,
+      status: data.status,
+      metadata: data.metadata,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at),
+      createdBy: data.created_by
+    };
+  }
+
+  private mapAssessmentResponse(data: any): FEATAssessment {
+    return {
+      id: data.id,
+      orgId: data.org_id,
+      systemId: data.system_id,
+      assessmentType: data.assessment_type,
+      status: data.status,
+      assessmentDate: new Date(data.assessment_date),
+      validUntil: data.valid_until ? new Date(data.valid_until) : undefined,
+      fairnessScore: data.fairness_score,
+      ethicsScore: data.ethics_score,
+      accountabilityScore: data.accountability_score,
+      transparencyScore: data.transparency_score,
+      overallScore: data.overall_score,
+      fairnessDetails: data.fairness_details,
+      ethicsDetails: data.ethics_details,
+      accountabilityDetails: data.accountability_details,
+      transparencyDetails: data.transparency_details,
+      findings: data.findings,
+      recommendations: data.recommendations,
+      assessors: data.assessors,
+      approvedBy: data.approved_by,
+      approvedAt: data.approved_at ? new Date(data.approved_at) : undefined,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at),
+      createdBy: data.created_by
+    };
+  }
+
+  private mapKillSwitchResponse(data: any): KillSwitch {
+    return {
+      id: data.id,
+      orgId: data.org_id,
+      systemId: data.system_id,
+      status: data.status,
+      accuracyThreshold: data.accuracy_threshold,
+      biasThreshold: data.bias_threshold,
+      errorRateThreshold: data.error_rate_threshold,
+      autoTriggerEnabled: data.auto_trigger_enabled,
+      triggeredAt: data.triggered_at ? new Date(data.triggered_at) : undefined,
+      triggeredBy: data.triggered_by,
+      triggeredReason: data.triggered_reason,
+      restoredAt: data.restored_at ? new Date(data.restored_at) : undefined,
+      restoredBy: data.restored_by,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at)
+    };
   }
 }

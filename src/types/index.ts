@@ -11,3 +11,4 @@ export * from './code-governance';
 export * from './execution-replay';
 export * from './cost-controls';
 export * from './workflows';
+export * from './masfeat';
