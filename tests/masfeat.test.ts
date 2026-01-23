@@ -761,9 +761,7 @@ describe('MAS FEAT Compliance Module', () => {
     it('should throw APIError on checkKillSwitch failure', async () => {
       mockFetch.mockResolvedValueOnce(mockResponse({ error: 'Invalid' }, 400));
 
-      await expect(
-        client.masfeat.checkKillSwitch('sys-123', { accuracy: 0.9 })
-      ).rejects.toThrow();
+      await expect(client.masfeat.checkKillSwitch('sys-123', { accuracy: 0.9 })).rejects.toThrow();
     });
 
     it('should throw APIError on triggerKillSwitch failure', async () => {
