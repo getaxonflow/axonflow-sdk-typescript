@@ -56,7 +56,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(systemResponse));
 
-      const result = await client.masfeatRegisterSystem({
+      const result = await client.masfeat.registerSystem({
         systemId: 'credit-model-v1',
         systemName: 'Credit Scoring Model',
         useCase: 'credit_scoring',
@@ -92,7 +92,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(systemResponse));
 
-      const result = await client.masfeatGetSystem('sys-123');
+      const result = await client.masfeat.getSystem('sys-123');
 
       expect(result.id).toBe('sys-123');
       expect(result.status).toBe('active');
@@ -119,7 +119,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(systemResponse));
 
-      const result = await client.masfeatActivateSystem('sys-123');
+      const result = await client.masfeat.activateSystem('sys-123');
 
       expect(result.status).toBe('active');
     });
@@ -147,7 +147,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(systemsResponse));
 
-      const result = await client.masfeatListSystems();
+      const result = await client.masfeat.listSystems();
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('sys-1');
@@ -168,7 +168,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(summaryResponse));
 
-      const result = await client.masfeatGetRegistrySummary();
+      const result = await client.masfeat.getRegistrySummary();
 
       expect(result.totalSystems).toBe(10);
       expect(result.activeSystems).toBe(8);
@@ -185,7 +185,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(summaryResponse));
 
-      const result = await client.masfeatGetRegistrySummary();
+      const result = await client.masfeat.getRegistrySummary();
 
       expect(result.highMaterialityCount).toBe(2);
     });
@@ -206,7 +206,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(assessmentResponse));
 
-      const result = await client.masfeatCreateAssessment({
+      const result = await client.masfeat.createAssessment({
         systemId: 'sys-789',
         assessmentType: 'annual',
       });
@@ -236,7 +236,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(assessmentResponse));
 
-      const result = await client.masfeatGetAssessment('assess-123');
+      const result = await client.masfeat.getAssessment('assess-123');
 
       expect(result.id).toBe('assess-123');
       expect(result.overallScore).toBe(89);
@@ -259,7 +259,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(assessmentResponse));
 
-      const result = await client.masfeatUpdateAssessment('assess-123', {
+      const result = await client.masfeat.updateAssessment('assess-123', {
         fairnessScore: 85,
       });
 
@@ -282,7 +282,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(assessmentResponse));
 
-      const result = await client.masfeatSubmitAssessment('assess-123');
+      const result = await client.masfeat.submitAssessment('assess-123');
 
       expect(result.status).toBe('completed');
     });
@@ -305,7 +305,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(assessmentResponse));
 
-      const result = await client.masfeatApproveAssessment('assess-123');
+      const result = await client.masfeat.approveAssessment('assess-123', {});
 
       expect(result.status).toBe('approved');
       expect(result.approvedBy).toBe('admin@example.com');
@@ -329,7 +329,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(killSwitchResponse));
 
-      const result = await client.masfeatGetKillSwitch('sys-789');
+      const result = await client.masfeat.getKillSwitch('sys-789');
 
       expect(result.id).toBe('ks-123');
       expect(result.status).toBe('enabled');
@@ -354,7 +354,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(killSwitchResponse));
 
-      const result = await client.masfeatConfigureKillSwitch('sys-789', {
+      const result = await client.masfeat.configureKillSwitch('sys-789', {
         accuracyThreshold: 0.95,
         biasThreshold: 0.1,
         errorRateThreshold: 0.05,
@@ -383,7 +383,9 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(killSwitchResponse));
 
-      const result = await client.masfeatTriggerKillSwitch('sys-789', 'Manual trigger');
+      const result = await client.masfeat.triggerKillSwitch('sys-789', {
+        reason: 'Manual trigger',
+      });
 
       expect(result.status).toBe('triggered');
       expect(result.triggeredReason).toBe('Manual trigger');
@@ -403,7 +405,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(killSwitchResponse));
 
-      const result = await client.masfeatTriggerKillSwitch('sys-789', 'Bias exceeded');
+      const result = await client.masfeat.triggerKillSwitch('sys-789', { reason: 'Bias exceeded' });
 
       expect(result.triggeredReason).toBe('Bias exceeded');
     });
@@ -426,7 +428,9 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(killSwitchResponse));
 
-      const result = await client.masfeatRestoreKillSwitch('sys-789');
+      const result = await client.masfeat.restoreKillSwitch('sys-789', {
+        reason: 'System restored',
+      });
 
       expect(result.status).toBe('enabled');
     });
@@ -452,7 +456,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(historyResponse));
 
-      const result = await client.masfeatGetKillSwitchHistory('sys-789');
+      const result = await client.masfeat.getKillSwitchHistory('sys-789');
 
       expect(result).toHaveLength(2);
       expect(result[0].eventType).toBe('enabled');
@@ -475,7 +479,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       mockFetch.mockResolvedValueOnce(mockResponse(historyResponse));
 
-      const result = await client.masfeatGetKillSwitchHistory('sys-789');
+      const result = await client.masfeat.getKillSwitchHistory('sys-789');
 
       expect(result).toHaveLength(1);
       expect(result[0].eventType).toBe('triggered');
