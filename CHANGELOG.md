@@ -5,11 +5,23 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.7.0] - 2026-01-23
+## [2.7.0] - 2026-01-24
 
 > **Note:** This release includes all features originally planned for v2.6.0, which was not published due to npm registry issues.
 
 ### Added
+
+- **Unified Execution Tracking** (Issue #1075 - EPIC #1074): Consistent status tracking for MAP plans and WCP workflows
+  - `getExecutionStatus(executionId)` - Get unified execution status by ID
+  - `listUnifiedExecutions(options)` - List executions with type/status filters
+  - `ExecutionStatus` type with unified fields for both MAP and WCP executions
+  - `ExecutionType` enum: `map_plan`, `wcp_workflow`
+  - `ExecutionStatusValue` enum: `pending`, `running`, `completed`, `failed`, `cancelled`, `aborted`, `expired`
+  - `StepStatusValue` enum: `pending`, `running`, `completed`, `failed`, `skipped`, `blocked`, `approval`
+  - `UnifiedStepType` enum: `llm_call`, `tool_call`, `connector_call`, `human_task`, `synthesis`, `action`, `gate`
+  - `UnifiedStepStatus` type with step-level details (duration, cost, policy decisions)
+  - `ExecutionHelpers` utilities: `isTerminal()`, `isStepTerminal()`, `isStepBlocking()`, `calculateProgress()`, `getCurrentStep()`, `calculateTotalCost()`, `isMapPlan()`, `isWcpWorkflow()`
+  - Consistent response format across MAP Multi-Agent Planning and WCP Workflow Control Plane
 
 - **MAS FEAT Compliance Module** (Enterprise): Singapore financial services AI governance
   - AI System Registry: `masfeat.registerSystem()`, `masfeat.getSystem()`, `masfeat.updateSystem()`, `masfeat.listSystems()`, `masfeat.activateSystem()`, `masfeat.retireSystem()`, `masfeat.getRegistrySummary()`
