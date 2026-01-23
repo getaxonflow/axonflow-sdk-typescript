@@ -206,6 +206,10 @@ export class AxonFlow {
         `${this.config.clientId}:${this.config.clientSecret}`
       ).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
+    }
+
+    // Always add X-Tenant-ID when clientId is set (required for multi-tenant APIs)
+    if (this.config.clientId) {
       headers['X-Tenant-ID'] = this.config.clientId;
     }
 
@@ -4581,10 +4585,16 @@ export class AxonFlow {
     return (data || []).map((e: any) => ({
       id: e.id,
       killSwitchId: e.kill_switch_id,
-      eventType: e.event_type,
-      eventData: e.event_data,
-      createdBy: e.created_by,
-      createdAt: new Date(e.created_at),
+      // Handle both API formats: event_type (SDK expected) vs action (API actual)
+      eventType: e.event_type || e.action,
+      // Build eventData from additional fields if not present
+      eventData: e.event_data || (e.previous_status || e.new_status || e.reason
+        ? { previousStatus: e.previous_status, newStatus: e.new_status, reason: e.reason }
+        : undefined),
+      // Handle both API formats: created_by vs performed_by
+      createdBy: e.created_by || e.performed_by,
+      // Handle both API formats: created_at vs performed_at
+      createdAt: new Date(e.created_at || e.performed_at),
     }));
   }
 
