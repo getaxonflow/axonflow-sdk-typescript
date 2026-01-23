@@ -94,6 +94,7 @@ import {
   CreateAssessmentRequest,
   UpdateAssessmentRequest,
   FEATAssessment,
+  Finding,
   ApproveAssessmentRequest,
   RejectAssessmentRequest,
   ListAssessmentsOptions,
@@ -4150,11 +4151,33 @@ export class AxonFlow {
   // Assessment Methods
   private async masfeatCreateAssessment(request: CreateAssessmentRequest): Promise<FEATAssessment> {
     const url = `${this.config.endpoint}/api/v1/masfeat/assessments`;
-    const body = {
+    const body: Record<string, any> = {
       system_id: request.systemId,
       assessment_type: request.assessmentType || 'periodic',
       assessors: request.assessors,
     };
+    if (request.assessmentDate) body.assessment_date = request.assessmentDate.toISOString();
+    if (request.fairnessScore !== undefined) body.fairness_score = request.fairnessScore;
+    if (request.ethicsScore !== undefined) body.ethics_score = request.ethicsScore;
+    if (request.accountabilityScore !== undefined) body.accountability_score = request.accountabilityScore;
+    if (request.transparencyScore !== undefined) body.transparency_score = request.transparencyScore;
+    if (request.fairnessDetails) body.fairness_details = request.fairnessDetails;
+    if (request.ethicsDetails) body.ethics_details = request.ethicsDetails;
+    if (request.accountabilityDetails) body.accountability_details = request.accountabilityDetails;
+    if (request.transparencyDetails) body.transparency_details = request.transparencyDetails;
+    if (request.recommendations) body.recommendations = request.recommendations;
+    if (request.findings) {
+      body.findings = request.findings.map((f) => ({
+        id: f.id,
+        pillar: f.pillar,
+        severity: f.severity,
+        category: f.category,
+        description: f.description,
+        status: f.status,
+        remediation: f.remediation,
+        due_date: f.dueDate?.toISOString(),
+      }));
+    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -4212,7 +4235,18 @@ export class AxonFlow {
       body.accountability_details = request.accountabilityDetails;
     if (request.transparencyDetails !== undefined)
       body.transparency_details = request.transparencyDetails;
-    if (request.findings !== undefined) body.findings = request.findings;
+    if (request.findings !== undefined) {
+      body.findings = request.findings.map((f) => ({
+        id: f.id,
+        pillar: f.pillar,
+        severity: f.severity,
+        category: f.category,
+        description: f.description,
+        status: f.status,
+        remediation: f.remediation,
+        due_date: f.dueDate?.toISOString(),
+      }));
+    }
     if (request.recommendations !== undefined) body.recommendations = request.recommendations;
     if (request.assessors !== undefined) body.assessors = request.assessors;
 
@@ -4578,6 +4612,19 @@ export class AxonFlow {
     };
   }
 
+  private mapFindingResponse(data: any): Finding {
+    return {
+      id: data.id,
+      pillar: data.pillar,
+      severity: data.severity,
+      category: data.category,
+      description: data.description,
+      status: data.status,
+      remediation: data.remediation,
+      dueDate: data.due_date ? new Date(data.due_date) : undefined,
+    };
+  }
+
   private mapAssessmentResponse(data: any): FEATAssessment {
     return {
       id: data.id,
@@ -4596,7 +4643,7 @@ export class AxonFlow {
       ethicsDetails: data.ethics_details,
       accountabilityDetails: data.accountability_details,
       transparencyDetails: data.transparency_details,
-      findings: data.findings,
+      findings: data.findings?.map((f: any) => this.mapFindingResponse(f)),
       recommendations: data.recommendations,
       assessors: data.assessors,
       approvedBy: data.approved_by,
