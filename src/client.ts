@@ -540,10 +540,19 @@ export class AxonFlow {
   }
 
   /**
-   * Execute a query through AxonFlow with policy enforcement (Proxy Mode).
+   * Send a query through AxonFlow with full policy enforcement (Proxy Mode).
    *
-   * This is the primary method for Proxy Mode, where AxonFlow handles policy
-   * checking and optionally routes requests to LLM providers.
+   * This is Proxy Mode - AxonFlow acts as an intermediary, making the LLM call on your behalf.
+   *
+   * Use this when you want AxonFlow to:
+   *   - Evaluate policies before the LLM call
+   *   - Make the LLM call to the configured provider
+   *   - Filter/redact sensitive data from responses
+   *   - Automatically track costs and audit the interaction
+   *
+   * For Gateway Mode (lower latency, you make the LLM call), use:
+   *   - getPolicyApprovedContext() before your LLM call
+   *   - auditLLMCall() after your LLM call
    *
    * @param options - Query execution options
    * @returns ExecuteQueryResponse with results or error information
@@ -553,7 +562,7 @@ export class AxonFlow {
    *
    * @example
    * ```typescript
-   * const response = await axonflow.executeQuery({
+   * const response = await axonflow.proxyLLMCall({
    *   userToken: 'user-123',
    *   query: 'Explain quantum computing',
    *   requestType: 'chat',
@@ -565,7 +574,7 @@ export class AxonFlow {
    * }
    * ```
    */
-  async executeQuery(options: ExecuteQueryOptions): Promise<ExecuteQueryResponse> {
+  async proxyLLMCall(options: ExecuteQueryOptions): Promise<ExecuteQueryResponse> {
     // Default to "anonymous" if userToken is empty/undefined (community mode)
     const effectiveUserToken = options.userToken || 'anonymous';
 
@@ -585,7 +594,7 @@ export class AxonFlow {
     };
 
     if (this.config.debug) {
-      debugLog('Proxy Mode: executeQuery', {
+      debugLog('Proxy Mode: proxyLLMCall', {
         requestType: options.requestType,
         query: options.query.substring(0, 50),
       });
@@ -653,7 +662,7 @@ export class AxonFlow {
     }
 
     if (this.config.debug) {
-      debugLog('Proxy Mode: executeQuery result', {
+      debugLog('Proxy Mode: proxyLLMCall result', {
         success: result.success,
         blocked: result.blocked,
         hasData: !!result.data,
@@ -661,6 +670,22 @@ export class AxonFlow {
     }
 
     return result;
+  }
+
+  /**
+   * @deprecated Use proxyLLMCall instead. This method will be removed in v3.0.0.
+   *
+   * Execute a query through AxonFlow with policy enforcement (Proxy Mode).
+   * This is an alias for proxyLLMCall() for backwards compatibility.
+   */
+  async executeQuery(options: ExecuteQueryOptions): Promise<ExecuteQueryResponse> {
+    if (this.config.debug) {
+      console.warn(
+        '[AxonFlow] DEPRECATION WARNING: executeQuery() is deprecated. ' +
+          'Use proxyLLMCall() instead. This method will be removed in v3.0.0.'
+      );
+    }
+    return this.proxyLLMCall(options);
   }
 
   /**
