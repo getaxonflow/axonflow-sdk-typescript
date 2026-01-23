@@ -3964,17 +3964,17 @@ export class AxonFlow {
   // Registry Methods
   private async masfeatRegisterSystem(request: RegisterSystemRequest): Promise<AISystemRegistry> {
     const url = `${this.config.endpoint}/api/v1/masfeat/registry`;
-    const body = {
+    const body: Record<string, any> = {
       system_id: request.systemId,
       system_name: request.systemName,
       description: request.description,
       use_case: request.useCase,
       owner_team: request.ownerTeam,
       technical_owner: request.technicalOwner,
-      business_owner: request.businessOwner,
-      customer_impact: request.customerImpact,
-      model_complexity: request.modelComplexity,
-      human_reliance: request.humanReliance,
+      owner_email: request.businessOwner,
+      risk_rating_impact: request.customerImpact,
+      risk_rating_complexity: request.modelComplexity,
+      risk_rating_reliance: request.humanReliance,
       metadata: request.metadata
     };
 
@@ -4076,14 +4076,16 @@ export class AxonFlow {
   }
 
   private async masfeatActivateSystem(systemId: string): Promise<AISystemRegistry> {
-    const url = `${this.config.endpoint}/api/v1/masfeat/registry/${systemId}/activate`;
+    // Use PUT to update status - the /activate endpoint doesn't exist
+    const url = `${this.config.endpoint}/api/v1/masfeat/registry/${systemId}`;
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         ...this.getAuthHeaders()
       },
+      body: JSON.stringify({ status: 'active' }),
       signal: AbortSignal.timeout(this.config.timeout)
     });
 
@@ -4134,9 +4136,9 @@ export class AxonFlow {
     return {
       totalSystems: data.total_systems,
       activeSystems: data.active_systems,
-      highMaterialityCount: data.high_materiality_count,
-      mediumMaterialityCount: data.medium_materiality_count,
-      lowMaterialityCount: data.low_materiality_count,
+      highMaterialityCount: data.high_materiality_count ?? data.high_materiality ?? 0,
+      mediumMaterialityCount: data.medium_materiality_count ?? data.medium_materiality ?? 0,
+      lowMaterialityCount: data.low_materiality_count ?? data.low_materiality ?? 0,
       byUseCase: data.by_use_case || {},
       byStatus: data.by_status || {}
     };
@@ -4347,7 +4349,7 @@ export class AxonFlow {
     if (request.autoTriggerEnabled !== undefined) body.auto_trigger_enabled = request.autoTriggerEnabled;
 
     const response = await fetch(url, {
-      method: 'PUT',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...this.getAuthHeaders()
@@ -4498,7 +4500,11 @@ export class AxonFlow {
       throw new APIError(response.status, response.statusText, errorText);
     }
 
-    const data = await response.json();
+    let data = await response.json();
+    // Handle nested response format {history: [...], count: N}
+    if (data && typeof data === 'object' && 'history' in data) {
+      data = data.history;
+    }
     return (data || []).map((e: any) => ({
       id: e.id,
       killSwitchId: e.kill_switch_id,
@@ -4520,11 +4526,11 @@ export class AxonFlow {
       useCase: data.use_case,
       ownerTeam: data.owner_team,
       technicalOwner: data.technical_owner,
-      businessOwner: data.business_owner,
-      customerImpact: data.customer_impact,
-      modelComplexity: data.model_complexity,
-      humanReliance: data.human_reliance,
-      materiality: data.materiality,
+      businessOwner: data.business_owner || data.owner_email,
+      customerImpact: data.customer_impact ?? data.risk_rating_impact,
+      modelComplexity: data.model_complexity ?? data.risk_rating_complexity,
+      humanReliance: data.human_reliance ?? data.risk_rating_reliance,
+      materiality: data.materiality || data.materiality_classification,
       status: data.status,
       metadata: data.metadata,
       createdAt: new Date(data.created_at),
@@ -4563,6 +4569,10 @@ export class AxonFlow {
   }
 
   private mapKillSwitchResponse(data: any): KillSwitch {
+    // Handle nested response format (trigger/restore return {kill_switch: {...}, message: ...})
+    if (data.kill_switch) {
+      data = data.kill_switch;
+    }
     return {
       id: data.id,
       orgId: data.org_id,
@@ -4574,7 +4584,7 @@ export class AxonFlow {
       autoTriggerEnabled: data.auto_trigger_enabled,
       triggeredAt: data.triggered_at ? new Date(data.triggered_at) : undefined,
       triggeredBy: data.triggered_by,
-      triggeredReason: data.triggered_reason,
+      triggeredReason: data.triggered_reason || data.trigger_reason,
       restoredAt: data.restored_at ? new Date(data.restored_at) : undefined,
       restoredBy: data.restored_by,
       createdAt: new Date(data.created_at),
