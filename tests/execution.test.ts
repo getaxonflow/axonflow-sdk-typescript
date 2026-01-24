@@ -378,7 +378,7 @@ describe('Execution Types', () => {
       'expired',
     ];
 
-    it.each(validStatuses)('should accept %s as valid status', (status) => {
+    it.each(validStatuses)('should accept %s as valid status', status => {
       const value: ExecutionStatusValue = status;
       expect(value).toBe(status);
     });
@@ -395,7 +395,7 @@ describe('Execution Types', () => {
       'approval',
     ];
 
-    it.each(validStatuses)('should accept %s as valid status', (status) => {
+    it.each(validStatuses)('should accept %s as valid status', status => {
       const value: StepStatusValue = status;
       expect(value).toBe(status);
     });
@@ -412,7 +412,7 @@ describe('Execution Types', () => {
       'gate',
     ];
 
-    it.each(validTypes)('should accept %s as valid type', (type) => {
+    it.each(validTypes)('should accept %s as valid type', type => {
       const value: UnifiedStepType = type;
       expect(value).toBe(type);
     });
@@ -421,7 +421,7 @@ describe('Execution Types', () => {
   describe('UnifiedGateDecision', () => {
     const validDecisions: UnifiedGateDecision[] = ['allow', 'block', 'require_approval'];
 
-    it.each(validDecisions)('should accept %s as valid decision', (decision) => {
+    it.each(validDecisions)('should accept %s as valid decision', decision => {
       const value: UnifiedGateDecision = decision;
       expect(value).toBe(decision);
     });
@@ -430,7 +430,7 @@ describe('Execution Types', () => {
   describe('UnifiedApprovalStatus', () => {
     const validStatuses: UnifiedApprovalStatus[] = ['pending', 'approved', 'rejected'];
 
-    it.each(validStatuses)('should accept %s as valid status', (status) => {
+    it.each(validStatuses)('should accept %s as valid status', status => {
       const value: UnifiedApprovalStatus = status;
       expect(value).toBe(status);
     });
