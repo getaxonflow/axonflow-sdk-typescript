@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.7.0] - 2026-01-24 (SOURCE ONLY - not on npm)
 
-> **Note:** This release includes all features originally planned for v2.6.0, which was not published due to npm registry issues.
+> **Note:** This release consolidates all features from v2.4.0 through v2.7.0 since npm publishing has been blocked since January 10, 2026. See the warning banner above for details.
 
 ### Added
 
