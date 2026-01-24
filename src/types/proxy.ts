@@ -66,6 +66,29 @@ export interface PolicyInfo {
 }
 
 /**
+ * Budget enforcement status information (Issue #1082).
+ *
+ * Returned when a budget check is performed, showing current usage
+ * relative to budget limits.
+ */
+export interface BudgetInfo {
+  /** Budget ID */
+  budgetId?: string;
+  /** Budget name */
+  budgetName?: string;
+  /** Current usage in USD */
+  usedUsd: number;
+  /** Budget limit in USD */
+  limitUsd: number;
+  /** Usage percentage (0-100+) */
+  percentage: number;
+  /** Whether budget is exceeded */
+  exceeded: boolean;
+  /** Action on exceed: warn, block, downgrade */
+  action?: string;
+}
+
+/**
  * Response from executeQuery in Proxy Mode
  */
 export interface ExecuteQueryResponse {
@@ -89,6 +112,8 @@ export interface ExecuteQueryResponse {
   blockReason?: string;
   /** Policy evaluation info */
   policyInfo?: PolicyInfo;
+  /** Budget status (Issue #1082) */
+  budgetInfo?: BudgetInfo;
 }
 
 /**

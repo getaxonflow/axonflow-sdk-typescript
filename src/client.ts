@@ -635,9 +635,25 @@ export class AxonFlow {
       signal: AbortSignal.timeout(this.config.timeout),
     });
 
+    let data: any;
+
     if (!response.ok) {
       const errorText = await response.text();
-      if (response.status === 401 || response.status === 403) {
+      // Handle HTTP 402 (Payment Required) for budget exceeded - parse as blocked response with budgetInfo
+      if (response.status === 402) {
+        try {
+          data = JSON.parse(errorText);
+          // If it has budget_info, treat as valid blocked response (fall through to normal processing)
+          if (data.budget_info) {
+            // Fall through to normal response processing below
+          } else {
+            throw new APIError(response.status, 'Payment Required', errorText);
+          }
+        } catch (e) {
+          if (e instanceof APIError) throw e;
+          throw new APIError(response.status, 'Payment Required', errorText);
+        }
+      } else if (response.status === 401 || response.status === 403) {
         // Try to parse as JSON for policy violation info
         try {
           const errorJson = JSON.parse(errorText);
@@ -651,14 +667,19 @@ export class AxonFlow {
           if (e instanceof PolicyViolationError) throw e;
         }
         throw new AuthenticationError(`Request failed: ${errorText}`);
+      } else {
+        throw new APIError(response.status, response.statusText, errorText);
       }
-      throw new APIError(response.status, response.statusText, errorText);
     }
 
-    const data = await response.json();
+    // Parse response if not already parsed (from 402 handling)
+    if (!data) {
+      data = await response.json();
+    }
 
     // Check for policy violation in successful response (some blocked responses return 200)
-    if (data.blocked) {
+    // Note: Don't throw for budget blocks (402 responses) - return with budgetInfo instead
+    if (data.blocked && !data.budget_info) {
       throw new PolicyViolationError(
         data.block_reason || 'Request blocked by policy',
         data.policy_info?.policies_evaluated
@@ -686,6 +707,19 @@ export class AxonFlow {
         processingTime: data.policy_info.processing_time || '',
         tenantId: data.policy_info.tenant_id || '',
         codeArtifact: data.policy_info.code_artifact,
+      };
+    }
+
+    // Parse budget info if present (Issue #1082)
+    if (data.budget_info) {
+      result.budgetInfo = {
+        budgetId: data.budget_info.budget_id,
+        budgetName: data.budget_info.budget_name,
+        usedUsd: data.budget_info.used_usd || 0,
+        limitUsd: data.budget_info.limit_usd || 0,
+        percentage: data.budget_info.percentage || 0,
+        exceeded: data.budget_info.exceeded || false,
+        action: data.budget_info.action,
       };
     }
 
