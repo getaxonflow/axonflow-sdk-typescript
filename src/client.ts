@@ -609,7 +609,7 @@ export class AxonFlow {
     const agentRequest = {
       query: options.query,
       user_token: effectiveUserToken,
-      client_id: this.config.tenant,
+      client_id: this.config.clientId || this.config.tenant,
       request_type: options.requestType,
       context: options.context || {},
     };
@@ -1006,8 +1006,8 @@ export class AxonFlow {
   async generatePlan(query: string, domain?: string, userToken?: string): Promise<PlanResponse> {
     const agentRequest = {
       query,
-      user_token: userToken || this.config.tenant,
-      client_id: this.config.tenant,
+      user_token: userToken || this.config.clientId || this.config.tenant,
+      client_id: this.config.clientId || this.config.tenant,
       request_type: 'multi-agent-plan',
       context: domain ? { domain } : {},
     };
@@ -1071,8 +1071,8 @@ export class AxonFlow {
   async executePlan(planId: string, userToken?: string): Promise<PlanExecutionResponse> {
     const agentRequest = {
       query: '',
-      user_token: userToken || this.config.tenant,
-      client_id: this.config.tenant,
+      user_token: userToken || this.config.clientId || this.config.tenant,
+      client_id: this.config.clientId || this.config.tenant,
       request_type: 'execute-plan',
       context: { plan_id: planId },
     };
@@ -1207,7 +1207,7 @@ export class AxonFlow {
 
     const requestBody = {
       user_token: options.userToken,
-      client_id: this.config.tenant,
+      client_id: this.config.clientId || this.config.tenant,
       query: options.query,
       data_sources: options.dataSources || [],
       context: options.context || {},
@@ -1304,7 +1304,7 @@ export class AxonFlow {
 
     const requestBody = {
       context_id: options.contextId,
-      client_id: this.config.tenant,
+      client_id: this.config.clientId || this.config.tenant,
       response_summary: options.responseSummary,
       provider: options.provider,
       model: options.model,
@@ -1532,11 +1532,9 @@ export class AxonFlow {
       ...this.getAuthHeaders(),
     };
 
-    // Always include tenant ID for policy APIs (X-Org-ID header for server compatibility)
-    // Note: getAuthHeaders() already adds X-Tenant-ID when tenant is non-default
-    if (this.config.tenant) {
-      headers['X-Org-ID'] = this.config.tenant;
-    }
+    // Note: X-Tenant-ID is set by getAuthHeaders() from clientId
+    // Do NOT set X-Org-ID here - the server derives org from tenant context
+    // Setting X-Org-ID to 'default' breaks budget queries which expect org_id to match client.OrgID
 
     return headers;
   }
