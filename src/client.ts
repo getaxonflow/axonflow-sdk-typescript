@@ -105,6 +105,10 @@ import {
   RestoreKillSwitchRequest,
   DisableKillSwitchRequest,
   KillSwitchEvent,
+  // Unified Execution types
+  ExecutionStatus,
+  UnifiedListExecutionsRequest,
+  UnifiedListExecutionsResponse,
 } from './types';
 import {
   AuthenticationError,
@@ -4690,5 +4694,110 @@ export class AxonFlow {
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     };
+  }
+
+  // ============================================================================
+  // Unified Execution Tracking Methods (Issue #1075)
+  // ============================================================================
+
+  /**
+   * Get unified execution status for a MAP plan or WCP workflow.
+   *
+   * This method provides a consistent interface for tracking execution progress
+   * regardless of whether the underlying execution is a MAP plan or WCP workflow.
+   *
+   * @param executionId - The execution ID (plan ID or workflow ID)
+   * @returns Unified execution status
+   *
+   * @example
+   * ```typescript
+   * // Get status for any execution (MAP or WCP)
+   * const status = await client.getExecutionStatus('exec_123');
+   * console.log(`Type: ${status.execution_type}`);
+   * console.log(`Status: ${status.status}`);
+   * console.log(`Progress: ${status.progress_percent}%`);
+   *
+   * // Check steps
+   * for (const step of status.steps) {
+   *   console.log(`  Step ${step.step_index}: ${step.step_name} - ${step.status}`);
+   * }
+   * ```
+   */
+  async getExecutionStatus(executionId: string): Promise<ExecutionStatus> {
+    if (!executionId) {
+      throw new ConfigurationError('Execution ID is required');
+    }
+
+    if (this.config.debug) {
+      debugLog('Getting execution status', { executionId });
+    }
+
+    return this.orchestratorRequest<ExecutionStatus>('GET', `/api/v1/executions/${executionId}`);
+  }
+
+  /**
+   * List unified executions with optional filters.
+   *
+   * Returns a paginated list of executions (both MAP plans and WCP workflows)
+   * with optional filtering by type, status, tenant, or organization.
+   * This method provides a unified view across all execution types.
+   *
+   * @param options - Filter and pagination options
+   * @returns Paginated list of unified executions
+   *
+   * @example
+   * ```typescript
+   * // List all running executions
+   * const result = await client.listUnifiedExecutions({
+   *   status: 'running',
+   *   limit: 20
+   * });
+   * console.log(`Found ${result.total} running executions`);
+   *
+   * // List only MAP plans
+   * const mapPlans = await client.listUnifiedExecutions({
+   *   execution_type: 'map_plan',
+   *   limit: 50
+   * });
+   *
+   * // List WCP workflows for a specific tenant
+   * const workflows = await client.listUnifiedExecutions({
+   *   execution_type: 'wcp_workflow',
+   *   tenant_id: 'tenant_123'
+   * });
+   * ```
+   */
+  async listUnifiedExecutions(
+    options?: UnifiedListExecutionsRequest
+  ): Promise<UnifiedListExecutionsResponse> {
+    const params = new URLSearchParams();
+
+    if (options?.execution_type) {
+      params.set('execution_type', options.execution_type);
+    }
+    if (options?.status) {
+      params.set('status', options.status);
+    }
+    if (options?.tenant_id) {
+      params.set('tenant_id', options.tenant_id);
+    }
+    if (options?.org_id) {
+      params.set('org_id', options.org_id);
+    }
+    if (options?.limit !== undefined) {
+      params.set('limit', options.limit.toString());
+    }
+    if (options?.offset !== undefined) {
+      params.set('offset', options.offset.toString());
+    }
+
+    const queryString = params.toString();
+    const path = queryString ? `/api/v1/executions?${queryString}` : '/api/v1/executions';
+
+    if (this.config.debug) {
+      debugLog('Listing unified executions', { options });
+    }
+
+    return this.orchestratorRequest<UnifiedListExecutionsResponse>('GET', path);
   }
 }

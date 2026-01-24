@@ -184,6 +184,41 @@ export type {
   PricingListResponse,
 } from './types/cost-controls';
 
+// Export Workflow Control Plane types
+export type {
+  WorkflowStatus,
+  WorkflowSource,
+  GateDecision,
+  ApprovalStatus,
+  StepType,
+  CreateWorkflowRequest,
+  CreateWorkflowResponse,
+  StepGateRequest,
+  StepGateResponse,
+  WorkflowStepInfo,
+  WorkflowStatusResponse,
+  ListWorkflowsOptions,
+  ListWorkflowsResponse,
+  AbortWorkflowRequest,
+  MarkStepCompletedRequest,
+} from './types/workflows';
+export { WorkflowHelpers } from './types/workflows';
+
+// Export Unified Execution types (Issue #1075 - EPIC #1074)
+export type {
+  ExecutionType,
+  ExecutionStatusValue,
+  StepStatusValue,
+  UnifiedStepType,
+  UnifiedGateDecision,
+  UnifiedApprovalStatus,
+  UnifiedStepStatus,
+  ExecutionStatus,
+  UnifiedListExecutionsRequest,
+  UnifiedListExecutionsResponse,
+} from './types/execution';
+export { ExecutionHelpers } from './types/execution';
+
 // Export version
 export const VERSION = '3.0.0';
 
