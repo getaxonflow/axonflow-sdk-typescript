@@ -5,7 +5,43 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.7.0] - 2026-01-24
+---
+
+> [!CAUTION]
+> ## npm Publishing Blocked - Build From Source Required
+>
+> **Since January 10, 2026**, we have been unable to publish new versions to npm due to an E403 Forbidden error. Despite multiple escalations to npm support, the issue remains unresolved.
+>
+> | Version | npm | Source |
+> |---------|-----|--------|
+> | v2.3.0 | ✅ Last published | ✅ Available |
+> | v2.4.0 - v2.6.0 | ❌ Not published | ⏭️ Skipped (rolled into v2.7.0) |
+> | v2.7.0 | ❌ Not published | ✅ Available |
+>
+> **All v2.7.0 features are missing from npm:**
+> - Unified Execution Tracking (MAP + WCP status)
+> - MAS FEAT Compliance Module (Enterprise)
+> - Workflow Control Plane with governance gates
+> - Workflow Policy Enforcement transparency
+> - MCP Exfiltration Detection
+> - MCP Dynamic Policies
+> - `proxyLLMCall()` method
+>
+> **To use latest features:**
+> ```bash
+> git clone https://github.com/getaxonflow/axonflow-sdk-typescript.git
+> cd axonflow-sdk-typescript
+> npm install && npm run build
+> npm link  # Makes @axonflow/sdk available globally
+> # In your project:
+> npm link @axonflow/sdk
+> ```
+>
+> For updates, check [GitHub Issues](https://github.com/getaxonflow/axonflow-sdk-typescript/issues) or contact dev@getaxonflow.com.
+
+---
+
+## [2.7.0] - 2026-01-24 (SOURCE ONLY - not on npm)
 
 > **Note:** This release includes all features originally planned for v2.6.0, which was not published due to npm registry issues.
 

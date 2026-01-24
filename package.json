@@ -1,6 +1,6 @@
 {
   "name": "@axonflow/sdk",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "AxonFlow SDK - Add invisible AI governance to your applications in 3 lines of code",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -14,10 +14,12 @@
   },
   "files": [
     "dist",
+    "scripts/postinstall.js",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
+    "postinstall": "node scripts/postinstall.js || true",
     "build": "npm run clean && npm run compile",
     "clean": "rm -rf dist",
     "compile": "tsc && tsc --project tsconfig.esm.json && node scripts/fix-esm-imports.js",

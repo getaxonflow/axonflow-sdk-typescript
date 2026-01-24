@@ -5,6 +5,32 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
+> [!CAUTION]
+> **npm Publishing Blocked Since January 10, 2026**
+>
+> Due to an unresolved npm registry issue (E403 Forbidden), we have been unable to publish new versions to npm for over 2 weeks. **The npm version (v2.3.0) is significantly outdated.**
+>
+> **Features missing from npm (available in v2.7.0 source):**
+> - **Unified Execution Tracking** - Consistent status tracking for MAP plans and WCP workflows with `getExecutionStatus()`, `listUnifiedExecutions()`, and `ExecutionHelpers` utilities
+> - **MAS FEAT Compliance Module** (Enterprise) - Singapore financial services AI governance with AI System Registry, FEAT Assessments, and Kill Switch automation
+> - **Workflow Control Plane** - Governance gates for LangChain/LangGraph/CrewAI with `createWorkflow()`, `stepGate()`, `markStepCompleted()`, and approval flows
+> - **Workflow Policy Enforcement** - Policy transparency with `policiesEvaluated` and `policiesMatched` in gate responses
+> - **MCP Exfiltration Detection** - Row/volume limits to prevent large-scale data extraction
+> - **MCP Dynamic Policies** - Real-time Orchestrator-evaluated policies for rate limiting, budgets, and role-based access
+> - **proxyLLMCall()** - New primary method for Proxy Mode (replaces deprecated `executeQuery()`)
+>
+> **To get the latest features, build from source:**
+> ```bash
+> git clone https://github.com/getaxonflow/axonflow-sdk-typescript.git
+> cd axonflow-sdk-typescript
+> npm install && npm run build
+> npm link  # Makes @axonflow/sdk available globally
+> # In your project:
+> npm link @axonflow/sdk
+> ```
+>
+> We have escalated this issue with npm support and are actively working to resolve it. For updates, check our [GitHub Issues](https://github.com/getaxonflow/axonflow-sdk-typescript/issues) or contact us at dev@getaxonflow.com. We apologize for the inconvenience.
+
 Add invisible AI governance to your applications in 3 lines of code. No UI changes. No user training. Just drop-in enterprise protection.
 
 ## How This SDK Fits with AxonFlow
