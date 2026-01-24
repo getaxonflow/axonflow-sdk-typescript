@@ -22,8 +22,8 @@ export type ExecutionStatusValue =
   | 'completed'
   | 'failed'
   | 'cancelled'
-  | 'aborted'   // WCP-specific: workflow aborted
-  | 'expired';  // MAP-specific: plan expired before execution
+  | 'aborted' // WCP-specific: workflow aborted
+  | 'expired'; // MAP-specific: plan expired before execution
 
 /**
  * Step status values.
@@ -34,7 +34,7 @@ export type StepStatusValue =
   | 'completed'
   | 'failed'
   | 'skipped'
-  | 'blocked'   // WCP: blocked by policy
+  | 'blocked' // WCP: blocked by policy
   | 'approval'; // WCP: waiting for approval
 
 /**
@@ -45,9 +45,9 @@ export type UnifiedStepType =
   | 'tool_call'
   | 'connector_call'
   | 'human_task'
-  | 'synthesis'  // MAP: result synthesis step
-  | 'action'     // Generic action step
-  | 'gate';      // WCP: policy gate evaluation
+  | 'synthesis' // MAP: result synthesis step
+  | 'action' // Generic action step
+  | 'gate'; // WCP: policy gate evaluation
 
 /**
  * Gate decision values (applicable to both MAP and WCP).
@@ -298,7 +298,7 @@ export const ExecutionHelpers = {
    */
   calculateProgress(steps: UnifiedStepStatus[], totalSteps: number): number {
     if (totalSteps === 0) return 0;
-    const completedSteps = steps.filter((s) => s.status === 'completed').length;
+    const completedSteps = steps.filter(s => s.status === 'completed').length;
     return (completedSteps / totalSteps) * 100;
   },
 
@@ -306,7 +306,7 @@ export const ExecutionHelpers = {
    * Get the currently running step, if any.
    */
   getCurrentStep(execution: ExecutionStatus): UnifiedStepStatus | undefined {
-    return execution.steps.find((s) => s.status === 'running');
+    return execution.steps.find(s => s.status === 'running');
   },
 
   /**

@@ -4732,10 +4732,7 @@ export class AxonFlow {
       debugLog('Getting execution status', { executionId });
     }
 
-    return this.orchestratorRequest<ExecutionStatus>(
-      'GET',
-      `/api/v1/executions/${executionId}`
-    );
+    return this.orchestratorRequest<ExecutionStatus>('GET', `/api/v1/executions/${executionId}`);
   }
 
   /**
@@ -4770,7 +4767,9 @@ export class AxonFlow {
    * });
    * ```
    */
-  async listUnifiedExecutions(options?: UnifiedListExecutionsRequest): Promise<UnifiedListExecutionsResponse> {
+  async listUnifiedExecutions(
+    options?: UnifiedListExecutionsRequest
+  ): Promise<UnifiedListExecutionsResponse> {
     const params = new URLSearchParams();
 
     if (options?.execution_type) {
