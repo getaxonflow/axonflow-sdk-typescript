@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.7.0] - 2026-01-24 (SOURCE ONLY - not on npm)
+## [2.7.0] - 2026-01-25 (SOURCE ONLY - not on npm)
 
 > **Note:** This release consolidates all features from v2.4.0 through v2.7.0 since npm publishing has been blocked since January 10, 2026. See the warning banner above for details.
 
@@ -104,6 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clearly describes Proxy Mode behavior (AxonFlow makes the LLM call on your behalf)
   - Documents when to use Proxy Mode vs Gateway Mode
   - Same functionality as executeQuery, but with clearer naming
+
+- **BudgetInfo**: `QueryResponse.budgetInfo` for budget enforcement (HTTP 402)
 
 - **Analytics**: Added optional install analytics via Scarf (opt-out: `SCARF_NO_ANALYTICS=1`)
 
