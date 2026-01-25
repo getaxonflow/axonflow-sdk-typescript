@@ -638,6 +638,195 @@ describe('AxonFlow Client Unit Tests', () => {
           })
         ).rejects.toThrow(PolicyViolationError);
       });
+
+      // BudgetInfo tests (Issue #1082)
+      it('should handle HTTP 402 with budget_info and return blocked response', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 402,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                success: false,
+                blocked: true,
+                block_reason: 'Budget exceeded',
+                budget_info: {
+                  budget_id: 'budget-123',
+                  budget_name: 'Team Budget',
+                  used_usd: 150.0,
+                  limit_usd: 100.0,
+                  percentage: 150,
+                  exceeded: true,
+                  action: 'block',
+                },
+              })
+            ),
+        });
+
+        // Should NOT throw - returns blocked response with budgetInfo
+        const result = await client.executeQuery({
+          userToken: 'user-123',
+          query: 'Test query',
+          requestType: 'chat',
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.blocked).toBe(true);
+        expect(result.budgetInfo).toBeDefined();
+        expect(result.budgetInfo?.budgetId).toBe('budget-123');
+        expect(result.budgetInfo?.budgetName).toBe('Team Budget');
+        expect(result.budgetInfo?.usedUsd).toBe(150.0);
+        expect(result.budgetInfo?.limitUsd).toBe(100.0);
+        expect(result.budgetInfo?.percentage).toBe(150);
+        expect(result.budgetInfo?.exceeded).toBe(true);
+        expect(result.budgetInfo?.action).toBe('block');
+      });
+
+      it('should throw APIError on HTTP 402 without budget_info', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 402,
+          text: () => Promise.resolve('Payment Required'),
+        });
+
+        await expect(
+          client.executeQuery({
+            userToken: 'user-123',
+            query: 'Test query',
+            requestType: 'chat',
+          })
+        ).rejects.toThrow(APIError);
+      });
+
+      it('should throw APIError on HTTP 402 with invalid JSON', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 402,
+          text: () => Promise.resolve('{ invalid json'),
+        });
+
+        await expect(
+          client.executeQuery({
+            userToken: 'user-123',
+            query: 'Test query',
+            requestType: 'chat',
+          })
+        ).rejects.toThrow(APIError);
+      });
+
+      it('should throw APIError on HTTP 402 with JSON but no budget_info', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 402,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                error: 'Payment required',
+                message: 'Insufficient credits',
+              })
+            ),
+        });
+
+        await expect(
+          client.executeQuery({
+            userToken: 'user-123',
+            query: 'Test query',
+            requestType: 'chat',
+          })
+        ).rejects.toThrow(APIError);
+      });
+
+      it('should parse budget_info in successful response', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              blocked: false,
+              data: { result: 'test result' },
+              budget_info: {
+                budget_id: 'budget-456',
+                budget_name: 'Org Budget',
+                used_usd: 45.0,
+                limit_usd: 100.0,
+                percentage: 45,
+                exceeded: false,
+                action: 'warn',
+              },
+            }),
+        });
+
+        const result = await client.executeQuery({
+          userToken: 'user-123',
+          query: 'Test query',
+          requestType: 'chat',
+        });
+
+        expect(result.success).toBe(true);
+        expect(result.budgetInfo).toBeDefined();
+        expect(result.budgetInfo?.budgetId).toBe('budget-456');
+        expect(result.budgetInfo?.percentage).toBe(45);
+        expect(result.budgetInfo?.exceeded).toBe(false);
+      });
+
+      it('should not throw PolicyViolationError when blocked due to budget', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: false,
+              blocked: true,
+              block_reason: 'Budget exceeded',
+              budget_info: {
+                budget_id: 'budget-789',
+                used_usd: 200.0,
+                limit_usd: 100.0,
+                percentage: 200,
+                exceeded: true,
+                action: 'block',
+              },
+            }),
+        });
+
+        // Should NOT throw PolicyViolationError when budget_info is present
+        const result = await client.executeQuery({
+          userToken: 'user-123',
+          query: 'Test query',
+          requestType: 'chat',
+        });
+
+        expect(result.blocked).toBe(true);
+        expect(result.budgetInfo?.exceeded).toBe(true);
+      });
+
+      it('should handle budget_info with missing optional fields', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              blocked: false,
+              data: { result: 'ok' },
+              budget_info: {
+                budget_id: 'budget-minimal',
+                // No budget_name, uses defaults for missing numeric fields
+              },
+            }),
+        });
+
+        const result = await client.executeQuery({
+          userToken: 'user-123',
+          query: 'Test query',
+          requestType: 'chat',
+        });
+
+        expect(result.budgetInfo).toBeDefined();
+        expect(result.budgetInfo?.budgetId).toBe('budget-minimal');
+        expect(result.budgetInfo?.usedUsd).toBe(0);
+        expect(result.budgetInfo?.limitUsd).toBe(0);
+        expect(result.budgetInfo?.percentage).toBe(0);
+        expect(result.budgetInfo?.exceeded).toBe(false);
+      });
     });
 
     describe('getPolicyApprovedContext (preCheck)', () => {
