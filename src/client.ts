@@ -163,7 +163,7 @@ export class AxonFlow {
       clientSecret: config.clientSecret,
       endpoint,
       mode: config.mode || (hasCredentials ? 'production' : 'sandbox'),
-      tenant: config.tenant || 'default',
+      tenant: config.tenant || '',
       debug: config.debug || false,
       timeout: config.timeout || 30000,
       mapTimeout: config.mapTimeout || 120000, // 2 minutes for MAP operations
