@@ -109,9 +109,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Analytics**: Added optional install analytics via Scarf (opt-out: `SCARF_NO_ANALYTICS=1`)
 
+### Changed
+
+- **Gateway Mode smart defaults**: `getPolicyApprovedContext()` and `auditLLMCall()` now use `"community"` as default clientId when not configured, enabling zero-config usage for community/self-hosted deployments
+
 ### Fixed
 
-- **Gateway Mode credential enforcement**: `getPolicyApprovedContext()` and `auditLLMCall()` now require credentials (clientId), matching Go/Python/Java SDK behavior for consistency across all SDKs
+- **PolicyCategory**: Added `pii-singapore` to PolicyCategory type for Singapore PII detection policies (NRIC, FIN, UEN patterns)
 
 ### Deprecated
 
@@ -119,10 +123,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Will be removed in v3.0.0
   - Emits deprecation warning in debug mode
   - Remains functional as a wrapper around proxyLLMCall()
-
-### Fixed
-
-- **PolicyCategory**: Added `pii-singapore` to PolicyCategory type for Singapore PII detection policies (NRIC, FIN, UEN patterns)
 
 ---
 
