@@ -221,18 +221,16 @@ export class AxonFlow {
   }
 
   /**
-   * Requires credentials for enterprise features.
-   * Throws AuthenticationError if clientId is not configured.
+   * Get the effective clientId, using smart default for community mode.
    *
-   * @param feature The feature name for the error message
-   * @throws AuthenticationError if clientId is not configured
+   * Returns the configured clientId if set, otherwise returns "community"
+   * as a smart default. This enables zero-config usage for community/self-hosted
+   * deployments while still supporting enterprise deployments with explicit credentials.
+   *
+   * @returns The clientId to use in requests
    */
-  private requireCredentials(feature: string): void {
-    if (!this.config.clientId) {
-      throw new AuthenticationError(
-        `${feature} requires clientId. Set clientId in config (clientSecret is optional for community mode).`
-      );
-    }
+  private getEffectiveClientId(): string {
+    return this.config.clientId || this.config.tenant || 'community';
   }
 
   /**
@@ -1216,14 +1214,14 @@ export class AxonFlow {
    * ```
    */
   async getPolicyApprovedContext(options: PolicyApprovalOptions): Promise<PolicyApprovalResult> {
-    // Gateway Mode is an enterprise feature that requires credentials
-    this.requireCredentials('Gateway Mode (getPolicyApprovedContext)');
+    // Use smart default for clientId - enables zero-config community mode
+    const clientId = this.getEffectiveClientId();
 
     const url = `${this.config.endpoint}/api/policy/pre-check`;
 
     const requestBody = {
       user_token: options.userToken,
-      client_id: this.config.clientId || this.config.tenant,
+      client_id: clientId,
       query: options.query,
       data_sources: options.dataSources || [],
       context: options.context || {},
@@ -1314,14 +1312,14 @@ export class AxonFlow {
    * ```
    */
   async auditLLMCall(options: AuditOptions): Promise<AuditResult> {
-    // Gateway Mode is an enterprise feature that requires credentials
-    this.requireCredentials('Gateway Mode (auditLLMCall)');
+    // Use smart default for clientId - enables zero-config community mode
+    const clientId = this.getEffectiveClientId();
 
     const url = `${this.config.endpoint}/api/audit/llm-call`;
 
     const requestBody = {
       context_id: options.contextId,
-      client_id: this.config.clientId || this.config.tenant,
+      client_id: clientId,
       response_summary: options.responseSummary,
       provider: options.provider,
       model: options.model,
