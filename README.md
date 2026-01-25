@@ -643,6 +643,11 @@ For enterprise features, contact [sales@getaxonflow.com](mailto:sales@getaxonflo
 - **Issues**: https://github.com/getaxonflow/axonflow-sdk-typescript/issues
 - **Email**: dev@getaxonflow.com
 
+If you are evaluating AxonFlow in a company setting and cannot open a public issue, you can share feedback or blockers confidentially here:
+[Anonymous evaluation feedback form](https://getaxonflow.com/feedback)
+
+No email required. Optional contact if you want a response.
+
 ## MCP Connector Marketplace
 
 Integrate with external data sources using AxonFlow's MCP (Model Context Protocol) connectors:
