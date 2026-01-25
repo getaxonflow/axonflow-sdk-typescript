@@ -221,6 +221,21 @@ export class AxonFlow {
   }
 
   /**
+   * Requires credentials for enterprise features.
+   * Throws AuthenticationError if clientId is not configured.
+   *
+   * @param feature The feature name for the error message
+   * @throws AuthenticationError if clientId is not configured
+   */
+  private requireCredentials(feature: string): void {
+    if (!this.config.clientId) {
+      throw new AuthenticationError(
+        `${feature} requires clientId. Set clientId in config (clientSecret is optional for community mode).`
+      );
+    }
+  }
+
+  /**
    * Main method to protect AI calls with governance
    * @param aiCall The AI call to protect
    * @returns The AI response after governance
@@ -1201,8 +1216,9 @@ export class AxonFlow {
    * ```
    */
   async getPolicyApprovedContext(options: PolicyApprovalOptions): Promise<PolicyApprovalResult> {
-    // Gateway Mode - credentials optional for community/self-hosted mode
-    // Server decides whether to require authentication based on DEPLOYMENT_MODE
+    // Gateway Mode is an enterprise feature that requires credentials
+    this.requireCredentials('Gateway Mode (getPolicyApprovedContext)');
+
     const url = `${this.config.endpoint}/api/policy/pre-check`;
 
     const requestBody = {
@@ -1298,8 +1314,9 @@ export class AxonFlow {
    * ```
    */
   async auditLLMCall(options: AuditOptions): Promise<AuditResult> {
-    // Gateway Mode - credentials optional for community/self-hosted mode
-    // Server decides whether to require authentication based on DEPLOYMENT_MODE
+    // Gateway Mode is an enterprise feature that requires credentials
+    this.requireCredentials('Gateway Mode (auditLLMCall)');
+
     const url = `${this.config.endpoint}/api/audit/llm-call`;
 
     const requestBody = {

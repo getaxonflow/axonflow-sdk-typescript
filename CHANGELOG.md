@@ -109,6 +109,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Analytics**: Added optional install analytics via Scarf (opt-out: `SCARF_NO_ANALYTICS=1`)
 
+### Fixed
+
+- **Gateway Mode credential enforcement**: `getPolicyApprovedContext()` and `auditLLMCall()` now require credentials (clientId), matching Go/Python/Java SDK behavior for consistency across all SDKs
+
 ### Deprecated
 
 - **executeQuery()**: Deprecated in favor of proxyLLMCall()
