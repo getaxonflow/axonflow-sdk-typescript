@@ -7,43 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-> [!CAUTION]
-> ## npm Publishing Blocked - Build From Source Required
->
-> **Since January 10, 2026**, we have been unable to publish new versions to npm due to an E403 Forbidden error. Despite multiple escalations to npm support, the issue remains unresolved.
->
-> | Version | npm | Source |
-> |---------|-----|--------|
-> | v2.3.0 | ✅ Last published | ✅ Available |
-> | v2.4.0 - v2.6.0 | ❌ Not published | ⏭️ Skipped (rolled into v2.7.0) |
-> | v2.7.0 | ❌ Not published | ✅ Available |
->
-> **All v2.7.0 features are missing from npm:**
-> - Unified Execution Tracking (MAP + WCP status)
-> - MAS FEAT Compliance Module (Enterprise)
-> - Workflow Control Plane with governance gates
-> - Workflow Policy Enforcement transparency
-> - MCP Exfiltration Detection
-> - MCP Dynamic Policies
-> - `proxyLLMCall()` method
->
-> **To use latest features:**
-> ```bash
-> git clone https://github.com/getaxonflow/axonflow-sdk-typescript.git
-> cd axonflow-sdk-typescript
-> npm install && npm run build
-> npm link  # Makes @axonflow/sdk available globally
-> # In your project:
-> npm link @axonflow/sdk
-> ```
->
-> For updates, check [GitHub Issues](https://github.com/getaxonflow/axonflow-sdk-typescript/issues) or contact dev@getaxonflow.com.
+**Note:** npm releases temporarily delayed. Latest: v2.7.0 (source) vs v2.3.0 (npm). [Install from source](https://github.com/getaxonflow/axonflow-sdk-typescript#install-from-source) for latest features.
 
 ---
 
-## [2.7.0] - 2026-01-25 (SOURCE ONLY - not on npm)
-
-> **Note:** This release consolidates all features from v2.4.0 through v2.7.0 since npm publishing has been blocked since January 10, 2026. See the warning banner above for details.
+## [2.7.0] - 2026-01-25
 
 ### Added
 
