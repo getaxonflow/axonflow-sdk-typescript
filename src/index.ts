@@ -51,33 +51,6 @@
 
 export { AxonFlow } from './client';
 
-// Runtime warning about outdated npm version
-// Only show in development (not in production) and can be suppressed
-const NPM_VERSION = '2.3.0';
-const LATEST_VERSION = '2.7.0';
-
-if (
-  typeof process !== 'undefined' &&
-  process.env &&
-  process.env.NODE_ENV !== 'production' &&
-  !process.env.AXONFLOW_SUPPRESS_VERSION_WARNING
-) {
-  console.warn(`
-\x1b[33m╔══════════════════════════════════════════════════════════════════════════════╗
-║  ⚠️  @axonflow/sdk: You are using an OUTDATED npm version (v${NPM_VERSION})           ║
-║                                                                              ║
-║  Latest version: v${LATEST_VERSION} (available on GitHub only - npm blocked)          ║
-║                                                                              ║
-║  Missing: Unified Execution Tracking, MAS FEAT Compliance,                   ║
-║           Workflow Control Plane, MCP Exfiltration Detection,                ║
-║           MCP Dynamic Policies, proxyLLMCall()                               ║
-║                                                                              ║
-║  Build from source: https://github.com/getaxonflow/axonflow-sdk-typescript   ║
-║  Suppress warning: Set AXONFLOW_SUPPRESS_VERSION_WARNING=1                   ║
-╚══════════════════════════════════════════════════════════════════════════════╝\x1b[0m
-`);
-}
-
 // LLM Interceptor Wrappers (DEPRECATED - use Gateway Mode or Proxy Mode instead)
 // These will be removed in v2.0.0. See: https://docs.getaxonflow.com/sdk/gateway-mode
 /** @deprecated Use Gateway Mode or Proxy Mode instead */
