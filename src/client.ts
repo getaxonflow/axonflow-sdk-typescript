@@ -136,7 +136,10 @@ export class AxonFlow {
     retry: { enabled: boolean; maxAttempts: number; delay: number };
     cache: { enabled: boolean; ttl: number };
   };
-  private interceptors: { canHandle(aiCall: any): boolean; extractRequest(aiCall: any): AIRequest }[] = [];
+  private interceptors: {
+    canHandle(aiCall: any): boolean;
+    extractRequest(aiCall: any): AIRequest;
+  }[] = [];
   private sessionCookie: string | null = null;
 
   constructor(config: AxonFlowConfig) {

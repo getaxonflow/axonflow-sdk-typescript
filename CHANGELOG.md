@@ -23,16 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`wasRedacted()` helper**: Convenience method on `ConnectorResponse` to check if any fields were redacted by PII policies
 
-### Changed
-
-- Updated all internal references and examples from `executeQuery` to `proxyLLMCall`
-
----
-
-## [2.7.0] - 2026-01-25
-
-### Added
-
 - **Unified Execution Tracking** (Issue #1075 - EPIC #1074): Consistent status tracking for MAP plans and WCP workflows
   - `getExecutionStatus(executionId)` - Get unified execution status by ID
   - `listUnifiedExecutions(options)` - List executions with type/status filters
@@ -89,7 +79,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **proxyLLMCall()**: New primary method for Proxy Mode with improved documentation
   - Clearly describes Proxy Mode behavior (AxonFlow makes the LLM call on your behalf)
   - Documents when to use Proxy Mode vs Gateway Mode
-  - Same functionality as executeQuery, but with clearer naming
 
 - **BudgetInfo**: `QueryResponse.budgetInfo` for budget enforcement (HTTP 402)
 
@@ -97,19 +86,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated all internal references and examples from `executeQuery` to `proxyLLMCall`
 - **Gateway Mode smart defaults**: `getPolicyApprovedContext()` and `auditLLMCall()` now use `"community"` as default clientId when not configured, enabling zero-config usage for community/self-hosted deployments
 
 ### Fixed
 
 - **Gateway Mode smart defaults**: Fixed fallback to `"community"` when no clientId is configured - previously defaulted to `"default"` due to tenant default value
 - **PolicyCategory**: Added `pii-singapore` to PolicyCategory type for Singapore PII detection policies (NRIC, FIN, UEN patterns)
-
-### Deprecated
-
-- **executeQuery()**: Deprecated in favor of proxyLLMCall()
-  - Will be removed in v3.0.0
-  - Emits deprecation warning in debug mode
-  - Remains functional as a wrapper around proxyLLMCall()
 
 ---
 
