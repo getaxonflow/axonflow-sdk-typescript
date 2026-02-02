@@ -6,7 +6,7 @@
  */
 
 /**
- * Request type for executeQuery
+ * Request type for proxyLLMCall
  */
 export type RequestType = 'chat' | 'sql' | 'mcp-query' | 'multi-agent-plan' | 'execute-plan';
 

@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Removed `executeQuery()`**: Use `proxyLLMCall()` instead (deprecated since v2.7.0)
 - **Removed deprecated interceptors**: `wrapOpenAIClient`, `wrapAnthropicClient`, `wrapGeminiModel`, `wrapOllamaClient`, `wrapBedrockClient` (all deprecated since v2.0.0). Entire `src/interceptors/` directory removed.
-- **Removed `ExecuteQueryOptions` and `ExecuteQueryResponse` type exports**: Use `ProxyLLMCallOptions` / `ProxyLLMCallResponse`
+- **Removed `ExecuteQueryOptions` and `ExecuteQueryResponse` from public API**: Types kept internally for `proxyLLMCall()` but no longer exported from package index
 
 ### Added
 

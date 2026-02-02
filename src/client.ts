@@ -267,7 +267,7 @@ export class AxonFlow {
    *
    * **Proxy Mode:**
    * ```typescript
-   * const response = await axonflow.executeQuery({
+   * const response = await axonflow.proxyLLMCall({
    *   userToken: 'user-123',
    *   query: 'Your prompt here',
    *   requestType: 'chat'
@@ -278,8 +278,8 @@ export class AxonFlow {
    */
   async protect<T = any>(aiCall: () => Promise<T>): Promise<T> {
     console.warn(
-      '[AxonFlow] protect() is deprecated and will be removed in v2.0.0. ' +
-        'Use Gateway Mode (getPolicyApprovedContext + auditLLMCall) or Proxy Mode (executeQuery) instead. ' +
+      '[AxonFlow] protect() is deprecated and will be removed in a future version. ' +
+        'Use Gateway Mode (getPolicyApprovedContext + auditLLMCall) or Proxy Mode (proxyLLMCall) instead. ' +
         'See: https://docs.getaxonflow.com/sdk/gateway-mode'
     );
     try {
