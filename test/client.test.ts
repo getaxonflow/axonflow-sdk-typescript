@@ -535,7 +535,7 @@ describe('AxonFlow Client Unit Tests', () => {
       });
     });
 
-    describe('executeQuery', () => {
+    describe('proxyLLMCall', () => {
       it('should execute query successfully', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
@@ -552,7 +552,7 @@ describe('AxonFlow Client Unit Tests', () => {
             }),
         });
 
-        const result = await client.executeQuery({
+        const result = await client.proxyLLMCall({
           userToken: 'user-123',
           query: 'Test query',
           requestType: 'chat',
@@ -575,7 +575,7 @@ describe('AxonFlow Client Unit Tests', () => {
         });
 
         await expect(
-          client.executeQuery({
+          client.proxyLLMCall({
             userToken: 'user-123',
             query: 'Sensitive query',
             requestType: 'chat',
@@ -591,7 +591,7 @@ describe('AxonFlow Client Unit Tests', () => {
         });
 
         await expect(
-          client.executeQuery({
+          client.proxyLLMCall({
             userToken: 'bad-token',
             query: 'Test',
             requestType: 'chat',
@@ -608,7 +608,7 @@ describe('AxonFlow Client Unit Tests', () => {
         });
 
         await expect(
-          client.executeQuery({
+          client.proxyLLMCall({
             userToken: 'user-123',
             query: 'Test',
             requestType: 'chat',
@@ -631,7 +631,7 @@ describe('AxonFlow Client Unit Tests', () => {
         });
 
         await expect(
-          client.executeQuery({
+          client.proxyLLMCall({
             userToken: 'user-123',
             query: 'Blocked query',
             requestType: 'chat',
@@ -664,7 +664,7 @@ describe('AxonFlow Client Unit Tests', () => {
         });
 
         // Should NOT throw - returns blocked response with budgetInfo
-        const result = await client.executeQuery({
+        const result = await client.proxyLLMCall({
           userToken: 'user-123',
           query: 'Test query',
           requestType: 'chat',
@@ -690,7 +690,7 @@ describe('AxonFlow Client Unit Tests', () => {
         });
 
         await expect(
-          client.executeQuery({
+          client.proxyLLMCall({
             userToken: 'user-123',
             query: 'Test query',
             requestType: 'chat',
@@ -706,7 +706,7 @@ describe('AxonFlow Client Unit Tests', () => {
         });
 
         await expect(
-          client.executeQuery({
+          client.proxyLLMCall({
             userToken: 'user-123',
             query: 'Test query',
             requestType: 'chat',
@@ -728,7 +728,7 @@ describe('AxonFlow Client Unit Tests', () => {
         });
 
         await expect(
-          client.executeQuery({
+          client.proxyLLMCall({
             userToken: 'user-123',
             query: 'Test query',
             requestType: 'chat',
@@ -756,7 +756,7 @@ describe('AxonFlow Client Unit Tests', () => {
             }),
         });
 
-        const result = await client.executeQuery({
+        const result = await client.proxyLLMCall({
           userToken: 'user-123',
           query: 'Test query',
           requestType: 'chat',
@@ -789,7 +789,7 @@ describe('AxonFlow Client Unit Tests', () => {
         });
 
         // Should NOT throw PolicyViolationError when budget_info is present
-        const result = await client.executeQuery({
+        const result = await client.proxyLLMCall({
           userToken: 'user-123',
           query: 'Test query',
           requestType: 'chat',
@@ -814,7 +814,7 @@ describe('AxonFlow Client Unit Tests', () => {
             }),
         });
 
-        const result = await client.executeQuery({
+        const result = await client.proxyLLMCall({
           userToken: 'user-123',
           query: 'Test query',
           requestType: 'chat',
@@ -826,6 +826,26 @@ describe('AxonFlow Client Unit Tests', () => {
         expect(result.budgetInfo?.limitUsd).toBe(0);
         expect(result.budgetInfo?.percentage).toBe(0);
         expect(result.budgetInfo?.exceeded).toBe(false);
+      });
+    });
+
+    describe('wasRedacted', () => {
+      it('should return true when response is redacted', () => {
+        const { wasRedacted } = require('../src/types/connector');
+        const response = { success: true, data: {}, redacted: true };
+        expect(wasRedacted(response)).toBe(true);
+      });
+
+      it('should return false when response is not redacted', () => {
+        const { wasRedacted } = require('../src/types/connector');
+        const response = { success: true, data: {}, redacted: false };
+        expect(wasRedacted(response)).toBe(false);
+      });
+
+      it('should return false when redacted field is undefined', () => {
+        const { wasRedacted } = require('../src/types/connector');
+        const response = { success: true, data: {} };
+        expect(wasRedacted(response)).toBe(false);
       });
     });
 
@@ -2274,7 +2294,7 @@ describe('AxonFlow Client Unit Tests', () => {
               }),
           });
 
-          const result = await client.executeQuery({
+          const result = await client.proxyLLMCall({
             userToken: 'user-123',
             query: 'Test with PII',
             requestType: 'chat',
@@ -2295,7 +2315,7 @@ describe('AxonFlow Client Unit Tests', () => {
               }),
           });
 
-          const result = await client.executeQuery({
+          const result = await client.proxyLLMCall({
             userToken: 'user-123',
             query: 'Simple query',
             requestType: 'chat',
@@ -2319,7 +2339,7 @@ describe('AxonFlow Client Unit Tests', () => {
               }),
           });
 
-          const result = await client.executeQuery({
+          const result = await client.proxyLLMCall({
             userToken: 'user-123',
             query: 'Test query',
             requestType: 'chat',
@@ -2332,7 +2352,7 @@ describe('AxonFlow Client Unit Tests', () => {
       // Note: getOrchestratorUrl and getPortalUrl fallback tests removed in v2.0.0
       // All routes now go through a single endpoint (ADR-026 Single Entry Point)
 
-      describe('executeQuery additional branches', () => {
+      describe('proxyLLMCall additional branches', () => {
         it('should handle 403 error with non-policy violation body', async () => {
           mockFetch.mockResolvedValueOnce({
             ok: false,
@@ -2341,7 +2361,7 @@ describe('AxonFlow Client Unit Tests', () => {
           });
 
           await expect(
-            client.executeQuery({
+            client.proxyLLMCall({
               userToken: 'user-123',
               query: 'Test',
               requestType: 'chat',
@@ -2364,7 +2384,7 @@ describe('AxonFlow Client Unit Tests', () => {
           });
 
           await expect(
-            client.executeQuery({
+            client.proxyLLMCall({
               userToken: 'user-123',
               query: 'Test',
               requestType: 'chat',
@@ -2372,7 +2392,7 @@ describe('AxonFlow Client Unit Tests', () => {
           ).rejects.toThrow(PolicyViolationError);
         });
 
-        it('should handle executeQuery with context parameter', async () => {
+        it('should handle proxyLLMCall with context parameter', async () => {
           mockFetch.mockResolvedValueOnce({
             ok: true,
             json: () =>
@@ -2383,7 +2403,7 @@ describe('AxonFlow Client Unit Tests', () => {
               }),
           });
 
-          const result = await client.executeQuery({
+          const result = await client.proxyLLMCall({
             userToken: 'user-123',
             query: 'Test',
             requestType: 'chat',
@@ -2521,7 +2541,7 @@ describe('AxonFlow Client Unit Tests', () => {
           logSpy.mockRestore();
         });
 
-        it('should log in debug mode for executeQuery', async () => {
+        it('should log in debug mode for proxyLLMCall', async () => {
           mockFetch.mockResolvedValueOnce({
             ok: true,
             json: () =>
@@ -2532,7 +2552,7 @@ describe('AxonFlow Client Unit Tests', () => {
               }),
           });
 
-          await debugClient.executeQuery({
+          await debugClient.proxyLLMCall({
             userToken: 'user-123',
             query: 'Test',
             requestType: 'chat',

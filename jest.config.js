@@ -28,7 +28,7 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
   coverageThreshold: {
     global: {
-      branches: 73,  // Lowered from 75 for Workflow Control Plane types
+      branches: 70,  // Lowered from 73 after removing deprecated interceptors in v3.0.0
       functions: 80,
       lines: 80,
       statements: 80,

@@ -41,7 +41,7 @@
  *
  * @example Proxy Mode
  * ```typescript
- * const response = await axonflow.executeQuery({
+ * const response = await axonflow.proxyLLMCall({
  *   userToken: 'user-123',
  *   query: 'What is the capital of France?',
  *   requestType: 'chat'
@@ -51,18 +51,8 @@
 
 export { AxonFlow } from './client';
 
-// LLM Interceptor Wrappers (DEPRECATED - use Gateway Mode or Proxy Mode instead)
-// These will be removed in v2.0.0. See: https://docs.getaxonflow.com/sdk/gateway-mode
-/** @deprecated Use Gateway Mode or Proxy Mode instead */
-export { wrapOpenAIClient } from './interceptors/openai';
-/** @deprecated Use Gateway Mode or Proxy Mode instead */
-export { wrapAnthropicClient } from './interceptors/anthropic';
-/** @deprecated Use Gateway Mode or Proxy Mode instead */
-export { wrapGeminiModel } from './interceptors/gemini';
-/** @deprecated Use Gateway Mode or Proxy Mode instead */
-export { wrapOllamaClient } from './interceptors/ollama';
-/** @deprecated Use Gateway Mode or Proxy Mode instead */
-export { wrapBedrockClient } from './interceptors/bedrock';
+// Export connector utilities
+export { wasRedacted } from './types/connector';
 
 // Export error classes for proper error handling
 export {
@@ -97,8 +87,6 @@ export type {
   AuditOptions,
   // Proxy Mode types
   RequestType,
-  ExecuteQueryOptions,
-  ExecuteQueryResponse,
   PolicyInfo,
   CodeArtifact,
   HealthStatus,
