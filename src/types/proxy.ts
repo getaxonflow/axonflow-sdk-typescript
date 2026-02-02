@@ -11,7 +11,8 @@
 export type RequestType = 'chat' | 'sql' | 'mcp-query' | 'multi-agent-plan' | 'execute-plan';
 
 /**
- * Options for executing a query through AxonFlow proxy
+ * Options for executing a query through AxonFlow proxy.
+ * @internal Kept for backward compatibility with proxyLLMCall() signature. Not exported from the public API.
  */
 export interface ExecuteQueryOptions {
   /** User authentication token (JWT or session token). If empty/undefined, defaults to "anonymous" for audit purposes. */
@@ -89,7 +90,8 @@ export interface BudgetInfo {
 }
 
 /**
- * Response from executeQuery in Proxy Mode
+ * Response from proxyLLMCall in Proxy Mode.
+ * @internal Kept for backward compatibility with proxyLLMCall() signature. Not exported from the public API.
  */
 export interface ExecuteQueryResponse {
   /** Whether the request was successful */

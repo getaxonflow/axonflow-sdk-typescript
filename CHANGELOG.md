@@ -7,7 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-**Note:** npm releases temporarily delayed. Latest: v2.7.0 (source) vs v2.3.0 (npm). [Install from source](https://github.com/getaxonflow/axonflow-sdk-typescript#install-from-source) for latest features.
+**Note:** npm releases temporarily delayed. Latest: v3.0.0 (source) vs v2.3.0 (npm). [Install from source](https://github.com/getaxonflow/axonflow-sdk-typescript#install-from-source) for latest features.
+
+---
+
+## [3.0.0] - Unreleased
+
+### Breaking Changes
+
+- **Removed `executeQuery()`**: Use `proxyLLMCall()` instead (deprecated since v2.7.0)
+- **Removed deprecated interceptors**: `wrapOpenAIClient`, `wrapAnthropicClient`, `wrapGeminiModel`, `wrapOllamaClient`, `wrapBedrockClient` (all deprecated since v2.0.0). Entire `src/interceptors/` directory removed.
+- **Removed `ExecuteQueryOptions` and `ExecuteQueryResponse` type exports**: Use `ProxyLLMCallOptions` / `ProxyLLMCallResponse`
+
+### Added
+
+- **`wasRedacted()` helper**: Convenience method on `ConnectorResponse` to check if any fields were redacted by PII policies
+
+### Changed
+
+- Updated all internal references and examples from `executeQuery` to `proxyLLMCall`
 
 ---
 

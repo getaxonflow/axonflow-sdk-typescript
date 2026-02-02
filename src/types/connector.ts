@@ -116,6 +116,13 @@ export interface ConnectorResponse {
 }
 
 /**
+ * Returns true if the connector response had any fields redacted by policy evaluation.
+ */
+export function wasRedacted(response: ConnectorResponse): boolean {
+  return response.redacted === true;
+}
+
+/**
  * Health status of an installed connector
  */
 export interface ConnectorHealthStatus {

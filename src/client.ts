@@ -118,9 +118,6 @@ import {
   ConnectorError,
   PlanExecutionError,
 } from './errors';
-import { OpenAIInterceptor } from './interceptors/openai';
-import { AnthropicInterceptor } from './interceptors/anthropic';
-import { BaseInterceptor } from './interceptors/base';
 import { generateRequestId, debugLog } from './utils/helpers';
 
 /**
@@ -139,7 +136,7 @@ export class AxonFlow {
     retry: { enabled: boolean; maxAttempts: number; delay: number };
     cache: { enabled: boolean; ttl: number };
   };
-  private interceptors: BaseInterceptor[] = [];
+  private interceptors: { canHandle(aiCall: any): boolean; extractRequest(aiCall: any): AIRequest }[] = [];
   private sessionCookie: string | null = null;
 
   constructor(config: AxonFlowConfig) {
@@ -178,8 +175,8 @@ export class AxonFlow {
       },
     };
 
-    // Initialize interceptors
-    this.interceptors = [new OpenAIInterceptor(), new AnthropicInterceptor()];
+    // Interceptors removed in v3.0.0 (deprecated wrapOpenAIClient/wrapAnthropicClient)
+    this.interceptors = [];
 
     if (this.config.debug) {
       // Determine auth method for logging
@@ -745,22 +742,6 @@ export class AxonFlow {
     }
 
     return result;
-  }
-
-  /**
-   * @deprecated Use proxyLLMCall instead. This method will be removed in v3.0.0.
-   *
-   * Execute a query through AxonFlow with policy enforcement (Proxy Mode).
-   * This is an alias for proxyLLMCall() for backwards compatibility.
-   */
-  async executeQuery(options: ExecuteQueryOptions): Promise<ExecuteQueryResponse> {
-    if (this.config.debug) {
-      console.warn(
-        '[AxonFlow] DEPRECATION WARNING: executeQuery() is deprecated. ' +
-          'Use proxyLLMCall() instead. This method will be removed in v3.0.0.'
-      );
-    }
-    return this.proxyLLMCall(options);
   }
 
   /**

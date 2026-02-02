@@ -178,7 +178,7 @@ describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
     });
 
     test('should execute query without credentials', async () => {
-      const response = await client.executeQuery({
+      const response = await client.proxyLLMCall({
         userToken: '', // Empty token
         query: 'What is 2 + 2?',
         requestType: 'chat',
@@ -196,7 +196,7 @@ describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
     }, 30000);
 
     test('should execute query with empty string token', async () => {
-      const response = await client.executeQuery({
+      const response = await client.proxyLLMCall({
         userToken: '',
         query: 'Simple math: 5 * 5',
         requestType: 'chat',
@@ -356,7 +356,7 @@ describe('7. Auth Headers Based on Credentials', () => {
     });
 
     try {
-      await client.executeQuery({
+      await client.proxyLLMCall({
         userToken: '',
         query: 'Test query for header verification',
         requestType: 'chat',
@@ -403,7 +403,7 @@ describe('7. Auth Headers Based on Credentials', () => {
     });
 
     try {
-      await client.executeQuery({
+      await client.proxyLLMCall({
         userToken: '',
         query: 'Test query',
         requestType: 'chat',
