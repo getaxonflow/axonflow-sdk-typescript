@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.2.0] - 2026-02-05
 
+### Added
+
+- **`tier` field on `CreateDynamicPolicyRequest`**: Specify policy tier (`system`, `organization`, `tenant`) when creating dynamic policies. Defaults to `tenant`.
+- **`organization_id` field on `CreateDynamicPolicyRequest`**: Associate dynamic policies with specific organizations (Enterprise feature).
+- **`tier`, `category`, and `organization_id` fields on `DynamicPolicy`**: Response now includes tier, category, and organization association for dynamic policies.
+- **`tier` and `organization_id` on `UpdateDynamicPolicyRequest`**: Support updating tier and organization on existing dynamic policies.
+- **`tier` and `organizationId` filters on `ListDynamicPoliciesOptions`**: Filter dynamic policies by tier and organization when listing.
+
+---
+
+## [3.1.0] - 2026-02-04
+
 ### Breaking Changes
 
 - **Removed `executeQuery()`**: Use `proxyLLMCall()` instead (deprecated since v2.7.0)
@@ -77,10 +89,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BudgetInfo**: `QueryResponse.budgetInfo` for budget enforcement (HTTP 402)
 
 - **Analytics**: Added optional install analytics via Scarf (opt-out: `SCARF_NO_ANALYTICS=1`)
-
-- **`tier` field on `CreateDynamicPolicyRequest`**: Allows setting the policy tier (`system`, `organization`, `tenant`) when creating dynamic policies. Previously the `tier` field was only available on static policy types.
-- **`organizationId` field on `CreateDynamicPolicyRequest`**: Allows specifying the organization ID for organization-tier policies.
-- **`tier`, `category`, and `organizationId` fields on `DynamicPolicy`**: Response interface now includes policy tier, category, and organization ID when returned by the API.
 
 ### Changed
 
