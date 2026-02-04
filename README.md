@@ -5,6 +5,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
+> **Evaluating AxonFlow in production?** We're opening limited Design Partner slots.
+>
+> Free 30-minute architecture review, incident-readiness review, priority issue triage, roadmap input and early feature access.
+>
+> [Apply here](https://getaxonflow.com/design-partner?utm_source=readme_sdk_typescript) or email [design-partners@getaxonflow.com](mailto:design-partners@getaxonflow.com).
+>
+> No commitment required. We reply within 48 hours.
+
 **Status:** npm package updates temporarily delayed. [Install from source](#install-from-source) for latest features.
 
 Add invisible AI governance to your applications in 3 lines of code. No UI changes. No user training. Just drop-in enterprise protection.
