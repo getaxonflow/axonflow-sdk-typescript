@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-**Note:** npm releases temporarily delayed. Latest: v3.0.0 (source) vs v2.3.0 (npm). [Install from source](https://github.com/getaxonflow/axonflow-sdk-typescript#install-from-source) for latest features.
+**Note:** npm releases temporarily delayed. Latest: v3.1.0 (source) vs v2.3.0 (npm). [Install from source](https://github.com/getaxonflow/axonflow-sdk-typescript#install-from-source) for latest features.
+
+---
+
+## [3.1.0] - 2026-02-04
+
+### Changed
+
+- Release alignment with the SDK 3.1.0 train across all languages
+- No TypeScript API surface change in this release
 
 ---
 
