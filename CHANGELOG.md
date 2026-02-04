@@ -78,6 +78,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Analytics**: Added optional install analytics via Scarf (opt-out: `SCARF_NO_ANALYTICS=1`)
 
+- **`tier` field on `CreateDynamicPolicyRequest`**: Allows setting the policy tier (`system`, `organization`, `tenant`) when creating dynamic policies. Previously the `tier` field was only available on static policy types.
+- **`organizationId` field on `CreateDynamicPolicyRequest`**: Allows specifying the organization ID for organization-tier policies.
+- **`tier`, `category`, and `organizationId` fields on `DynamicPolicy`**: Response interface now includes policy tier, category, and organization ID when returned by the API.
+
 ### Changed
 
 - Updated all internal references and examples from `executeQuery` to `proxyLLMCall`
