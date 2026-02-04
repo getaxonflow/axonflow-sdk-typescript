@@ -8,9 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Aligned TypeScript source release version to `3.1.0` for cross-SDK release-train consistency.
-- No TypeScript runtime behavior change in this release.
-- No public API surface change in this release.
+- No functional TypeScript SDK code changes were introduced in this version.
+- No new TypeScript SDK APIs were added in this version.
+- No runtime behavior changes were introduced in this version.
 
 ### Notes
 
