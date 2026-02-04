@@ -47,6 +47,19 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        generate_release_notes: true
+        name: Release ${{ github.ref_name }}
+        body: |
+          ## AxonFlow TypeScript SDK ${{ github.ref_name }}
+
+          ### Installation
+
+          ```bash
+          npm install @axonflow/sdk
+          ```
+
+          ### Changes
+
+          See [CHANGELOG.md](https://github.com/getaxonflow/axonflow-sdk-typescript/blob/main/CHANGELOG.md) for full release details.
+        generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
