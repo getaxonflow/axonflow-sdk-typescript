@@ -7,18 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.2.0] - 2026-02-05
 
-### Added
-
-- **`tier` field on `CreateDynamicPolicyRequest`**: Specify policy tier (`system`, `organization`, `tenant`) when creating dynamic policies. Defaults to `tenant`.
-- **`organization_id` field on `CreateDynamicPolicyRequest`**: Associate dynamic policies with specific organizations (Enterprise feature).
-- **`tier`, `category`, and `organization_id` fields on `DynamicPolicy`**: Response now includes tier, category, and organization association for dynamic policies.
-- **`tier` and `organization_id` on `UpdateDynamicPolicyRequest`**: Support updating tier and organization on existing dynamic policies.
-- **`tier` and `organizationId` filters on `ListDynamicPoliciesOptions`**: Filter dynamic policies by tier and organization when listing.
-
----
-
-## [3.1.0] - 2026-02-04
-
 ### Breaking Changes
 
 - **Removed `executeQuery()`**: Use `proxyLLMCall()` instead (deprecated since v2.7.0)
@@ -28,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`wasRedacted()` helper**: Convenience method on `ConnectorResponse` to check if any fields were redacted by PII policies
+
+- **Dynamic policy tier support**: `tier` (`PolicyTier`) and `organizationId` fields on `CreateDynamicPolicyRequest`, `UpdateDynamicPolicyRequest`, and `DynamicPolicy` response. Defaults to `tenant` when not specified.
+- **`ListDynamicPoliciesOptions` filters**: Filter dynamic policies by `tier` and `organizationId`, matching static policy list options.
 
 - **Unified Execution Tracking** (Issue #1075 - EPIC #1074): Consistent status tracking for MAP plans and WCP workflows
   - `getExecutionStatus(executionId)` - Get unified execution status by ID
