@@ -4,23 +4,8 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [3.1.0] - 2026-02-04
-
-### Changed
-
-- No functional TypeScript SDK code changes were introduced in this version.
-- No new TypeScript SDK APIs were added in this version.
-- No runtime behavior changes were introduced in this version.
-
-### Notes
-
-- npm publishing remains blocked by registry permissions issues.
-- npm latest remains `2.3.0`; `3.1.0` is available for source/local-build workflows.
-- See installation guidance: https://github.com/getaxonflow/axonflow-sdk-typescript#install-from-source
-
----
-
-## [3.0.0] - 2026-02-03
 
 ### Breaking Changes
 
