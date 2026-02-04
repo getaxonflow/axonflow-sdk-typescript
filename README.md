@@ -5,6 +5,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
+> **Production deployment?** [Join our Design Partner program](https://getaxonflow.com/design-partner) for free architecture reviews and priority support.
+
 **Status:** npm package updates temporarily delayed. [Install from source](#install-from-source) for latest features.
 
 Add invisible AI governance to your applications in 3 lines of code. No UI changes. No user training. Just drop-in enterprise protection.
