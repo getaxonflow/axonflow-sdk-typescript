@@ -259,6 +259,12 @@ export interface DynamicPolicy {
   description?: string;
   /** Policy type: "risk", "content", "user", "cost" */
   type: string;
+  /** Policy tier */
+  tier?: PolicyTier;
+  /** Policy category */
+  category?: string;
+  /** Organization ID (for organization-tier policies) */
+  organizationId?: string;
   /** Conditions for policy evaluation */
   conditions?: DynamicPolicyCondition[];
   /** Actions to take when conditions are met */
@@ -307,6 +313,10 @@ export interface CreateDynamicPolicyRequest {
   type: string;
   /** Policy category (must start with "dynamic-") */
   category?: string;
+  /** Policy tier (defaults to 'tenant' for dynamic policies) */
+  tier?: PolicyTier;
+  /** Organization ID for organization-tier policies */
+  organizationId?: string;
   /** Conditions for policy evaluation */
   conditions?: DynamicPolicyCondition[];
   /** Actions to take when conditions are met */
