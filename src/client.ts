@@ -2056,13 +2056,24 @@ export class AxonFlow {
       debugLog('Updating dynamic policy', { id, updates: Object.keys(policy) });
     }
 
-    // The UpdateDynamicPolicyRequest already uses snake_case for organization_id and tier,
-    // so we can pass it directly to the API
+    // Convert camelCase to snake_case for API compatibility
+    const requestBody: Record<string, unknown> = {};
+    if (policy.name !== undefined) requestBody.name = policy.name;
+    if (policy.description !== undefined) requestBody.description = policy.description;
+    if (policy.type !== undefined) requestBody.type = policy.type;
+    if (policy.category !== undefined) requestBody.category = policy.category;
+    if (policy.tier !== undefined) requestBody.tier = policy.tier;
+    if (policy.organizationId !== undefined) requestBody.organization_id = policy.organizationId;
+    if (policy.conditions !== undefined) requestBody.conditions = policy.conditions;
+    if (policy.actions !== undefined) requestBody.actions = policy.actions;
+    if (policy.priority !== undefined) requestBody.priority = policy.priority;
+    if (policy.enabled !== undefined) requestBody.enabled = policy.enabled;
+
     // API returns {"policy": {...}} wrapper via Agent proxy
     const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
       'PUT',
       `/api/v1/dynamic-policies/${id}`,
-      policy
+      requestBody
     );
     // Handle both wrapped and unwrapped responses for compatibility
     return 'policy' in response ? response.policy : response;

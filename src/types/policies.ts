@@ -348,7 +348,7 @@ export interface UpdateDynamicPolicyRequest {
   /** Updated tier */
   tier?: PolicyTier;
   /** Updated organization ID */
-  organization_id?: string;
+  organizationId?: string;
   /** Updated conditions */
   conditions?: DynamicPolicyCondition[];
   /** Updated actions */
