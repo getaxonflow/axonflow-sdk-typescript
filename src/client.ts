@@ -1947,6 +1947,8 @@ export class AxonFlow {
     const params = new URLSearchParams();
 
     if (options?.type) params.set('type', options.type);
+    if (options?.tier) params.set('tier', options.tier);
+    if (options?.organizationId) params.set('organization_id', options.organizationId);
     if (options?.enabled !== undefined) params.set('enabled', String(options.enabled));
     if (options?.limit) params.set('limit', String(options.limit));
     if (options?.offset) params.set('offset', String(options.offset));
@@ -2013,11 +2015,27 @@ export class AxonFlow {
       debugLog('Creating dynamic policy', { name: policy.name });
     }
 
+    // Convert camelCase to snake_case for API compatibility
+    const requestBody: Record<string, unknown> = {
+      name: policy.name,
+      type: policy.type,
+      conditions: policy.conditions,
+      actions: policy.actions,
+    };
+    if (policy.description) requestBody.description = policy.description;
+    if (policy.category) requestBody.category = policy.category;
+    if (policy.priority !== undefined) requestBody.priority = policy.priority;
+    if (policy.enabled !== undefined) requestBody.enabled = policy.enabled;
+    requestBody.tier = policy.tier || 'tenant';
+    if (policy.organizationId) {
+      requestBody.organization_id = policy.organizationId;
+    }
+
     // API returns {"policy": {...}} wrapper via Agent proxy
     const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
       'POST',
       '/api/v1/dynamic-policies',
-      policy
+      requestBody
     );
     // Handle both wrapped and unwrapped responses for compatibility
     return 'policy' in response ? response.policy : response;
@@ -2038,11 +2056,24 @@ export class AxonFlow {
       debugLog('Updating dynamic policy', { id, updates: Object.keys(policy) });
     }
 
+    // Convert camelCase to snake_case for API compatibility
+    const requestBody: Record<string, unknown> = {};
+    if (policy.name !== undefined) requestBody.name = policy.name;
+    if (policy.description !== undefined) requestBody.description = policy.description;
+    if (policy.type !== undefined) requestBody.type = policy.type;
+    if (policy.category !== undefined) requestBody.category = policy.category;
+    if (policy.tier !== undefined) requestBody.tier = policy.tier;
+    if (policy.organizationId !== undefined) requestBody.organization_id = policy.organizationId;
+    if (policy.conditions !== undefined) requestBody.conditions = policy.conditions;
+    if (policy.actions !== undefined) requestBody.actions = policy.actions;
+    if (policy.priority !== undefined) requestBody.priority = policy.priority;
+    if (policy.enabled !== undefined) requestBody.enabled = policy.enabled;
+
     // API returns {"policy": {...}} wrapper via Agent proxy
     const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
       'PUT',
       `/api/v1/dynamic-policies/${id}`,
-      policy
+      requestBody
     );
     // Handle both wrapped and unwrapped responses for compatibility
     return 'policy' in response ? response.policy : response;

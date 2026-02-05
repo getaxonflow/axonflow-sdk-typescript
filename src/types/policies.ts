@@ -259,6 +259,12 @@ export interface DynamicPolicy {
   description?: string;
   /** Policy type: "risk", "content", "user", "cost" */
   type: string;
+  /** Policy tier */
+  tier?: PolicyTier;
+  /** Policy category */
+  category?: string;
+  /** Organization ID (for organization-tier policies) */
+  organization_id?: string;
   /** Conditions for policy evaluation */
   conditions?: DynamicPolicyCondition[];
   /** Actions to take when conditions are met */
@@ -279,6 +285,10 @@ export interface DynamicPolicy {
 export interface ListDynamicPoliciesOptions {
   /** Filter by policy type: "risk", "content", "user", "cost" */
   type?: string;
+  /** Filter by tier */
+  tier?: PolicyTier;
+  /** Filter by organization ID (Enterprise) */
+  organizationId?: string;
   /** Filter by enabled status */
   enabled?: boolean;
   /** Maximum number of results */
@@ -307,6 +317,10 @@ export interface CreateDynamicPolicyRequest {
   type: string;
   /** Policy category (must start with "dynamic-") */
   category?: string;
+  /** Policy tier (defaults to 'tenant' for dynamic policies) */
+  tier?: PolicyTier;
+  /** Organization ID for organization-tier policies */
+  organizationId?: string;
   /** Conditions for policy evaluation */
   conditions?: DynamicPolicyCondition[];
   /** Actions to take when conditions are met */
@@ -331,6 +345,10 @@ export interface UpdateDynamicPolicyRequest {
   type?: string;
   /** Updated category */
   category?: string;
+  /** Updated tier */
+  tier?: PolicyTier;
+  /** Updated organization ID */
+  organizationId?: string;
   /** Updated conditions */
   conditions?: DynamicPolicyCondition[];
   /** Updated actions */
