@@ -15,7 +15,7 @@
 
 > **AxonFlow Feedback Week (Feb 5–12, 2026)** — We're shipping 3 improvements from user feedback.
 >
-> [Share feedback](https://github.com/getaxonflow/axonflow/discussions) or email [hello@getaxonflow.com](mailto:hello@getaxonflow.com) for private feedback.
+> [Share feedback](https://github.com/getaxonflow/axonflow/discussions/239) or email [hello@getaxonflow.com](mailto:hello@getaxonflow.com) for private feedback.
 
 **Status:** npm package updates temporarily delayed. [Install from source](#install-from-source) for latest features.
 
