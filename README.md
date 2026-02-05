@@ -13,6 +13,10 @@
 >
 > No commitment required. We reply within 48 hours.
 
+> **AxonFlow Feedback Week (Feb 5–12, 2026)** — We're shipping 3 improvements from user feedback.
+>
+> [Share feedback](https://github.com/getaxonflow/axonflow/discussions/239) or email [hello@getaxonflow.com](mailto:hello@getaxonflow.com) for private feedback.
+
 **Status:** npm package updates temporarily delayed. [Install from source](#install-from-source) for latest features.
 
 Add invisible AI governance to your applications in 3 lines of code. No UI changes. No user training. Just drop-in enterprise protection.
