@@ -837,7 +837,7 @@ export class AxonFlow {
   ): Promise<ConnectorResponse> {
     const agentRequest = {
       query,
-      user_token: '',
+      user_token: params?.userToken || 'anonymous',
       client_id: this.config.clientId || this.config.tenant,
       request_type: 'mcp-query',
       context: {
@@ -4794,7 +4794,7 @@ export class AxonFlow {
       debugLog('Getting execution status', { executionId });
     }
 
-    return this.orchestratorRequest<ExecutionStatus>('GET', `/api/v1/executions/${executionId}`);
+    return this.orchestratorRequest<ExecutionStatus>('GET', `/api/v1/unified/executions/${executionId}`);
   }
 
   /**
@@ -4854,12 +4854,35 @@ export class AxonFlow {
     }
 
     const queryString = params.toString();
-    const path = queryString ? `/api/v1/executions?${queryString}` : '/api/v1/executions';
+    const path = queryString ? `/api/v1/unified/executions?${queryString}` : '/api/v1/unified/executions';
 
     if (this.config.debug) {
       debugLog('Listing unified executions', { options });
     }
 
     return this.orchestratorRequest<UnifiedListExecutionsResponse>('GET', path);
+  }
+
+  /**
+   * Cancel a unified execution (MAP plan or WCP workflow).
+   *
+   * This method cancels an execution via the unified execution API,
+   * automatically propagating to the correct subsystem (MAP or WCP).
+   *
+   * @param executionId - The execution ID (plan ID or workflow ID)
+   * @param reason - Optional reason for cancellation
+   *
+   * @example
+   * ```typescript
+   * await client.cancelExecution('wf_abc123', 'User requested cancellation');
+   * ```
+   */
+  async cancelExecution(executionId: string, reason?: string): Promise<void> {
+    if (!executionId) {
+      throw new ConfigurationError('Execution ID is required');
+    }
+
+    const body = reason ? { reason } : {};
+    await this.orchestratorRequest('POST', `/api/v1/unified/executions/${executionId}/cancel`, body);
   }
 }
