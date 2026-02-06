@@ -837,7 +837,7 @@ export class AxonFlow {
   ): Promise<ConnectorResponse> {
     const agentRequest = {
       query,
-      user_token: params?.userToken || 'anonymous',
+      user_token: '',
       client_id: this.config.clientId || this.config.tenant,
       request_type: 'mcp-query',
       context: {
