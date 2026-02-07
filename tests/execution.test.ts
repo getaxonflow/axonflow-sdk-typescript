@@ -1,5 +1,5 @@
 /**
- * Tests for unified execution types and helpers.
+ * Tests for unified execution types, helpers, and SSE streaming.
  */
 
 import {
@@ -12,7 +12,10 @@ import {
   UnifiedStepStatus,
   ExecutionStatus,
   ExecutionHelpers,
+  StreamExecutionStatusOptions,
 } from '../src/types/execution';
+import { AxonFlow } from '../src/client';
+import { ConfigurationError, AuthenticationError, APIError } from '../src/errors';
 
 describe('ExecutionHelpers', () => {
   describe('isTerminal', () => {
@@ -434,5 +437,368 @@ describe('Execution Types', () => {
       const value: UnifiedApprovalStatus = status;
       expect(value).toBe(status);
     });
+  });
+});
+
+describe('StreamExecutionStatusOptions', () => {
+  it('should be a valid type with optional signal', () => {
+    const opts: StreamExecutionStatusOptions = {};
+    expect(opts.signal).toBeUndefined();
+
+    const controller = new AbortController();
+    const optsWithSignal: StreamExecutionStatusOptions = { signal: controller.signal };
+    expect(optsWithSignal.signal).toBeDefined();
+  });
+});
+
+// Helper to create a ReadableStream from SSE event strings
+function createSSEStream(events: string[]): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  let index = 0;
+  return new ReadableStream({
+    pull(controller) {
+      if (index < events.length) {
+        controller.enqueue(encoder.encode(events[index]));
+        index++;
+      } else {
+        controller.close();
+      }
+    },
+  });
+}
+
+function makeExecutionStatusEvent(overrides: Partial<ExecutionStatus>): ExecutionStatus {
+  return {
+    execution_id: 'exec_123',
+    execution_type: 'map_plan',
+    name: 'Test Execution',
+    status: 'running',
+    current_step_index: 0,
+    total_steps: 3,
+    progress_percent: 0,
+    started_at: '2026-02-07T10:00:00Z',
+    steps: [],
+    created_at: '2026-02-07T10:00:00Z',
+    updated_at: '2026-02-07T10:00:00Z',
+    ...overrides,
+  };
+}
+
+describe('streamExecutionStatus', () => {
+  const originalFetch = global.fetch;
+  const mockFetch = jest.fn();
+  let client: AxonFlow;
+
+  beforeAll(() => {
+    global.fetch = mockFetch;
+  });
+
+  afterAll(() => {
+    global.fetch = originalFetch;
+  });
+
+  beforeEach(() => {
+    mockFetch.mockClear();
+    client = new AxonFlow({
+      clientId: 'test-client',
+      clientSecret: 'test-secret',
+      endpoint: 'http://localhost:8080',
+    });
+  });
+
+  it('should throw ConfigurationError for empty executionId', async () => {
+    await expect(
+      client.streamExecutionStatus('', () => {})
+    ).rejects.toThrow(ConfigurationError);
+  });
+
+  it('should throw AuthenticationError on 401 response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      text: () => Promise.resolve('Unauthorized'),
+    });
+
+    await expect(
+      client.streamExecutionStatus('exec_123', () => {})
+    ).rejects.toThrow(AuthenticationError);
+  });
+
+  it('should throw AuthenticationError on 403 response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      text: () => Promise.resolve('Forbidden'),
+    });
+
+    await expect(
+      client.streamExecutionStatus('exec_123', () => {})
+    ).rejects.toThrow(AuthenticationError);
+  });
+
+  it('should throw APIError on 404 response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+      text: () => Promise.resolve('Execution not found'),
+    });
+
+    await expect(
+      client.streamExecutionStatus('exec_123', () => {})
+    ).rejects.toThrow(APIError);
+  });
+
+  it('should throw APIError on 500 response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      text: () => Promise.resolve('Server error'),
+    });
+
+    await expect(
+      client.streamExecutionStatus('exec_123', () => {})
+    ).rejects.toThrow(APIError);
+  });
+
+  it('should throw APIError when response has no body', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: null,
+    });
+
+    await expect(
+      client.streamExecutionStatus('exec_123', () => {})
+    ).rejects.toThrow(APIError);
+  });
+
+  it('should stream execution status updates and stop on terminal status', async () => {
+    const runningStatus = makeExecutionStatusEvent({
+      status: 'running',
+      progress_percent: 33,
+    });
+    const completedStatus = makeExecutionStatusEvent({
+      status: 'completed',
+      progress_percent: 100,
+    });
+
+    const sseData = createSSEStream([
+      `data: ${JSON.stringify(runningStatus)}\n\n`,
+      `data: ${JSON.stringify(completedStatus)}\n\n`,
+    ]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: sseData,
+    });
+
+    const updates: ExecutionStatus[] = [];
+    await client.streamExecutionStatus('exec_123', (status) => {
+      updates.push(status);
+    });
+
+    expect(updates).toHaveLength(2);
+    expect(updates[0].status).toBe('running');
+    expect(updates[0].progress_percent).toBe(33);
+    expect(updates[1].status).toBe('completed');
+    expect(updates[1].progress_percent).toBe(100);
+  });
+
+  it('should stop on failed terminal status', async () => {
+    const failedStatus = makeExecutionStatusEvent({
+      status: 'failed',
+      error: 'Step 2 timed out',
+    });
+
+    const sseData = createSSEStream([
+      `data: ${JSON.stringify(failedStatus)}\n\n`,
+    ]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: sseData,
+    });
+
+    const updates: ExecutionStatus[] = [];
+    await client.streamExecutionStatus('exec_123', (status) => {
+      updates.push(status);
+    });
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].status).toBe('failed');
+    expect(updates[0].error).toBe('Step 2 timed out');
+  });
+
+  it('should stop on cancelled terminal status', async () => {
+    const cancelledStatus = makeExecutionStatusEvent({
+      status: 'cancelled',
+    });
+
+    const sseData = createSSEStream([
+      `data: ${JSON.stringify(cancelledStatus)}\n\n`,
+    ]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: sseData,
+    });
+
+    const updates: ExecutionStatus[] = [];
+    await client.streamExecutionStatus('exec_123', (status) => {
+      updates.push(status);
+    });
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].status).toBe('cancelled');
+  });
+
+  it('should handle multiple events in a single chunk', async () => {
+    const status1 = makeExecutionStatusEvent({
+      status: 'running',
+      progress_percent: 25,
+      current_step_index: 0,
+    });
+    const status2 = makeExecutionStatusEvent({
+      status: 'completed',
+      progress_percent: 100,
+      current_step_index: 2,
+    });
+
+    // Send both events in a single chunk
+    const sseData = createSSEStream([
+      `data: ${JSON.stringify(status1)}\n\ndata: ${JSON.stringify(status2)}\n\n`,
+    ]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: sseData,
+    });
+
+    const updates: ExecutionStatus[] = [];
+    await client.streamExecutionStatus('exec_123', (status) => {
+      updates.push(status);
+    });
+
+    expect(updates).toHaveLength(2);
+    expect(updates[0].progress_percent).toBe(25);
+    expect(updates[1].progress_percent).toBe(100);
+  });
+
+  it('should skip [DONE] sentinel and empty data lines', async () => {
+    const completedStatus = makeExecutionStatusEvent({
+      status: 'completed',
+    });
+
+    const sseData = createSSEStream([
+      `data: ${JSON.stringify(completedStatus)}\n\n`,
+      `data: [DONE]\n\n`,
+    ]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: sseData,
+    });
+
+    const updates: ExecutionStatus[] = [];
+    await client.streamExecutionStatus('exec_123', (status) => {
+      updates.push(status);
+    });
+
+    // Should only get the completed status, not the [DONE]
+    expect(updates).toHaveLength(1);
+    expect(updates[0].status).toBe('completed');
+  });
+
+  it('should handle abort signal gracefully on fetch', async () => {
+    const controller = new AbortController();
+    const abortError = new Error('The operation was aborted');
+    abortError.name = 'AbortError';
+
+    mockFetch.mockRejectedValueOnce(abortError);
+    controller.abort();
+
+    // Should resolve without throwing
+    await expect(
+      client.streamExecutionStatus('exec_123', () => {}, { signal: controller.signal })
+    ).resolves.toBeUndefined();
+  });
+
+  it('should pass correct URL and headers to fetch', async () => {
+    const completedStatus = makeExecutionStatusEvent({
+      status: 'completed',
+    });
+
+    const sseData = createSSEStream([
+      `data: ${JSON.stringify(completedStatus)}\n\n`,
+    ]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: sseData,
+    });
+
+    await client.streamExecutionStatus('exec_123', () => {});
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [calledUrl, calledOptions] = mockFetch.mock.calls[0];
+    expect(calledUrl).toBe('http://localhost:8080/api/v1/executions/exec_123/stream');
+    expect(calledOptions.method).toBe('GET');
+    expect(calledOptions.headers['Accept']).toBe('text/event-stream');
+    // Content-Type should not be set for SSE
+    expect(calledOptions.headers['Content-Type']).toBeUndefined();
+  });
+
+  it('should handle stream that closes without terminal status', async () => {
+    const runningStatus = makeExecutionStatusEvent({
+      status: 'running',
+      progress_percent: 50,
+    });
+
+    const sseData = createSSEStream([
+      `data: ${JSON.stringify(runningStatus)}\n\n`,
+      // Stream closes without terminal event
+    ]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: sseData,
+    });
+
+    const updates: ExecutionStatus[] = [];
+    await client.streamExecutionStatus('exec_123', (status) => {
+      updates.push(status);
+    });
+
+    // Should have received the running update and then returned when stream closed
+    expect(updates).toHaveLength(1);
+    expect(updates[0].status).toBe('running');
+  });
+
+  it('should gracefully handle malformed JSON in SSE data', async () => {
+    const completedStatus = makeExecutionStatusEvent({
+      status: 'completed',
+    });
+
+    const sseData = createSSEStream([
+      `data: {invalid json}\n\n`,
+      `data: ${JSON.stringify(completedStatus)}\n\n`,
+    ]);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: sseData,
+    });
+
+    const updates: ExecutionStatus[] = [];
+    await client.streamExecutionStatus('exec_123', (status) => {
+      updates.push(status);
+    });
+
+    // Should skip the malformed event and get the completed one
+    expect(updates).toHaveLength(1);
+    expect(updates[0].status).toBe('completed');
   });
 });
