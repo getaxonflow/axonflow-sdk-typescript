@@ -192,6 +192,41 @@ export class TimeoutError extends AxonFlowError {
 }
 
 /**
+ * Error thrown when a plan update has a version conflict (HTTP 409).
+ * Indicates optimistic concurrency failure — the plan was modified
+ * by another request between read and update.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await client.updatePlan(planId, { version: 1, executionMode: 'parallel' });
+ * } catch (err) {
+ *   if (err instanceof VersionConflictError) {
+ *     console.log(`Conflict: expected v${err.expectedVersion}, current v${err.currentVersion}`);
+ *   }
+ * }
+ * ```
+ */
+export class VersionConflictError extends AxonFlowError {
+  public readonly planId: string;
+  public readonly expectedVersion: number;
+  public readonly currentVersion?: number;
+
+  constructor(planId: string, expectedVersion: number, currentVersion?: number) {
+    super(`Version conflict for plan ${planId}: expected version ${expectedVersion}`, {
+      planId,
+      expectedVersion,
+      currentVersion,
+    });
+    this.name = 'VersionConflictError';
+    this.planId = planId;
+    this.expectedVersion = expectedVersion;
+    this.currentVersion = currentVersion;
+    Object.setPrototypeOf(this, VersionConflictError.prototype);
+  }
+}
+
+/**
  * Error thrown for API errors (non-2xx responses).
  * Includes HTTP status code, status text, and response body.
  *

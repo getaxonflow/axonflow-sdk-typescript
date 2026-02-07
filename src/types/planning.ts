@@ -74,3 +74,95 @@ export interface PlanExecutionResponse {
   /** Policy evaluation result for this plan execution (Issue #1020) */
   policyInfo?: PolicyEvaluationResult;
 }
+
+// ============================================================================
+// MAP v1.0 Types (Issue #1072)
+// ============================================================================
+
+/**
+ * Execution mode for plan generation and updates.
+ * Controls how steps are scheduled during execution.
+ */
+export type ExecutionMode = 'auto' | 'sequential' | 'parallel' | 'balanced' | 'confirm' | 'step';
+
+/**
+ * Options for generating a plan with additional configuration.
+ */
+export interface GeneratePlanOptions {
+  /** Execution mode hint for the planner */
+  executionMode?: ExecutionMode;
+}
+
+/**
+ * Response from cancelling a plan.
+ */
+export interface CancelPlanResponse {
+  planId: string;
+  status: string;
+  message: string;
+}
+
+/**
+ * Request to update a plan with optimistic concurrency control.
+ */
+export interface UpdatePlanRequest {
+  /** Expected version number for optimistic concurrency (required) */
+  version: number;
+  /** New execution mode for the plan */
+  executionMode?: ExecutionMode;
+  /** New domain hint for the plan */
+  domain?: string;
+}
+
+/**
+ * Response from updating a plan.
+ */
+export interface UpdatePlanResponse {
+  planId: string;
+  version: number;
+  status: string;
+  success: boolean;
+}
+
+/**
+ * A single entry in the plan version history.
+ */
+export interface PlanVersionEntry {
+  version: number;
+  changedAt: string;
+  changedBy?: string;
+  changeType: string;
+  changeSummary?: string;
+}
+
+/**
+ * Response containing the version history for a plan.
+ */
+export interface PlanVersionsResponse {
+  planId: string;
+  versions: PlanVersionEntry[];
+}
+
+/**
+ * Response from resuming a paused plan.
+ */
+export interface ResumePlanResponse {
+  planId: string;
+  status: string;
+  approved: boolean;
+  message: string;
+}
+
+/**
+ * Response from rolling back a plan to a previous version.
+ */
+export interface RollbackPlanResponse {
+  /** Plan ID */
+  plan_id: string;
+  /** The version rolled back to */
+  version: number;
+  /** The version that was replaced */
+  previous_version: number;
+  /** Status of the rollback */
+  status: string;
+}
