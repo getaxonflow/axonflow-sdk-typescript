@@ -5400,4 +5400,156 @@ export class AxonFlow {
       body
     );
   }
+
+  /**
+   * Stream real-time execution status updates via Server-Sent Events (SSE).
+   *
+   * Connects to the SSE streaming endpoint and invokes the callback with each
+   * ExecutionStatus update as it arrives. The stream automatically closes when
+   * the execution reaches a terminal state (completed, failed, cancelled, aborted,
+   * or expired).
+   *
+   * @param executionId - The execution ID (plan ID or workflow ID)
+   * @param callback - Function called with each ExecutionStatus update
+   * @param options - Optional configuration including an AbortSignal for cancellation
+   *
+   * @example
+   * ```typescript
+   * // Stream with a callback
+   * await client.streamExecutionStatus('exec_123', (status) => {
+   *   console.log(`Progress: ${status.progress_percent}%`);
+   *   console.log(`Status: ${status.status}`);
+   *   for (const step of status.steps) {
+   *     console.log(`  Step ${step.step_index}: ${step.step_name} - ${step.status}`);
+   *   }
+   * });
+   *
+   * // Stream with abort support
+   * const controller = new AbortController();
+   * setTimeout(() => controller.abort(), 60000); // timeout after 1 minute
+   * await client.streamExecutionStatus('exec_123', (status) => {
+   *   console.log(`${status.status}: ${status.progress_percent}%`);
+   * }, { signal: controller.signal });
+   * ```
+   */
+  async streamExecutionStatus(
+    executionId: string,
+    callback: (status: ExecutionStatus) => void,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    if (!executionId) {
+      throw new ConfigurationError('Execution ID is required');
+    }
+
+    const url = `${this.config.endpoint}/api/v1/executions/${executionId}/stream`;
+    const headers = this.buildAuthHeaders();
+    // Override Content-Type for SSE — Accept is what matters
+    headers['Accept'] = 'text/event-stream';
+    delete headers['Content-Type'];
+
+    if (this.config.debug) {
+      debugLog('Streaming execution status', { executionId, url });
+    }
+
+    const fetchOptions: RequestInit = {
+      method: 'GET',
+      headers,
+    };
+
+    if (options?.signal) {
+      fetchOptions.signal = options.signal;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(url, fetchOptions);
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return; // Clean exit on abort
+      }
+      throw error;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 401 || response.status === 403) {
+        throw new AuthenticationError(`Stream request failed: ${errorText}`);
+      }
+      if (response.status === 404) {
+        throw new APIError(404, 'Not Found', errorText);
+      }
+      throw new APIError(response.status, response.statusText, errorText);
+    }
+
+    if (!response.body) {
+      throw new APIError(0, 'No Body', 'SSE response has no body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete SSE events (separated by double newline)
+        const events = buffer.split('\n\n');
+        // Keep the last (potentially incomplete) chunk in the buffer
+        buffer = events.pop() || '';
+
+        for (const event of events) {
+          const trimmed = event.trim();
+          if (!trimmed) {
+            continue;
+          }
+
+          // Parse SSE data lines
+          for (const line of trimmed.split('\n')) {
+            if (line.startsWith('data: ')) {
+              const jsonStr = line.slice(6);
+              if (!jsonStr || jsonStr === '[DONE]') {
+                continue;
+              }
+              try {
+                const status: ExecutionStatus = JSON.parse(jsonStr);
+                callback(status);
+
+                // Check for terminal status — stream is done
+                if (
+                  status.status === 'completed' ||
+                  status.status === 'failed' ||
+                  status.status === 'cancelled' ||
+                  status.status === 'aborted' ||
+                  status.status === 'expired'
+                ) {
+                  return;
+                }
+              } catch (parseError) {
+                if (this.config.debug) {
+                  debugLog('Failed to parse SSE data', { jsonStr, error: parseError });
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return; // Clean exit on abort
+      }
+      throw error;
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        // Reader may already be released
+      }
+    }
+  }
 }
