@@ -62,7 +62,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unified Execution Tracking** (Issue #1075 - EPIC #1074): Consistent status tracking for MAP plans and WCP workflows
   - `getExecutionStatus(executionId)` - Get unified execution status by ID
   - `listUnifiedExecutions(options)` - List executions with type/status filters
-  - `cancelExecution(executionId, reason?)` - Cancel a unified execution via `POST /api/v1/unified/executions/{id}/cancel`. Propagates to MAP `CancelPlan()` or WCP `AbortWorkflow()` based on execution type
   - `ExecutionStatus` type with unified fields for both MAP and WCP executions
   - `ExecutionType` enum: `map_plan`, `wcp_workflow`
   - `ExecutionStatusValue` enum: `pending`, `running`, `completed`, `failed`, `cancelled`, `aborted`, `expired`
@@ -128,18 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Unified execution API URLs** (EPIC #1074): `getExecutionStatus()` and `listUnifiedExecutions()` now use correct `/api/v1/unified/executions` path (was incorrectly pointing to `/api/v1/executions` which is the Execution Replay API)
 - **Gateway Mode smart defaults**: Fixed fallback to `"community"` when no clientId is configured - previously defaulted to `"default"` due to tenant default value
 - **PolicyCategory**: Added `pii-singapore` to PolicyCategory type for Singapore PII detection policies (NRIC, FIN, UEN patterns)
-
----
-
-## [3.2.0] - 2026-02-05
-
-### Added
-
-- **Dynamic policy tier support**: `tier` (`PolicyTier`) and `organizationId` fields on `CreateDynamicPolicyRequest`, `UpdateDynamicPolicyRequest`, and `DynamicPolicy` response. Defaults to `tenant` when not specified.
-- **`ListDynamicPoliciesOptions` filters**: Filter dynamic policies by `tier` and `organizationId`, matching static policy list options.
 
 ---
 
