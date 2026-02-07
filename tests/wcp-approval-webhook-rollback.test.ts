@@ -5,11 +5,7 @@
  */
 
 import { AxonFlow } from '../src/client';
-import {
-  ConfigurationError,
-  AuthenticationError,
-  APIError,
-} from '../src/errors';
+import { ConfigurationError, AuthenticationError, APIError } from '../src/errors';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
@@ -997,9 +993,7 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
 
     it('should throw ConfigurationError when stepId is empty', async () => {
       await expect(client.markStepCompleted('wf_123', '')).rejects.toThrow(ConfigurationError);
-      await expect(client.markStepCompleted('wf_123', '')).rejects.toThrow(
-        'Step ID is required'
-      );
+      await expect(client.markStepCompleted('wf_123', '')).rejects.toThrow('Step ID is required');
     });
   });
 
