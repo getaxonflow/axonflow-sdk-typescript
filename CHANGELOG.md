@@ -5,6 +5,45 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0]
+
+### Added
+
+- **WCP Approval Gates** (Issue #1169): HITL approval and rejection for workflow steps
+  - `approveStep(workflowId, stepId)` - Approve a pending workflow step
+  - `rejectStep(workflowId, stepId, reason?)` - Reject a step with optional reason
+  - `getPendingApprovals(options?)` - List steps awaiting human approval
+
+- **MAP Plan Cancellation** (Issue #1072): Cancel running multi-agent plans
+  - `cancelPlan(planId, reason?)` - Cancel a plan with optional reason
+
+- **MAP Plan Update** (Issue #1072): Modify plan configuration before or during execution
+  - `updatePlan(planId, request)` - Update execution mode, domain, or version
+
+- **MAP Plan Versioning and Rollback** (Issue #1072): Version history and rollback support
+  - `getPlanVersions(planId)` - List plan version history
+  - `rollbackPlan(planId, version)` - Rollback to a previous version (returns 409 on version conflict)
+  - New types: `RollbackPlanResponse` (with `planId`, `version`, `previousVersion`, `status`), `PlanVersion`
+
+- **Webhook Subscriptions** (Issue #1169): Event notification management
+  - `createWebhook(request)` - Create a webhook subscription for gate decisions, workflow events
+  - `listWebhooks()` - List active webhook subscriptions
+  - `getWebhook(webhookId)` - Get webhook subscription details
+  - `updateWebhook(webhookId, request)` - Update webhook URL, events, or secret
+  - `deleteWebhook(webhookId)` - Delete a webhook subscription
+  - New type: `WebhookSubscription`
+
+- **Unified Execution Cancellation** (EPIC #1074): Cancel running executions across both MAP and WCP subsystems
+  - `cancelExecution(executionId, reason?)` - Cancel a unified execution via `POST /api/v1/unified/executions/{id}/cancel`
+  - Propagates to MAP `cancelPlan()` or WCP `abortWorkflow()` based on execution type
+
+### Fixed
+
+- **Unified execution API URLs** (EPIC #1074): `getExecutionStatus()` and `listUnifiedExecutions()` now use correct `/api/v1/unified/executions` path (was incorrectly pointing to `/api/v1/executions` which is the Execution Replay API)
+- **`RollbackPlanResponse` field naming**: Response fields use camelCase (`planId`, `previousVersion`) consistent with TypeScript conventions
+
+---
+
 ## [3.2.0] (Unreleased)
 
 ### Breaking Changes
@@ -23,7 +62,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unified Execution Tracking** (Issue #1075 - EPIC #1074): Consistent status tracking for MAP plans and WCP workflows
   - `getExecutionStatus(executionId)` - Get unified execution status by ID
   - `listUnifiedExecutions(options)` - List executions with type/status filters
-  - `cancelExecution(executionId, reason?)` - Cancel a unified execution via `POST /api/v1/unified/executions/{id}/cancel`. Propagates to MAP `CancelPlan()` or WCP `AbortWorkflow()` based on execution type
   - `ExecutionStatus` type with unified fields for both MAP and WCP executions
   - `ExecutionType` enum: `map_plan`, `wcp_workflow`
   - `ExecutionStatusValue` enum: `pending`, `running`, `completed`, `failed`, `cancelled`, `aborted`, `expired`
@@ -89,18 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Unified execution API URLs** (EPIC #1074): `getExecutionStatus()` and `listUnifiedExecutions()` now use correct `/api/v1/unified/executions` path (was incorrectly pointing to `/api/v1/executions` which is the Execution Replay API)
 - **Gateway Mode smart defaults**: Fixed fallback to `"community"` when no clientId is configured - previously defaulted to `"default"` due to tenant default value
 - **PolicyCategory**: Added `pii-singapore` to PolicyCategory type for Singapore PII detection policies (NRIC, FIN, UEN patterns)
-
----
-
-## [3.2.0] - 2026-02-05
-
-### Added
-
-- **Dynamic policy tier support**: `tier` (`PolicyTier`) and `organizationId` fields on `CreateDynamicPolicyRequest`, `UpdateDynamicPolicyRequest`, and `DynamicPolicy` response. Defaults to `tenant` when not specified.
-- **`ListDynamicPoliciesOptions` filters**: Filter dynamic policies by `tier` and `organizationId`, matching static policy list options.
 
 ---
 
