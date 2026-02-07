@@ -158,11 +158,11 @@ export interface ResumePlanResponse {
  */
 export interface RollbackPlanResponse {
   /** Plan ID */
-  plan_id: string;
+  planId: string;
   /** The version rolled back to */
   version: number;
   /** The version that was replaced */
-  previous_version: number;
+  previousVersion: number;
   /** Status of the rollback */
   status: string;
 }

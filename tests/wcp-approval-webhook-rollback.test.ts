@@ -214,9 +214,9 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
 
       const result = await client.rollbackPlan('plan_123', 2);
 
-      expect(result.plan_id).toBe('plan_123');
+      expect(result.planId).toBe('plan_123');
       expect(result.version).toBe(2);
-      expect(result.previous_version).toBe(5);
+      expect(result.previousVersion).toBe(5);
       expect(result.status).toBe('rolled_back');
       expect(mockFetch).toHaveBeenCalledWith(
         'http://localhost:8080/api/v1/plan/plan_123/rollback/2',
@@ -224,7 +224,7 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
       );
     });
 
-    it('should use plan_id fallback from parameter when not in response', async () => {
+    it('should use planId fallback from parameter when not in response', async () => {
       mockFetch.mockResolvedValueOnce(
         mockResponse({
           version: 1,
@@ -235,7 +235,7 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
 
       const result = await client.rollbackPlan('plan_abc', 1);
 
-      expect(result.plan_id).toBe('plan_abc');
+      expect(result.planId).toBe('plan_abc');
     });
 
     it('should throw PlanExecutionError on failure', async () => {
@@ -497,7 +497,7 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
 
       const result = await debugClient.rollbackPlan('plan_debug', 1);
 
-      expect(result.plan_id).toBe('plan_debug');
+      expect(result.planId).toBe('plan_debug');
       expect(result.version).toBe(1);
     });
   });

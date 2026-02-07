@@ -4325,7 +4325,7 @@ export class AxonFlow {
    * @example
    * ```typescript
    * const result = await client.rollbackPlan('plan_123', 2);
-   * console.log(`Rolled back to v${result.version} from v${result.previous_version}`);
+   * console.log(`Rolled back to v${result.version} from v${result.previousVersion}`);
    * ```
    */
   async rollbackPlan(planId: string, targetVersion: number): Promise<RollbackPlanResponse> {
@@ -4359,9 +4359,9 @@ export class AxonFlow {
     }
 
     return {
-      plan_id: data.plan_id || planId,
+      planId: data.plan_id || planId,
       version: data.version,
-      previous_version: data.previous_version,
+      previousVersion: data.previous_version,
       status: data.status,
     };
   }
