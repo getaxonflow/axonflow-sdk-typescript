@@ -1020,7 +1020,12 @@ export class AxonFlow {
    * @param userToken - Optional user token for authentication (defaults to tenant/client_id)
    * @param options - Optional plan generation options (execution mode, etc.)
    */
-  async generatePlan(query: string, domain?: string, userToken?: string, options?: GeneratePlanOptions): Promise<PlanResponse> {
+  async generatePlan(
+    query: string,
+    domain?: string,
+    userToken?: string,
+    options?: GeneratePlanOptions
+  ): Promise<PlanResponse> {
     const context: Record<string, any> = {};
     if (domain) {
       context.domain = domain;
@@ -1263,11 +1268,7 @@ export class AxonFlow {
 
     if (response.status === 409) {
       const errorData = await response.json().catch(() => ({}));
-      throw new VersionConflictError(
-        planId,
-        request.version,
-        errorData.current_version
-      );
+      throw new VersionConflictError(planId, request.version, errorData.current_version);
     }
 
     if (!response.ok) {
@@ -4254,7 +4255,11 @@ export class AxonFlow {
    * console.log(`Step ${result.step_id} status: ${result.status}`);
    * ```
    */
-  async rejectStep(workflowId: string, stepId: string, reason?: string): Promise<RejectStepResponse> {
+  async rejectStep(
+    workflowId: string,
+    stepId: string,
+    reason?: string
+  ): Promise<RejectStepResponse> {
     if (!workflowId) {
       throw new ConfigurationError('Workflow ID is required');
     }
@@ -4382,11 +4387,7 @@ export class AxonFlow {
    * ```
    */
   async createWebhook(request: CreateWebhookRequest): Promise<WebhookSubscription> {
-    return this.orchestratorRequest<WebhookSubscription>(
-      'POST',
-      '/api/v1/webhooks',
-      request
-    );
+    return this.orchestratorRequest<WebhookSubscription>('POST', '/api/v1/webhooks', request);
   }
 
   /**
@@ -4406,10 +4407,7 @@ export class AxonFlow {
       throw new ConfigurationError('Webhook ID is required');
     }
 
-    return this.orchestratorRequest<WebhookSubscription>(
-      'GET',
-      `/api/v1/webhooks/${webhookId}`
-    );
+    return this.orchestratorRequest<WebhookSubscription>('GET', `/api/v1/webhooks/${webhookId}`);
   }
 
   /**
@@ -4427,7 +4425,10 @@ export class AxonFlow {
    * });
    * ```
    */
-  async updateWebhook(webhookId: string, request: UpdateWebhookRequest): Promise<WebhookSubscription> {
+  async updateWebhook(
+    webhookId: string,
+    request: UpdateWebhookRequest
+  ): Promise<WebhookSubscription> {
     if (!webhookId) {
       throw new ConfigurationError('Webhook ID is required');
     }
@@ -4454,10 +4455,7 @@ export class AxonFlow {
       throw new ConfigurationError('Webhook ID is required');
     }
 
-    await this.orchestratorRequest(
-      'DELETE',
-      `/api/v1/webhooks/${webhookId}`
-    );
+    await this.orchestratorRequest('DELETE', `/api/v1/webhooks/${webhookId}`);
   }
 
   /**
@@ -4475,10 +4473,7 @@ export class AxonFlow {
    * ```
    */
   async listWebhooks(): Promise<ListWebhooksResponse> {
-    return this.orchestratorRequest<ListWebhooksResponse>(
-      'GET',
-      '/api/v1/webhooks'
-    );
+    return this.orchestratorRequest<ListWebhooksResponse>('GET', '/api/v1/webhooks');
   }
 
   // ===========================================================================
@@ -5305,7 +5300,10 @@ export class AxonFlow {
       debugLog('Getting execution status', { executionId });
     }
 
-    return this.orchestratorRequest<ExecutionStatus>('GET', `/api/v1/unified/executions/${executionId}`);
+    return this.orchestratorRequest<ExecutionStatus>(
+      'GET',
+      `/api/v1/unified/executions/${executionId}`
+    );
   }
 
   /**
@@ -5365,7 +5363,9 @@ export class AxonFlow {
     }
 
     const queryString = params.toString();
-    const path = queryString ? `/api/v1/unified/executions?${queryString}` : '/api/v1/unified/executions';
+    const path = queryString
+      ? `/api/v1/unified/executions?${queryString}`
+      : '/api/v1/unified/executions';
 
     if (this.config.debug) {
       debugLog('Listing unified executions', { options });
@@ -5394,6 +5394,10 @@ export class AxonFlow {
     }
 
     const body = reason ? { reason } : {};
-    await this.orchestratorRequest('POST', `/api/v1/unified/executions/${executionId}/cancel`, body);
+    await this.orchestratorRequest(
+      'POST',
+      `/api/v1/unified/executions/${executionId}/cancel`,
+      body
+    );
   }
 }

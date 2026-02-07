@@ -121,11 +121,13 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
     });
 
     it('should not include reason in body when not provided', async () => {
-      mockFetch.mockResolvedValueOnce(mockResponse({
-        workflow_id: 'wf_123',
-        step_id: 'step_456',
-        status: 'rejected',
-      }));
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({
+          workflow_id: 'wf_123',
+          step_id: 'step_456',
+          status: 'rejected',
+        })
+      );
 
       await client.rejectStep('wf_123', 'step_456');
 
@@ -222,11 +224,13 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
     });
 
     it('should use plan_id fallback from parameter when not in response', async () => {
-      mockFetch.mockResolvedValueOnce(mockResponse({
-        version: 1,
-        previous_version: 3,
-        status: 'rolled_back',
-      }));
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({
+          version: 1,
+          previous_version: 3,
+          status: 'rolled_back',
+        })
+      );
 
       const result = await client.rollbackPlan('plan_abc', 1);
 
@@ -236,9 +240,7 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
     it('should throw PlanExecutionError on failure', async () => {
       mockFetch.mockResolvedValueOnce(mockResponse({ error: 'Version not found' }, 400));
 
-      await expect(client.rollbackPlan('plan_123', 99)).rejects.toThrow(
-        'Plan rollback failed'
-      );
+      await expect(client.rollbackPlan('plan_123', 99)).rejects.toThrow('Plan rollback failed');
     });
   });
 
@@ -383,7 +385,9 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
 
     it('should throw ConfigurationError when webhookId is empty', async () => {
       await expect(client.updateWebhook('', { active: false })).rejects.toThrow(ConfigurationError);
-      await expect(client.updateWebhook('', { active: false })).rejects.toThrow('Webhook ID is required');
+      await expect(client.updateWebhook('', { active: false })).rejects.toThrow(
+        'Webhook ID is required'
+      );
     });
   });
 
