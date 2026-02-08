@@ -507,9 +507,7 @@ describe('streamExecutionStatus', () => {
   });
 
   it('should throw ConfigurationError for empty executionId', async () => {
-    await expect(
-      client.streamExecutionStatus('', () => {})
-    ).rejects.toThrow(ConfigurationError);
+    await expect(client.streamExecutionStatus('', () => {})).rejects.toThrow(ConfigurationError);
   });
 
   it('should throw AuthenticationError on 401 response', async () => {
@@ -520,9 +518,9 @@ describe('streamExecutionStatus', () => {
       text: () => Promise.resolve('Unauthorized'),
     });
 
-    await expect(
-      client.streamExecutionStatus('exec_123', () => {})
-    ).rejects.toThrow(AuthenticationError);
+    await expect(client.streamExecutionStatus('exec_123', () => {})).rejects.toThrow(
+      AuthenticationError
+    );
   });
 
   it('should throw AuthenticationError on 403 response', async () => {
@@ -533,9 +531,9 @@ describe('streamExecutionStatus', () => {
       text: () => Promise.resolve('Forbidden'),
     });
 
-    await expect(
-      client.streamExecutionStatus('exec_123', () => {})
-    ).rejects.toThrow(AuthenticationError);
+    await expect(client.streamExecutionStatus('exec_123', () => {})).rejects.toThrow(
+      AuthenticationError
+    );
   });
 
   it('should throw APIError on 404 response', async () => {
@@ -546,9 +544,7 @@ describe('streamExecutionStatus', () => {
       text: () => Promise.resolve('Execution not found'),
     });
 
-    await expect(
-      client.streamExecutionStatus('exec_123', () => {})
-    ).rejects.toThrow(APIError);
+    await expect(client.streamExecutionStatus('exec_123', () => {})).rejects.toThrow(APIError);
   });
 
   it('should throw APIError on 500 response', async () => {
@@ -559,9 +555,7 @@ describe('streamExecutionStatus', () => {
       text: () => Promise.resolve('Server error'),
     });
 
-    await expect(
-      client.streamExecutionStatus('exec_123', () => {})
-    ).rejects.toThrow(APIError);
+    await expect(client.streamExecutionStatus('exec_123', () => {})).rejects.toThrow(APIError);
   });
 
   it('should throw APIError when response has no body', async () => {
@@ -570,9 +564,7 @@ describe('streamExecutionStatus', () => {
       body: null,
     });
 
-    await expect(
-      client.streamExecutionStatus('exec_123', () => {})
-    ).rejects.toThrow(APIError);
+    await expect(client.streamExecutionStatus('exec_123', () => {})).rejects.toThrow(APIError);
   });
 
   it('should stream execution status updates and stop on terminal status', async () => {
@@ -596,7 +588,7 @@ describe('streamExecutionStatus', () => {
     });
 
     const updates: ExecutionStatus[] = [];
-    await client.streamExecutionStatus('exec_123', (status) => {
+    await client.streamExecutionStatus('exec_123', status => {
       updates.push(status);
     });
 
@@ -613,9 +605,7 @@ describe('streamExecutionStatus', () => {
       error: 'Step 2 timed out',
     });
 
-    const sseData = createSSEStream([
-      `data: ${JSON.stringify(failedStatus)}\n\n`,
-    ]);
+    const sseData = createSSEStream([`data: ${JSON.stringify(failedStatus)}\n\n`]);
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -623,7 +613,7 @@ describe('streamExecutionStatus', () => {
     });
 
     const updates: ExecutionStatus[] = [];
-    await client.streamExecutionStatus('exec_123', (status) => {
+    await client.streamExecutionStatus('exec_123', status => {
       updates.push(status);
     });
 
@@ -637,9 +627,7 @@ describe('streamExecutionStatus', () => {
       status: 'cancelled',
     });
 
-    const sseData = createSSEStream([
-      `data: ${JSON.stringify(cancelledStatus)}\n\n`,
-    ]);
+    const sseData = createSSEStream([`data: ${JSON.stringify(cancelledStatus)}\n\n`]);
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -647,7 +635,7 @@ describe('streamExecutionStatus', () => {
     });
 
     const updates: ExecutionStatus[] = [];
-    await client.streamExecutionStatus('exec_123', (status) => {
+    await client.streamExecutionStatus('exec_123', status => {
       updates.push(status);
     });
 
@@ -678,7 +666,7 @@ describe('streamExecutionStatus', () => {
     });
 
     const updates: ExecutionStatus[] = [];
-    await client.streamExecutionStatus('exec_123', (status) => {
+    await client.streamExecutionStatus('exec_123', status => {
       updates.push(status);
     });
 
@@ -703,7 +691,7 @@ describe('streamExecutionStatus', () => {
     });
 
     const updates: ExecutionStatus[] = [];
-    await client.streamExecutionStatus('exec_123', (status) => {
+    await client.streamExecutionStatus('exec_123', status => {
       updates.push(status);
     });
 
@@ -731,9 +719,7 @@ describe('streamExecutionStatus', () => {
       status: 'completed',
     });
 
-    const sseData = createSSEStream([
-      `data: ${JSON.stringify(completedStatus)}\n\n`,
-    ]);
+    const sseData = createSSEStream([`data: ${JSON.stringify(completedStatus)}\n\n`]);
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -768,7 +754,7 @@ describe('streamExecutionStatus', () => {
     });
 
     const updates: ExecutionStatus[] = [];
-    await client.streamExecutionStatus('exec_123', (status) => {
+    await client.streamExecutionStatus('exec_123', status => {
       updates.push(status);
     });
 
@@ -793,7 +779,7 @@ describe('streamExecutionStatus', () => {
     });
 
     const updates: ExecutionStatus[] = [];
-    await client.streamExecutionStatus('exec_123', (status) => {
+    await client.streamExecutionStatus('exec_123', status => {
       updates.push(status);
     });
 
