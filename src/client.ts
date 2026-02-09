@@ -9,6 +9,14 @@ import {
   ConnectorHealthStatus,
   PlanResponse,
   PlanExecutionResponse,
+  GeneratePlanOptions,
+  CancelPlanResponse,
+  UpdatePlanRequest,
+  UpdatePlanResponse,
+  PlanVersionEntry,
+  PlanVersionsResponse,
+  ResumePlanResponse,
+  RollbackPlanResponse,
   PolicyApprovalResult,
   PolicyApprovalOptions,
   AuditResult,
@@ -85,6 +93,16 @@ import {
   ListWorkflowsResponse,
   AbortWorkflowRequest,
   MarkStepCompletedRequest,
+  // WCP Approval types
+  ApproveStepResponse,
+  RejectStepResponse,
+  PendingApprovalsResponse,
+  PendingApprovalsOptions,
+  // Webhook CRUD types
+  CreateWebhookRequest,
+  WebhookSubscription,
+  UpdateWebhookRequest,
+  ListWebhooksResponse,
   // MAS FEAT types (Enterprise)
   RegisterSystemRequest,
   UpdateSystemRequest,
@@ -117,6 +135,7 @@ import {
   ConfigurationError,
   ConnectorError,
   PlanExecutionError,
+  VersionConflictError,
 } from './errors';
 import { generateRequestId, debugLog } from './utils/helpers';
 
@@ -999,14 +1018,28 @@ export class AxonFlow {
    * @param query - Natural language query describing the task
    * @param domain - Optional domain hint (travel, healthcare, etc.)
    * @param userToken - Optional user token for authentication (defaults to tenant/client_id)
+   * @param options - Optional plan generation options (execution mode, etc.)
    */
-  async generatePlan(query: string, domain?: string, userToken?: string): Promise<PlanResponse> {
+  async generatePlan(
+    query: string,
+    domain?: string,
+    userToken?: string,
+    options?: GeneratePlanOptions
+  ): Promise<PlanResponse> {
+    const context: Record<string, any> = {};
+    if (domain) {
+      context.domain = domain;
+    }
+    if (options?.executionMode) {
+      context.execution_mode = options.executionMode;
+    }
+
     const agentRequest = {
       query,
       user_token: userToken || this.config.clientId || this.config.tenant,
       client_id: this.config.clientId || this.config.tenant,
       request_type: 'multi-agent-plan',
-      context: domain ? { domain } : {},
+      context,
     };
 
     const url = `${this.config.endpoint}/api/request`;
@@ -1100,17 +1133,28 @@ export class AxonFlow {
 
     const agentResponse = await response.json();
 
+    // Detect nested data.success=false (agent wraps orchestrator errors)
+    let success = agentResponse.success;
+    let error = agentResponse.error;
+    let result = agentResponse.result;
+    const data = agentResponse.data;
+    if (data && typeof data === 'object' && data.success === false) {
+      success = false;
+      if (data.error && !error) error = data.error;
+    }
+    if (!result && data?.result) result = data.result;
+
     if (this.config.debug) {
-      debugLog('Plan executed', { planId, success: agentResponse.success });
+      debugLog('Plan executed', { planId, success });
     }
 
     return {
       planId,
-      status: agentResponse.success ? 'completed' : 'failed',
-      result: agentResponse.result,
-      stepResults: agentResponse.metadata?.step_results,
-      error: agentResponse.error,
-      duration: agentResponse.metadata?.duration,
+      status: success ? 'completed' : 'failed',
+      result,
+      stepResults: agentResponse.metadata?.step_results ?? data?.metadata?.step_results,
+      error,
+      duration: agentResponse.metadata?.duration ?? data?.metadata?.duration,
     };
   }
 
@@ -1141,6 +1185,197 @@ export class AxonFlow {
       stepResults: status.step_results,
       error: status.error,
       duration: status.duration,
+    };
+  }
+
+  /**
+   * Cancel a running or pending plan
+   * @param planId - ID of the plan to cancel
+   * @param reason - Optional reason for cancellation
+   */
+  async cancelPlan(planId: string, reason?: string): Promise<CancelPlanResponse> {
+    const url = `${this.config.endpoint}/api/v1/plan/${planId}/cancel`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
+    };
+
+    const body: Record<string, any> = {};
+    if (reason) {
+      body.reason = reason;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.mapTimeout),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new PlanExecutionError(
+        `Plan cancellation failed: ${response.status} ${response.statusText} - ${errorText}`,
+        planId,
+        'cancel'
+      );
+    }
+
+    const data = await response.json();
+
+    if (this.config.debug) {
+      debugLog('Plan cancelled', { planId, status: data.status });
+    }
+
+    return {
+      planId: data.plan_id || planId,
+      status: data.status,
+      message: data.message,
+    };
+  }
+
+  /**
+   * Update a plan with optimistic concurrency control.
+   * Throws VersionConflictError on 409 (version mismatch).
+   * @param planId - ID of the plan to update
+   * @param request - Update request with version and fields to change
+   */
+  async updatePlan(planId: string, request: UpdatePlanRequest): Promise<UpdatePlanResponse> {
+    const url = `${this.config.endpoint}/api/v1/plan/${planId}`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
+    };
+
+    const body: Record<string, any> = {
+      version: request.version,
+    };
+    if (request.executionMode) {
+      body.execution_mode = request.executionMode;
+    }
+    if (request.domain) {
+      body.domain = request.domain;
+    }
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.mapTimeout),
+    });
+
+    if (response.status === 409) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new VersionConflictError(planId, request.version, errorData.current_version);
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new PlanExecutionError(
+        `Plan update failed: ${response.status} ${response.statusText} - ${errorText}`,
+        planId,
+        'update'
+      );
+    }
+
+    const data = await response.json();
+
+    if (this.config.debug) {
+      debugLog('Plan updated', { planId, version: data.version });
+    }
+
+    return {
+      planId: data.plan_id || planId,
+      version: data.version,
+      status: data.status,
+      success: data.success ?? true,
+    };
+  }
+
+  /**
+   * Get version history for a plan
+   * @param planId - ID of the plan
+   */
+  async getPlanVersions(planId: string): Promise<PlanVersionsResponse> {
+    const url = `${this.config.endpoint}/api/v1/plan/${planId}/versions`;
+
+    const headers: Record<string, string> = {
+      ...this.getAuthHeaders(),
+    };
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new PlanExecutionError(
+        `Get plan versions failed: ${response.status} ${response.statusText} - ${errorText}`,
+        planId,
+        'versions'
+      );
+    }
+
+    const data = await response.json();
+
+    const versions: PlanVersionEntry[] = (data.versions || []).map((v: any) => ({
+      version: v.version,
+      changedAt: v.changed_at,
+      changedBy: v.changed_by,
+      changeType: v.change_type,
+      changeSummary: v.change_summary,
+    }));
+
+    return {
+      planId: data.plan_id || planId,
+      versions,
+    };
+  }
+
+  /**
+   * Resume a paused plan (e.g., after approval gate or confirm mode)
+   * @param planId - ID of the plan to resume
+   * @param approved - Whether the plan is approved to proceed (defaults to true)
+   */
+  async resumePlan(planId: string, approved?: boolean): Promise<ResumePlanResponse> {
+    const url = `${this.config.endpoint}/api/v1/plan/${planId}/resume`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ approved: approved ?? true }),
+      signal: AbortSignal.timeout(this.config.mapTimeout),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new PlanExecutionError(
+        `Plan resume failed: ${response.status} ${response.statusText} - ${errorText}`,
+        planId,
+        'resume'
+      );
+    }
+
+    const data = await response.json();
+
+    if (this.config.debug) {
+      debugLog('Plan resumed', { planId, approved: data.approved });
+    }
+
+    return {
+      planId: data.plan_id || planId,
+      status: data.status,
+      approved: data.approved,
+      message: data.message,
     };
   }
 
@@ -3970,6 +4205,277 @@ export class AxonFlow {
     return response;
   }
 
+  // =============================================================================
+  // WCP Approval Methods (Feature 5)
+  // =============================================================================
+
+  /**
+   * Approve a workflow step that requires human approval.
+   *
+   * Call this to approve a step that was gated with a 'require_approval' decision.
+   *
+   * @param workflowId - ID of the workflow
+   * @param stepId - ID of the step to approve
+   * @returns Approval response with status
+   *
+   * @example
+   * ```typescript
+   * const result = await client.approveStep('wf_123', 'step_456');
+   * console.log(`Step ${result.step_id} status: ${result.status}`);
+   * ```
+   */
+  async approveStep(workflowId: string, stepId: string): Promise<ApproveStepResponse> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+    if (!stepId) {
+      throw new ConfigurationError('Step ID is required');
+    }
+
+    return this.orchestratorRequest<ApproveStepResponse>(
+      'POST',
+      `/api/v1/workflow-control/${workflowId}/steps/${stepId}/approve`,
+      {}
+    );
+  }
+
+  /**
+   * Reject a workflow step that requires human approval.
+   *
+   * Call this to reject a step that was gated with a 'require_approval' decision.
+   *
+   * @param workflowId - ID of the workflow
+   * @param stepId - ID of the step to reject
+   * @param reason - Optional reason for rejection
+   * @returns Rejection response with status
+   *
+   * @example
+   * ```typescript
+   * const result = await client.rejectStep('wf_123', 'step_456', 'Policy violation detected');
+   * console.log(`Step ${result.step_id} status: ${result.status}`);
+   * ```
+   */
+  async rejectStep(
+    workflowId: string,
+    stepId: string,
+    reason?: string
+  ): Promise<RejectStepResponse> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+    if (!stepId) {
+      throw new ConfigurationError('Step ID is required');
+    }
+
+    const body: Record<string, unknown> = {};
+    if (reason) {
+      body.reason = reason;
+    }
+
+    return this.orchestratorRequest<RejectStepResponse>(
+      'POST',
+      `/api/v1/workflow-control/${workflowId}/steps/${stepId}/reject`,
+      body
+    );
+  }
+
+  /**
+   * Get pending approvals for workflow steps.
+   *
+   * Lists all steps that are waiting for human approval across all workflows.
+   *
+   * @param options - Optional filtering options
+   * @returns List of pending approvals with total count
+   *
+   * @example
+   * ```typescript
+   * const pending = await client.getPendingApprovals({ limit: 10 });
+   * console.log(`${pending.total} approvals pending`);
+   * for (const approval of pending.approvals) {
+   *   console.log(`${approval.workflow_name} / ${approval.step_name}`);
+   * }
+   * ```
+   */
+  async getPendingApprovals(options?: PendingApprovalsOptions): Promise<PendingApprovalsResponse> {
+    const params = new URLSearchParams();
+
+    if (options?.limit !== undefined) {
+      params.set('limit', options.limit.toString());
+    }
+
+    const queryString = params.toString();
+    const path = queryString
+      ? `/api/v1/workflow-control/pending-approvals?${queryString}`
+      : '/api/v1/workflow-control/pending-approvals';
+
+    return this.orchestratorRequest<PendingApprovalsResponse>('GET', path);
+  }
+
+  // =============================================================================
+  // Plan Rollback (Feature 7)
+  // =============================================================================
+
+  /**
+   * Rollback a plan to a previous version.
+   *
+   * @param planId - ID of the plan to rollback
+   * @param targetVersion - Version number to rollback to
+   * @returns Rollback response with version information
+   *
+   * @example
+   * ```typescript
+   * const result = await client.rollbackPlan('plan_123', 2);
+   * console.log(`Rolled back to v${result.version} from v${result.previousVersion}`);
+   * ```
+   */
+  async rollbackPlan(planId: string, targetVersion: number): Promise<RollbackPlanResponse> {
+    const url = `${this.config.endpoint}/api/v1/plan/${planId}/rollback/${targetVersion}`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(this.config.mapTimeout),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new PlanExecutionError(
+        `Plan rollback failed: ${response.status} ${response.statusText} - ${errorText}`,
+        planId,
+        'rollback'
+      );
+    }
+
+    const data = await response.json();
+
+    if (this.config.debug) {
+      debugLog('Plan rolled back', { planId, version: data.version });
+    }
+
+    return {
+      planId: data.plan_id || planId,
+      version: data.version,
+      previousVersion: data.previous_version,
+      status: data.status,
+    };
+  }
+
+  // =============================================================================
+  // Webhook CRUD Methods (Feature 7)
+  // =============================================================================
+
+  /**
+   * Create a webhook subscription.
+   *
+   * @param request - Webhook configuration
+   * @returns Created webhook subscription
+   *
+   * @example
+   * ```typescript
+   * const webhook = await client.createWebhook({
+   *   url: 'https://example.com/webhook',
+   *   events: ['workflow.completed', 'step.approval_required'],
+   *   active: true
+   * });
+   * console.log(`Webhook created: ${webhook.id}`);
+   * ```
+   */
+  async createWebhook(request: CreateWebhookRequest): Promise<WebhookSubscription> {
+    return this.orchestratorRequest<WebhookSubscription>('POST', '/api/v1/webhooks', request);
+  }
+
+  /**
+   * Get a webhook subscription by ID.
+   *
+   * @param webhookId - ID of the webhook to retrieve
+   * @returns Webhook subscription details
+   *
+   * @example
+   * ```typescript
+   * const webhook = await client.getWebhook('wh_123');
+   * console.log(`Webhook URL: ${webhook.url}, Active: ${webhook.active}`);
+   * ```
+   */
+  async getWebhook(webhookId: string): Promise<WebhookSubscription> {
+    if (!webhookId) {
+      throw new ConfigurationError('Webhook ID is required');
+    }
+
+    return this.orchestratorRequest<WebhookSubscription>('GET', `/api/v1/webhooks/${webhookId}`);
+  }
+
+  /**
+   * Update a webhook subscription.
+   *
+   * @param webhookId - ID of the webhook to update
+   * @param request - Fields to update
+   * @returns Updated webhook subscription
+   *
+   * @example
+   * ```typescript
+   * const webhook = await client.updateWebhook('wh_123', {
+   *   events: ['workflow.completed'],
+   *   active: false
+   * });
+   * ```
+   */
+  async updateWebhook(
+    webhookId: string,
+    request: UpdateWebhookRequest
+  ): Promise<WebhookSubscription> {
+    if (!webhookId) {
+      throw new ConfigurationError('Webhook ID is required');
+    }
+
+    return this.orchestratorRequest<WebhookSubscription>(
+      'PUT',
+      `/api/v1/webhooks/${webhookId}`,
+      request
+    );
+  }
+
+  /**
+   * Delete a webhook subscription.
+   *
+   * @param webhookId - ID of the webhook to delete
+   *
+   * @example
+   * ```typescript
+   * await client.deleteWebhook('wh_123');
+   * ```
+   */
+  async deleteWebhook(webhookId: string): Promise<void> {
+    if (!webhookId) {
+      throw new ConfigurationError('Webhook ID is required');
+    }
+
+    await this.orchestratorRequest('DELETE', `/api/v1/webhooks/${webhookId}`);
+  }
+
+  /**
+   * List all webhook subscriptions.
+   *
+   * @returns List of webhook subscriptions with total count
+   *
+   * @example
+   * ```typescript
+   * const result = await client.listWebhooks();
+   * console.log(`${result.total} webhooks configured`);
+   * for (const wh of result.webhooks) {
+   *   console.log(`${wh.id}: ${wh.url} (${wh.active ? 'active' : 'inactive'})`);
+   * }
+   * ```
+   */
+  async listWebhooks(): Promise<ListWebhooksResponse> {
+    return this.orchestratorRequest<ListWebhooksResponse>('GET', '/api/v1/webhooks');
+  }
+
   // ===========================================================================
   // MAS FEAT Compliance Methods (Enterprise)
   // ===========================================================================
@@ -4794,7 +5300,10 @@ export class AxonFlow {
       debugLog('Getting execution status', { executionId });
     }
 
-    return this.orchestratorRequest<ExecutionStatus>('GET', `/api/v1/executions/${executionId}`);
+    return this.orchestratorRequest<ExecutionStatus>(
+      'GET',
+      `/api/v1/unified/executions/${executionId}`
+    );
   }
 
   /**
@@ -4854,12 +5363,41 @@ export class AxonFlow {
     }
 
     const queryString = params.toString();
-    const path = queryString ? `/api/v1/executions?${queryString}` : '/api/v1/executions';
+    const path = queryString
+      ? `/api/v1/unified/executions?${queryString}`
+      : '/api/v1/unified/executions';
 
     if (this.config.debug) {
       debugLog('Listing unified executions', { options });
     }
 
     return this.orchestratorRequest<UnifiedListExecutionsResponse>('GET', path);
+  }
+
+  /**
+   * Cancel a unified execution (MAP plan or WCP workflow).
+   *
+   * This method cancels an execution via the unified execution API,
+   * automatically propagating to the correct subsystem (MAP or WCP).
+   *
+   * @param executionId - The execution ID (plan ID or workflow ID)
+   * @param reason - Optional reason for cancellation
+   *
+   * @example
+   * ```typescript
+   * await client.cancelExecution('wf_abc123', 'User requested cancellation');
+   * ```
+   */
+  async cancelExecution(executionId: string, reason?: string): Promise<void> {
+    if (!executionId) {
+      throw new ConfigurationError('Execution ID is required');
+    }
+
+    const body = reason ? { reason } : {};
+    await this.orchestratorRequest(
+      'POST',
+      `/api/v1/unified/executions/${executionId}/cancel`,
+      body
+    );
   }
 }

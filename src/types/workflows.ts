@@ -194,6 +194,128 @@ export interface MarkStepCompletedRequest {
   metadata?: Record<string, unknown>;
 }
 
+// =============================================================================
+// WCP Approval Types (Feature 5)
+// =============================================================================
+
+/**
+ * Response from approving a workflow step.
+ */
+export interface ApproveStepResponse {
+  /** Workflow ID */
+  workflow_id: string;
+  /** Step ID that was approved */
+  step_id: string;
+  /** Status after approval */
+  status: string;
+}
+
+/**
+ * Response from rejecting a workflow step.
+ */
+export interface RejectStepResponse {
+  /** Workflow ID */
+  workflow_id: string;
+  /** Step ID that was rejected */
+  step_id: string;
+  /** Status after rejection */
+  status: string;
+}
+
+/**
+ * A pending approval for a workflow step.
+ */
+export interface PendingApproval {
+  /** Workflow ID */
+  workflow_id: string;
+  /** Workflow name */
+  workflow_name: string;
+  /** Step ID awaiting approval */
+  step_id: string;
+  /** Step name */
+  step_name: string;
+  /** Step type */
+  step_type: string;
+  /** When the approval was created */
+  created_at: string;
+}
+
+/**
+ * Response from listing pending approvals.
+ */
+export interface PendingApprovalsResponse {
+  /** List of pending approvals */
+  approvals: PendingApproval[];
+  /** Total count */
+  total: number;
+}
+
+/**
+ * Options for listing pending approvals.
+ */
+export interface PendingApprovalsOptions {
+  /** Maximum number of results to return */
+  limit?: number;
+}
+
+// =============================================================================
+// Webhook CRUD Types (Feature 7)
+// =============================================================================
+
+/**
+ * Request to create a webhook subscription.
+ */
+export interface CreateWebhookRequest {
+  /** URL to receive webhook events */
+  url: string;
+  /** Event types to subscribe to */
+  events: string[];
+  /** Optional secret for HMAC signature verification */
+  secret?: string;
+  /** Whether the webhook is active */
+  active: boolean;
+}
+
+/**
+ * A webhook subscription.
+ */
+export interface WebhookSubscription {
+  /** Unique webhook ID */
+  id: string;
+  /** URL receiving webhook events */
+  url: string;
+  /** Event types subscribed to */
+  events: string[];
+  /** Whether the webhook is active */
+  active: boolean;
+  /** When the webhook was created */
+  created_at: string;
+  /** When the webhook was last updated */
+  updated_at: string;
+}
+
+/**
+ * Request to update a webhook subscription.
+ */
+export interface UpdateWebhookRequest {
+  /** New URL (optional) */
+  url?: string;
+  /** New event types (optional) */
+  events?: string[];
+  /** Whether the webhook is active (optional) */
+  active?: boolean;
+}
+
+/**
+ * Response from listing webhooks.
+ */
+export interface ListWebhooksResponse {
+  /** List of webhook subscriptions */
+  webhooks: WebhookSubscription[];
+  /** Total count */
+  total: number;
+}
+
 /**
  * Helper functions for working with workflow types.
  */

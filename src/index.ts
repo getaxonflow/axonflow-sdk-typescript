@@ -61,6 +61,7 @@ export {
   ConnectionError,
   ConnectorError,
   PlanExecutionError,
+  VersionConflictError,
   PolicyViolationError,
   AuthenticationError,
   RateLimitError,
@@ -116,6 +117,24 @@ export type {
   PolicyVersion,
   EffectivePoliciesOptions,
 } from './types/policies';
+
+// Export MAP (Multi-Agent Planning) types
+export type {
+  PlanStep,
+  PlanResponse,
+  PlanExecutionResponse,
+  PolicyMatch,
+  PolicyEvaluationResult,
+  ExecutionMode,
+  GeneratePlanOptions,
+  CancelPlanResponse,
+  UpdatePlanRequest,
+  UpdatePlanResponse,
+  PlanVersionEntry,
+  PlanVersionsResponse,
+  ResumePlanResponse,
+  RollbackPlanResponse,
+} from './types/planning';
 
 // Export Code Governance types (Enterprise)
 export type {
@@ -189,6 +208,17 @@ export type {
   ListWorkflowsResponse,
   AbortWorkflowRequest,
   MarkStepCompletedRequest,
+  // WCP Approval types (Feature 5)
+  ApproveStepResponse,
+  RejectStepResponse,
+  PendingApproval,
+  PendingApprovalsResponse,
+  PendingApprovalsOptions,
+  // Webhook CRUD types (Feature 7)
+  CreateWebhookRequest,
+  WebhookSubscription,
+  UpdateWebhookRequest,
+  ListWebhooksResponse,
 } from './types/workflows';
 export { WorkflowHelpers } from './types/workflows';
 
