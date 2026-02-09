@@ -263,6 +263,14 @@ export interface UnifiedListExecutionsResponse {
 }
 
 /**
+ * Options for the streamExecutionStatus method.
+ */
+export interface StreamExecutionStatusOptions {
+  /** AbortSignal to cancel the SSE stream */
+  signal?: AbortSignal;
+}
+
+/**
  * Helper functions for working with execution types.
  */
 export const ExecutionHelpers = {

@@ -5,7 +5,13 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.3.0]
+## [3.3.0] - 2026-02-10
+
+### Breaking Changes
+
+- **Removed `executeQuery()`**: Use `proxyLLMCall()` instead (deprecated since v2.7.0)
+- **Removed deprecated interceptors**: `wrapOpenAIClient`, `wrapAnthropicClient`, `wrapGeminiModel`, `wrapOllamaClient`, `wrapBedrockClient` (all deprecated since v2.0.0). Entire `src/interceptors/` directory removed.
+- **Removed `ExecuteQueryOptions` and `ExecuteQueryResponse` from public API**: Types kept internally for `proxyLLMCall()` but no longer exported from package index
 
 ### Added
 
@@ -37,28 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `cancelExecution(executionId, reason?)` - Cancel a unified execution via `POST /api/v1/unified/executions/{id}/cancel`
   - Propagates to MAP `cancelPlan()` or WCP `abortWorkflow()` based on execution type
 
-### Fixed
-
-- **Unified execution API URLs** (EPIC #1074): `getExecutionStatus()` and `listUnifiedExecutions()` now use correct `/api/v1/unified/executions` path (was incorrectly pointing to `/api/v1/executions` which is the Execution Replay API)
-- **`RollbackPlanResponse` field naming**: Response fields use camelCase (`planId`, `previousVersion`) consistent with TypeScript conventions
-
----
-
-## [3.2.0] (Unreleased)
-
-### Breaking Changes
-
-- **Removed `executeQuery()`**: Use `proxyLLMCall()` instead (deprecated since v2.7.0)
-- **Removed deprecated interceptors**: `wrapOpenAIClient`, `wrapAnthropicClient`, `wrapGeminiModel`, `wrapOllamaClient`, `wrapBedrockClient` (all deprecated since v2.0.0). Entire `src/interceptors/` directory removed.
-- **Removed `ExecuteQueryOptions` and `ExecuteQueryResponse` from public API**: Types kept internally for `proxyLLMCall()` but no longer exported from package index
-
-### Added
-
-- **`wasRedacted()` helper**: Convenience method on `ConnectorResponse` to check if any fields were redacted by PII policies
-
-- **Dynamic policy tier support**: `tier` (`PolicyTier`) and `organizationId` fields on `CreateDynamicPolicyRequest`, `UpdateDynamicPolicyRequest`, and `DynamicPolicy` response. Defaults to `tenant` when not specified.
-- **`ListDynamicPoliciesOptions` filters**: Filter dynamic policies by `tier` and `organizationId`, matching static policy list options.
-
 - **Unified Execution Tracking** (Issue #1075 - EPIC #1074): Consistent status tracking for MAP plans and WCP workflows
   - `getExecutionStatus(executionId)` - Get unified execution status by ID
   - `listUnifiedExecutions(options)` - List executions with type/status filters
@@ -70,16 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `UnifiedStepStatus` type with step-level details (duration, cost, policy decisions)
   - `ExecutionHelpers` utilities: `isTerminal()`, `isStepTerminal()`, `isStepBlocking()`, `calculateProgress()`, `getCurrentStep()`, `calculateTotalCost()`, `isMapPlan()`, `isWcpWorkflow()`
   - Consistent response format across MAP Multi-Agent Planning and WCP Workflow Control Plane
-
-- **MAS FEAT Compliance Module** (Enterprise): Singapore financial services AI governance
-  - AI System Registry: `masfeat.registerSystem()`, `masfeat.getSystem()`, `masfeat.updateSystem()`, `masfeat.listSystems()`, `masfeat.activateSystem()`, `masfeat.retireSystem()`, `masfeat.getRegistrySummary()`
-  - 3-Dimensional Risk Rating: Customer Impact × Model Complexity × Human Reliance
-  - Materiality Classification: High (sum≥12), Medium (sum≥8), Low (sum<8)
-  - FEAT Assessments: `masfeat.createAssessment()`, `masfeat.getAssessment()`, `masfeat.updateAssessment()`, `masfeat.listAssessments()`, `masfeat.submitAssessment()`, `masfeat.approveAssessment()`, `masfeat.rejectAssessment()`
-  - Assessment Lifecycle: pending → in_progress → completed → approved/rejected
-  - Kill Switch: `masfeat.getKillSwitch()`, `masfeat.configureKillSwitch()`, `masfeat.checkKillSwitch()`, `masfeat.triggerKillSwitch()`, `masfeat.restoreKillSwitch()`, `masfeat.enableKillSwitch()`, `masfeat.disableKillSwitch()`, `masfeat.getKillSwitchHistory()`
-  - Automatic model shutdown based on accuracy, bias, and error rate thresholds
-  - New types: `AISystemRegistry`, `AISystemUseCase`, `MaterialityClassification`, `SystemStatus`, `FEATAssessment`, `FEATAssessmentStatus`, `FEATPillar`, `KillSwitch`, `KillSwitchStatus`, `KillSwitchEvent`, `KillSwitchEventType`, `RegistrySummary`
 
 - **Workflow Control Plane** (Issue #834): Governance gates for external orchestrators
   - "LangChain runs the workflow. AxonFlow decides when it's allowed to move forward."
@@ -101,6 +75,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `PolicyEvaluationResult` interface for MAP execution with `allowed`, `applied_policies`, `risk_score`
   - Workflow operations (`workflow_created`, `workflow_step_gate`, `workflow_completed`) logged to audit trail
 
+- **MAS FEAT Compliance Module** (Enterprise): Singapore financial services AI governance
+  - AI System Registry: `masfeat.registerSystem()`, `masfeat.getSystem()`, `masfeat.updateSystem()`, `masfeat.listSystems()`, `masfeat.activateSystem()`, `masfeat.retireSystem()`, `masfeat.getRegistrySummary()`
+  - 3-Dimensional Risk Rating: Customer Impact × Model Complexity × Human Reliance
+  - Materiality Classification: High (sum≥12), Medium (sum≥8), Low (sum<8)
+  - FEAT Assessments: `masfeat.createAssessment()`, `masfeat.getAssessment()`, `masfeat.updateAssessment()`, `masfeat.listAssessments()`, `masfeat.submitAssessment()`, `masfeat.approveAssessment()`, `masfeat.rejectAssessment()`
+  - Assessment Lifecycle: pending → in_progress → completed → approved/rejected
+  - Kill Switch: `masfeat.getKillSwitch()`, `masfeat.configureKillSwitch()`, `masfeat.checkKillSwitch()`, `masfeat.triggerKillSwitch()`, `masfeat.restoreKillSwitch()`, `masfeat.enableKillSwitch()`, `masfeat.disableKillSwitch()`, `masfeat.getKillSwitchHistory()`
+  - Automatic model shutdown based on accuracy, bias, and error rate thresholds
+  - New types: `AISystemRegistry`, `AISystemUseCase`, `MaterialityClassification`, `SystemStatus`, `FEATAssessment`, `FEATAssessmentStatus`, `FEATPillar`, `KillSwitch`, `KillSwitchStatus`, `KillSwitchEvent`, `KillSwitchEventType`, `RegistrySummary`
+
 - **MCP Exfiltration Detection** (Issue #966): `MCPPolicyInfo` now includes `exfiltration_check` with row/volume limit information
   - `ExfiltrationCheckInfo` type with `rows_returned`, `row_limit`, `bytes_returned`, `byte_limit`, `within_limits` fields
   - Prevents large-scale data extraction via MCP queries
@@ -111,6 +95,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `DynamicPolicyMatch` type with `policy_id`, `policy_name`, `policy_type`, `action`, `reason`
   - Supports rate limiting, budget controls, time-based access, and role-based access policies
   - Optional feature - enable via `MCP_DYNAMIC_POLICIES_ENABLED=true`
+
+- **`wasRedacted()` helper**: Convenience method on `ConnectorResponse` to check if any fields were redacted by PII policies
+
+- **Dynamic policy tier support**: `tier` (`PolicyTier`) and `organizationId` fields on `CreateDynamicPolicyRequest`, `UpdateDynamicPolicyRequest`, and `DynamicPolicy` response. Defaults to `tenant` when not specified.
+- **`ListDynamicPoliciesOptions` filters**: Filter dynamic policies by `tier` and `organizationId`, matching static policy list options.
 
 - **proxyLLMCall()**: New primary method for Proxy Mode with improved documentation
   - Clearly describes Proxy Mode behavior (AxonFlow makes the LLM call on your behalf)
@@ -127,6 +116,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Unified execution API URLs** (EPIC #1074): `getExecutionStatus()` and `listUnifiedExecutions()` now use correct `/api/v1/unified/executions` path (was incorrectly pointing to `/api/v1/executions` which is the Execution Replay API)
+- **`RollbackPlanResponse` field naming**: Response fields use camelCase (`planId`, `previousVersion`) consistent with TypeScript conventions
 - **Gateway Mode smart defaults**: Fixed fallback to `"community"` when no clientId is configured - previously defaulted to `"default"` due to tenant default value
 - **PolicyCategory**: Added `pii-singapore` to PolicyCategory type for Singapore PII detection policies (NRIC, FIN, UEN patterns)
 

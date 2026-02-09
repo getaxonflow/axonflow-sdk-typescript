@@ -234,6 +234,7 @@ export type {
   ExecutionStatus,
   UnifiedListExecutionsRequest,
   UnifiedListExecutionsResponse,
+  StreamExecutionStatusOptions,
 } from './types/execution';
 export { ExecutionHelpers } from './types/execution';
 
