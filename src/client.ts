@@ -5509,10 +5509,15 @@ export class AxonFlow {
             continue;
           }
 
-          // Parse SSE data lines
+          // Parse SSE data lines (handle both "data: " and "data:" formats per SSE spec)
           for (const line of trimmed.split('\n')) {
+            let jsonStr: string | undefined;
             if (line.startsWith('data: ')) {
-              const jsonStr = line.slice(6);
+              jsonStr = line.slice(6);
+            } else if (line.startsWith('data:')) {
+              jsonStr = line.slice(5);
+            }
+            if (jsonStr !== undefined) {
               if (!jsonStr || jsonStr === '[DONE]') {
                 continue;
               }
