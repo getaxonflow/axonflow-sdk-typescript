@@ -1141,6 +1141,12 @@ export class AxonFlow {
     if (data && typeof data === 'object' && data.success === false) {
       success = false;
       if (data.error && !error) error = data.error;
+      // Throw on nested failure (e.g., cancelled plan execution)
+      throw new PlanExecutionError(
+        error || 'Plan execution failed',
+        planId,
+        'execution'
+      );
     }
     if (!result && data?.result) result = data.result;
 
