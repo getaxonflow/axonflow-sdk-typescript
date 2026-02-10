@@ -1148,10 +1148,19 @@ export class AxonFlow {
       debugLog('Plan executed', { planId, success });
     }
 
+    // Read status from response data if available (e.g., "awaiting_approval" for confirm mode)
+    let status: string = success ? 'completed' : 'failed';
+    if (data && typeof data === 'object' && 'status' in data && typeof data.status === 'string' && data.status) {
+      status = data.status;
+    } else if (agentResponse.metadata?.status) {
+      status = agentResponse.metadata.status;
+    }
+
     return {
       planId,
-      status: success ? 'completed' : 'failed',
+      status,
       result,
+      workflowId: data?.workflow_id,
       stepResults: agentResponse.metadata?.step_results ?? data?.metadata?.step_results,
       error,
       duration: agentResponse.metadata?.duration ?? data?.metadata?.duration,

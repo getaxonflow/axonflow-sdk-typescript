@@ -66,7 +66,8 @@ export interface PlanResponse {
 
 export interface PlanExecutionResponse {
   planId: string;
-  status: 'running' | 'completed' | 'failed';
+  status: string;
+  workflowId?: string;
   result?: string;
   stepResults?: Record<string, any>;
   error?: string;
@@ -148,9 +149,14 @@ export interface PlanVersionsResponse {
  */
 export interface ResumePlanResponse {
   planId: string;
+  workflowId?: string;
   status: string;
-  approved: boolean;
-  message: string;
+  approved?: boolean;
+  message?: string;
+  stepResult?: Record<string, any>;
+  nextStep?: number;
+  nextStepName?: string;
+  totalSteps?: number;
 }
 
 /**
