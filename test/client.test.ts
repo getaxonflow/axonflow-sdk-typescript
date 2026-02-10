@@ -10,6 +10,7 @@ import {
   AuthenticationError,
   APIError,
   ConfigurationError,
+  PlanExecutionError,
 } from '../src/errors';
 
 // Store original fetch
@@ -1214,6 +1215,98 @@ describe('AxonFlow Client Unit Tests', () => {
         });
 
         await expect(client.executePlan('invalid-plan')).rejects.toThrow('Plan execution failed');
+      });
+
+      it('should return awaiting_approval status from data.status', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: {
+                status: 'awaiting_approval',
+                workflow_id: 'wf-456',
+              },
+            }),
+        });
+
+        const result = await client.executePlan('plan-123');
+        expect(result.status).toBe('awaiting_approval');
+        expect(result.workflowId).toBe('wf-456');
+      });
+
+      it('should fall back to metadata.status when data.status is absent', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              result: 'Step 1 done',
+              metadata: {
+                status: 'running',
+                duration: 500,
+              },
+            }),
+        });
+
+        const result = await client.executePlan('plan-123');
+        expect(result.status).toBe('running');
+      });
+
+      it('should prefer data.status over metadata.status', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: {
+                status: 'awaiting_approval',
+              },
+              metadata: {
+                status: 'running',
+              },
+            }),
+        });
+
+        const result = await client.executePlan('plan-123');
+        expect(result.status).toBe('awaiting_approval');
+      });
+
+      it('should throw PlanExecutionError on nested data.success=false', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: {
+                success: false,
+                error: 'Cancelled by user',
+              },
+            }),
+        });
+
+        try {
+          await client.executePlan('plan-123');
+          fail('Expected PlanExecutionError to be thrown');
+        } catch (e) {
+          expect(e).toBeInstanceOf(PlanExecutionError);
+          expect((e as PlanExecutionError).planId).toBe('plan-123');
+          expect((e as PlanExecutionError).message).toBe('Cancelled by user');
+        }
+      });
+
+      it('should default to completed/failed when no status fields present', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              result: 'Done',
+            }),
+        });
+
+        const result = await client.executePlan('plan-123');
+        expect(result.status).toBe('completed');
       });
     });
 
