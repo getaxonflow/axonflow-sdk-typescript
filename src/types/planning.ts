@@ -64,9 +64,20 @@ export interface PlanResponse {
   metadata: Record<string, any>;
 }
 
+/**
+ * Known status values for plan execution.
+ * Uses a union type for compile-time safety while allowing extension.
+ */
+export type PlanExecutionStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'awaiting_approval';
+
 export interface PlanExecutionResponse {
   planId: string;
-  status: string;
+  status: PlanExecutionStatus;
   workflowId?: string;
   result?: string;
   stepResults?: Record<string, any>;

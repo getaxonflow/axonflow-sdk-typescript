@@ -123,6 +123,7 @@ export type {
   PlanStep,
   PlanResponse,
   PlanExecutionResponse,
+  PlanExecutionStatus,
   PolicyMatch,
   PolicyEvaluationResult,
   ExecutionMode,

@@ -9,6 +9,7 @@ import {
   ConnectorHealthStatus,
   PlanResponse,
   PlanExecutionResponse,
+  PlanExecutionStatus,
   GeneratePlanOptions,
   CancelPlanResponse,
   UpdatePlanRequest,
@@ -1142,11 +1143,7 @@ export class AxonFlow {
       success = false;
       if (data.error && !error) error = data.error;
       // Throw on nested failure (e.g., cancelled plan execution)
-      throw new PlanExecutionError(
-        error || 'Plan execution failed',
-        planId,
-        'execution'
-      );
+      throw new PlanExecutionError(error || 'Plan execution failed', planId, 'execution');
     }
     if (!result && data?.result) result = data.result;
 
@@ -1155,7 +1152,7 @@ export class AxonFlow {
     }
 
     // Read status from response data if available (e.g., "awaiting_approval" for confirm mode)
-    let status: string = success ? 'completed' : 'failed';
+    let status: PlanExecutionStatus = success ? 'completed' : 'failed';
     if (
       data &&
       typeof data === 'object' &&
@@ -1163,9 +1160,9 @@ export class AxonFlow {
       typeof data.status === 'string' &&
       data.status
     ) {
-      status = data.status;
+      status = data.status as PlanExecutionStatus;
     } else if (agentResponse.metadata?.status) {
-      status = agentResponse.metadata.status;
+      status = agentResponse.metadata.status as PlanExecutionStatus;
     }
 
     return {
