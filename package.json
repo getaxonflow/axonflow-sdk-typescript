@@ -80,6 +80,7 @@
     "openai": "^6.15.0"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   }
 }
