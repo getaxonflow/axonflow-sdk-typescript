@@ -54,7 +54,7 @@ GitHub Actions will automatically:
 
 ### Verify
 
-Check: https://www.npmjs.com/package/@axonflow/sdk
+Check: https://www.npmjs.com/package/@axonflow/ts-sdk
 
 Should show v1.0.1 with provenance badge.
 

@@ -7,7 +7,7 @@
  * - Querying connector data
  */
 
-import { AxonFlow } from '@axonflow/sdk';
+import { AxonFlow } from '@axonflow/ts-sdk';
 
 async function main() {
   const clientId = process.env.AXONFLOW_CLIENT_ID || 'demo-client';
