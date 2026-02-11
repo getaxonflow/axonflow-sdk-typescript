@@ -17,8 +17,6 @@
 >
 > [Share feedback](https://github.com/getaxonflow/axonflow/discussions/239) or email [hello@getaxonflow.com](mailto:hello@getaxonflow.com) for private feedback.
 
-**Status:** npm package updates temporarily delayed. [Install from source](#install-from-source) for latest features.
-
 Add invisible AI governance to your applications in 3 lines of code. No UI changes. No user training. Just drop-in enterprise protection.
 
 ## How This SDK Fits with AxonFlow
@@ -42,8 +40,6 @@ npm install @axonflow/sdk
 ```
 
 ### Install from Source
-
-For the latest features (recommended until npm releases resume):
 
 ```bash
 git clone https://github.com/getaxonflow/axonflow-sdk-typescript.git
@@ -589,12 +585,12 @@ const result = await axonflow.getPolicyApprovedContext({
 });
 // result.approved = true, result.requiresRedaction = true (SSN detected)
 
-// SQL Injection Detection - Block malicious queries
+// SQL Injection Detection - Block prohibited queries
 const result = await axonflow.getPolicyApprovedContext({
   userToken: 'user-123',
-  query: "SELECT * FROM users; DROP TABLE users;"
+  query: "SELECT * FROM users WHERE role = 'admin'"
 });
-// result.approved = false, result.blockReason = "SQL injection detected"
+// result.approved = false, result.blockReason = "SQL query policy violation"
 
 // Static Policies - List and manage built-in policies
 const policies = await axonflow.listPolicies();
@@ -979,13 +975,6 @@ const axonflow = new AxonFlow({
 3. Store credentials securely in environment variables or secrets management systems
 
 **Self-hosted users:** No credentials required for localhost endpoints.
-
-## Release Status
-
-- **npm releases:** Temporarily delayed due to a registry issue
-- **Source code:** Current and fully functional
-- **Workaround:** [Install from source](#install-from-source)
-- **Tracking:** [GitHub Issues](https://github.com/getaxonflow/axonflow-sdk-typescript/issues)
 
 ## License
 

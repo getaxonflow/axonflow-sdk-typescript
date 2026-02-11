@@ -14,12 +14,10 @@
   },
   "files": [
     "dist",
-    "scripts/postinstall.js",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "postinstall": "node scripts/postinstall.js || true",
     "build": "npm run clean && npm run compile",
     "clean": "rm -rf dist",
     "compile": "tsc && tsc --project tsconfig.esm.json && node scripts/fix-esm-imports.js",
