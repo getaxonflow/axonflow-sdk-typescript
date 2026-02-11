@@ -240,7 +240,7 @@ export type {
 export { ExecutionHelpers } from './types/execution';
 
 // Export version
-export const VERSION = '3.3.0';
+export const VERSION = '3.3.1';
 
 // Default export for convenience
 import { AxonFlow } from './client';
