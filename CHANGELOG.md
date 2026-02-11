@@ -7,12 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.3.0] - 2026-02-10
 
-### Migration
-
-- First release published under [`@axonflow/ts-sdk`](https://www.npmjs.com/package/@axonflow/ts-sdk)
-- Legacy package [`@axonflow/sdk`](https://www.npmjs.com/package/@axonflow/sdk) remains at v2.3.0 due to an npm registry publish block
-- Version numbering continues unchanged (no reset to v1.x)
-
 ### Breaking Changes
 
 - **Removed `executeQuery()`**: Use `proxyLLMCall()` instead (deprecated since v2.7.0)

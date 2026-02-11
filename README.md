@@ -1,7 +1,7 @@
 # AxonFlow SDK for TypeScript
 
-[![npm version](https://img.shields.io/npm/v/@axonflow/ts-sdk.svg)](https://www.npmjs.com/package/@axonflow/ts-sdk)
-[![npm downloads](https://img.shields.io/npm/dm/@axonflow/ts-sdk.svg)](https://www.npmjs.com/package/@axonflow/ts-sdk)
+[![npm version](https://img.shields.io/npm/v/@axonflow/sdk.svg)](https://www.npmjs.com/package/@axonflow/sdk)
+[![npm downloads](https://img.shields.io/npm/dm/@axonflow/sdk.svg)](https://www.npmjs.com/package/@axonflow/sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
@@ -17,7 +17,7 @@
 >
 > [Share feedback](https://github.com/getaxonflow/axonflow/discussions/239) or email [hello@getaxonflow.com](mailto:hello@getaxonflow.com) for private feedback.
 
-**Status:** Starting with v3.3.0, releases publish to `@axonflow/ts-sdk`. Legacy `@axonflow/sdk` remains on v2.3.0 due to an npm registry issue.
+**Status:** npm package updates temporarily delayed. [Install from source](#install-from-source) for latest features.
 
 Add invisible AI governance to your applications in 3 lines of code. No UI changes. No user training. Just drop-in enterprise protection.
 
@@ -38,17 +38,17 @@ If you're new to AxonFlow, this short video shows how the control plane and SDKs
 ## Installation
 
 ```bash
-npm install @axonflow/ts-sdk
+npm install @axonflow/sdk
 ```
 
 ### Install from Source
 
-For local development, you can also build and link from source:
+For the latest features (recommended until npm releases resume):
 
 ```bash
 git clone https://github.com/getaxonflow/axonflow-sdk-typescript.git
 cd axonflow-sdk-typescript && npm install && npm run build && npm link
-# In your project: npm link @axonflow/ts-sdk
+# In your project: npm link @axonflow/sdk
 ```
 
 ## Evaluation Tier (Free License)
@@ -74,7 +74,7 @@ Also includes higher limits for LLM providers and MAP planning.
 Gateway Mode provides the most reliable integration by explicitly separating policy checks, LLM calls, and audit logging:
 
 ```typescript
-import { AxonFlow } from '@axonflow/ts-sdk';
+import { AxonFlow } from '@axonflow/sdk';
 import OpenAI from 'openai';
 
 // Initialize clients
@@ -127,7 +127,7 @@ console.log('Response:', response.choices[0].message.content);
 For simpler integrations, Proxy Mode handles policy checking and auditing in a single call:
 
 ```typescript
-import { AxonFlow } from '@axonflow/ts-sdk';
+import { AxonFlow } from '@axonflow/sdk';
 
 const axonflow = new AxonFlow({
   clientId: process.env.AXONFLOW_CLIENT_ID,
@@ -156,7 +156,7 @@ if (response.success) {
 Connect to a self-hosted AxonFlow instance running via docker-compose:
 
 ```typescript
-import { AxonFlow } from '@axonflow/ts-sdk';
+import { AxonFlow } from '@axonflow/sdk';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -226,7 +226,7 @@ Proxy Mode routes all requests through AxonFlow's `/api/request` endpoint, provi
 ### Basic Query Execution
 
 ```typescript
-import { AxonFlow, PolicyViolationError } from '@axonflow/ts-sdk';
+import { AxonFlow, PolicyViolationError } from '@axonflow/sdk';
 
 const axonflow = new AxonFlow({
   clientId: process.env.AXONFLOW_CLIENT_ID,
@@ -342,7 +342,7 @@ await axonflow.auditLLMCall({
 ## React Example
 
 ```tsx
-import { AxonFlow } from '@axonflow/ts-sdk';
+import { AxonFlow } from '@axonflow/sdk';
 import { useState } from 'react';
 
 const axonflow = new AxonFlow({
@@ -385,7 +385,7 @@ function ChatComponent() {
 
 ```typescript
 // pages/api/chat.ts
-import { AxonFlow, PolicyViolationError } from '@axonflow/ts-sdk';
+import { AxonFlow, PolicyViolationError } from '@axonflow/sdk';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -524,7 +524,7 @@ AxonFlow automatically:
 ## Error Handling
 
 ```typescript
-import { AxonFlow, PolicyViolationError, AuthenticationError, APIError } from '@axonflow/ts-sdk';
+import { AxonFlow, PolicyViolationError, AuthenticationError, APIError } from '@axonflow/sdk';
 
 try {
   const response = await axonflow.executeQuery({
@@ -914,7 +914,7 @@ if (status.status === 'running') {
 ### Complete Example: Trip Planning with MAP
 
 ```typescript
-import { AxonFlow } from '@axonflow/ts-sdk';
+import { AxonFlow } from '@axonflow/sdk';
 
 async function planTrip() {
   // Initialize client with OAuth2 credentials
@@ -950,23 +950,6 @@ planTrip().catch(console.error);
 
 ## Migration Guide
 
-### Package Rename (`@axonflow/sdk` -> `@axonflow/ts-sdk`)
-
-- New releases publish to [`@axonflow/ts-sdk`](https://www.npmjs.com/package/@axonflow/ts-sdk)
-- Legacy package [`@axonflow/sdk`](https://www.npmjs.com/package/@axonflow/sdk) remains at v2.3.0
-- Versioning continues (first renamed release is v3.3.0)
-
-**Update install/imports:**
-
-```bash
-npm uninstall @axonflow/sdk
-npm install @axonflow/ts-sdk
-```
-
-```typescript
-import { AxonFlow } from '@axonflow/ts-sdk';
-```
-
 ### Migrating to OAuth2 Client Credentials
 
 If you're using older authentication methods (`apiKey` or `licenseKey`), migrate to OAuth2 client credentials:
@@ -999,9 +982,9 @@ const axonflow = new AxonFlow({
 
 ## Release Status
 
-- **Canonical npm package:** `@axonflow/ts-sdk`
-- **Legacy package:** `@axonflow/sdk` (v2.3.0, no new releases planned)
-- **Versioning policy:** Continues from v3.3.0 on `@axonflow/ts-sdk`
+- **npm releases:** Temporarily delayed due to a registry issue
+- **Source code:** Current and fully functional
+- **Workaround:** [Install from source](#install-from-source)
 - **Tracking:** [GitHub Issues](https://github.com/getaxonflow/axonflow-sdk-typescript/issues)
 
 ## License
