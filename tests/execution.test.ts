@@ -730,7 +730,7 @@ describe('streamExecutionStatus', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const [calledUrl, calledOptions] = mockFetch.mock.calls[0];
-    expect(calledUrl).toBe('http://localhost:8080/api/v1/executions/exec_123/stream');
+    expect(calledUrl).toBe('http://localhost:8080/api/v1/unified/executions/exec_123/stream');
     expect(calledOptions.method).toBe('GET');
     expect(calledOptions.headers['Accept']).toBe('text/event-stream');
     // Content-Type should not be set for SSE
