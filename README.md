@@ -806,7 +806,7 @@ console.log('Message sent:', result.success);
 
 For complete connector documentation, see [https://docs.getaxonflow.com/mcp](https://docs.getaxonflow.com/mcp)
 
-## MCP Policy Features (v3.2.0)
+## MCP Policy Features (v3.3.0)
 
 ### Exfiltration Detection
 
