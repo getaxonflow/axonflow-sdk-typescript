@@ -54,7 +54,7 @@ jobs:
           ### Installation
 
           ```bash
-          npm install @axonflow/sdk
+          npm install @axonflow/ts-sdk
           ```
 
           ### Changes

@@ -5,7 +5,7 @@ This directory contains working examples demonstrating how to use the AxonFlow T
 ## Prerequisites
 
 ```bash
-npm install @axonflow/sdk
+npm install @axonflow/ts-sdk
 ```
 
 Set environment variables:
@@ -98,5 +98,5 @@ node index.js
 ## Learn More
 
 - [Main Documentation](../README.md)
-- [API Reference](https://www.npmjs.com/package/@axonflow/sdk)
+- [API Reference](https://www.npmjs.com/package/@axonflow/ts-sdk)
 - [AxonFlow Docs](https://docs.getaxonflow.com)

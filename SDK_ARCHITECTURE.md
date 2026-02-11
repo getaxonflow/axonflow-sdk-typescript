@@ -14,7 +14,7 @@
 const response = await openai.complete(prompt);
 
 // After: With AxonFlow (3 lines)
-import { AxonFlow } from '@axonflow/sdk';
+import { AxonFlow } from '@axonflow/ts-sdk';
 const af = new AxonFlow({ apiKey: 'your-key' });
 const response = await af.protect(() => openai.complete(prompt));
 ```
@@ -29,7 +29,7 @@ const response = await af.protect(() => openai.complete(prompt));
 
 ### Package Structure
 ```
-@axonflow/sdk/
+@axonflow/ts-sdk/
 ├── src/
 │   ├── index.ts           # Main entry point
 │   ├── client.ts          # AxonFlow client class
