@@ -6,7 +6,7 @@
  *
  * @example Gateway Mode (recommended)
  * ```typescript
- * import { AxonFlow } from '@axonflow/ts-sdk';
+ * import { AxonFlow } from '@axonflow/sdk';
  * import OpenAI from 'openai';
  *
  * const axonflow = new AxonFlow({ clientId: 'your-client', clientSecret: 'your-secret', endpoint: 'http://localhost:8080' });
@@ -240,7 +240,7 @@ export type {
 export { ExecutionHelpers } from './types/execution';
 
 // Export version
-export const VERSION = '3.3.0';
+export const VERSION = '3.2.0';
 
 // Default export for convenience
 import { AxonFlow } from './client';

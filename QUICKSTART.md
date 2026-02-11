@@ -7,7 +7,7 @@
 ## 1. Install the SDK (30 seconds)
 
 ```bash
-npm install @axonflow/ts-sdk
+npm install @axonflow/sdk
 ```
 
 ## 2. Get Your API Key (1 minute)
@@ -24,7 +24,7 @@ For production, contact sales@axonflow.com to get your API key.
 ### Option A: Wrap Individual Calls
 
 ```typescript
-import { AxonFlow } from '@axonflow/ts-sdk';
+import { AxonFlow } from '@axonflow/sdk';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -42,7 +42,7 @@ const response = await axonflow.protect(async () => {
 ### Option B: Wrap the Entire Client
 
 ```typescript
-import { AxonFlow, wrapOpenAIClient } from '@axonflow/ts-sdk';
+import { AxonFlow, wrapOpenAIClient } from '@axonflow/sdk';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -125,7 +125,7 @@ function ChatComponent() {
 
 ```typescript
 // pages/api/chat.ts
-import { AxonFlow } from '@axonflow/ts-sdk';
+import { AxonFlow } from '@axonflow/sdk';
 
 const axonflow = new AxonFlow({ apiKey: process.env.AXONFLOW_API_KEY });
 
@@ -144,7 +144,7 @@ export default async function handler(req, res) {
 ### Express Middleware
 
 ```typescript
-import { AxonFlow } from '@axonflow/ts-sdk';
+import { AxonFlow } from '@axonflow/sdk';
 
 const axonflow = new AxonFlow({ apiKey: process.env.AXONFLOW_API_KEY });
 
@@ -183,7 +183,7 @@ AxonFlow adds <10ms latency (9.5ms P99). If you see more, contact support.
 - 📧 Email: support@axonflow.com
 - 📚 Docs: https://docs.axonflow.com
 - 💬 Slack: https://axonflow.slack.com
-- 🐛 Issues: https://github.com/getaxonflow/axonflow-sdk-typescript/issues
+- 🐛 Issues: https://github.com/axonflow/sdk-typescript/issues
 
 ---
 

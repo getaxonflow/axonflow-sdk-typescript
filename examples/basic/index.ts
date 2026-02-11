@@ -8,7 +8,7 @@
  * - Testing PII detection
  */
 
-import { AxonFlow } from '@axonflow/ts-sdk';
+import { AxonFlow } from '@axonflow/sdk';
 
 async function main() {
   // Load configuration from environment variables

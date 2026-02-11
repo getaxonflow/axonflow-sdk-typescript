@@ -280,7 +280,7 @@ interface HealthStatus {
 
 ### Pattern 1: Wrapper Approach
 ```typescript
-import { wrapOpenAIClient } from '@axonflow/ts-sdk';
+import { wrapOpenAIClient } from '@axonflow/sdk';
 
 const protectedClient = wrapOpenAIClient(openai, axonflow);
 // Use normally, protection is invisible
@@ -317,7 +317,7 @@ const axonflow = AxonFlow.mock({
 
 ### Test Utilities
 ```typescript
-import { testUtils } from '@axonflow/ts-sdk';
+import { testUtils } from '@axonflow/sdk';
 
 testUtils.assertPIIRedacted(response);
 testUtils.assertPolicyApplied(response, 'rate_limit');

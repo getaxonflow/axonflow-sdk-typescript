@@ -132,7 +132,7 @@ npm install openai
 **Create test file** (`test-real.ts`):
 
 ```typescript
-import { AxonFlow } from '@axonflow/ts-sdk';
+import { AxonFlow } from '@axonflow/sdk';
 import OpenAI from 'openai';
 
 async function realIntegrationTest() {
@@ -401,7 +401,7 @@ npx ts-node test/performance-test.ts
 
 ## Troubleshooting
 
-**Issue:** `Cannot find module '@axonflow/ts-sdk'`
+**Issue:** `Cannot find module '@axonflow/sdk'`
 **Fix:** Run `npm run build` in sdk/typescript first
 
 **Issue:** TypeScript errors in tests
