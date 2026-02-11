@@ -5459,7 +5459,7 @@ export class AxonFlow {
       throw new ConfigurationError('Execution ID is required');
     }
 
-    const url = `${this.config.endpoint}/api/v1/executions/${executionId}/stream`;
+    const url = `${this.config.endpoint}/api/v1/unified/executions/${executionId}/stream`;
     const headers = this.buildAuthHeaders();
     // Override Content-Type for SSE — Accept is what matters
     headers['Accept'] = 'text/event-stream';
