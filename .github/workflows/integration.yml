@@ -14,6 +14,9 @@ on:
         required: false
         default: 'false'
 
+permissions:
+  contents: read
+
 env:
   AXONFLOW_AGENT_URL: http://localhost:8080
   AXONFLOW_CLIENT_ID: integration-test-client
