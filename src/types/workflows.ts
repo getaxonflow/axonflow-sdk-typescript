@@ -185,6 +185,14 @@ export interface AbortWorkflowRequest {
 }
 
 /**
+ * Request to fail a workflow.
+ */
+export interface FailWorkflowRequest {
+  /** Reason for failing the workflow */
+  reason?: string;
+}
+
+/**
  * Request to mark a step as completed.
  */
 export interface MarkStepCompletedRequest {

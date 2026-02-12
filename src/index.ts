@@ -208,6 +208,7 @@ export type {
   ListWorkflowsOptions,
   ListWorkflowsResponse,
   AbortWorkflowRequest,
+  FailWorkflowRequest,
   MarkStepCompletedRequest,
   // WCP Approval types (Feature 5)
   ApproveStepResponse,
@@ -222,6 +223,15 @@ export type {
   ListWebhooksResponse,
 } from './types/workflows';
 export { WorkflowHelpers } from './types/workflows';
+
+// Export HITL Queue types (Enterprise)
+export type {
+  HITLApprovalRequest,
+  HITLQueueListOptions,
+  HITLQueueListResponse,
+  HITLReviewInput,
+  HITLStats,
+} from './types/hitl';
 
 // Export Unified Execution types (Issue #1075 - EPIC #1074)
 export type {

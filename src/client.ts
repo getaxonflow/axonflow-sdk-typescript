@@ -93,6 +93,7 @@ import {
   ListWorkflowsOptions,
   ListWorkflowsResponse,
   AbortWorkflowRequest,
+  FailWorkflowRequest,
   MarkStepCompletedRequest,
   // WCP Approval types
   ApproveStepResponse,
@@ -128,6 +129,12 @@ import {
   ExecutionStatus,
   UnifiedListExecutionsRequest,
   UnifiedListExecutionsResponse,
+  // HITL Queue types
+  HITLApprovalRequest,
+  HITLQueueListOptions,
+  HITLQueueListResponse,
+  HITLReviewInput,
+  HITLStats,
 } from './types';
 import {
   AuthenticationError,
@@ -4138,6 +4145,27 @@ export class AxonFlow {
   }
 
   /**
+   * Fail a workflow.
+   *
+   * Call this when a workflow has encountered an unrecoverable error and should
+   * be marked as failed. Unlike abort (which is user-initiated), fail indicates
+   * the workflow could not complete due to an error condition.
+   *
+   * @example
+   * ```typescript
+   * await client.failWorkflow('wf_123', 'Step 3 exceeded retry limit');
+   * ```
+   */
+  async failWorkflow(workflowId: string, reason?: string): Promise<void> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+
+    const request: FailWorkflowRequest = reason ? { reason } : {};
+    await this.orchestratorRequest('POST', `/api/v1/workflows/${workflowId}/fail`, request);
+  }
+
+  /**
    * Mark a workflow step as completed.
    *
    * Call this after a step has been executed successfully.
@@ -5417,6 +5445,200 @@ export class AxonFlow {
       `/api/v1/unified/executions/${executionId}/cancel`,
       body
     );
+  }
+
+  // ===========================================================================
+  // HITL (Human-in-the-Loop) Queue Methods (Enterprise)
+  // ===========================================================================
+
+  /**
+   * List pending approval requests in the HITL queue.
+   *
+   * Returns a paginated list of approval requests that require human review.
+   * Filter by status and severity to find requests that need attention.
+   *
+   * Enterprise Feature: Requires AxonFlow Enterprise license.
+   *
+   * @param options - Filter and pagination options
+   * @returns Paginated list of HITL approval requests
+   *
+   * @example
+   * ```typescript
+   * // List all pending requests
+   * const result = await client.listHITLQueue();
+   * console.log(`${result.total} pending requests`);
+   *
+   * // List critical pending requests
+   * const critical = await client.listHITLQueue({
+   *   status: 'pending',
+   *   severity: 'critical',
+   *   limit: 10
+   * });
+   * ```
+   */
+  async listHITLQueue(options?: HITLQueueListOptions): Promise<HITLQueueListResponse> {
+    const params = new URLSearchParams();
+
+    if (options?.status) {
+      params.set('status', options.status);
+    }
+    if (options?.severity) {
+      params.set('severity', options.severity);
+    }
+    if (options?.limit !== undefined) {
+      params.set('limit', options.limit.toString());
+    }
+    if (options?.offset !== undefined) {
+      params.set('offset', options.offset.toString());
+    }
+
+    const queryString = params.toString();
+    const path = `/api/v1/hitl/queue${queryString ? `?${queryString}` : ''}`;
+
+    if (this.config.debug) {
+      debugLog('Listing HITL queue', { options });
+    }
+
+    const response = await this.orchestratorRequest<{
+      success: boolean;
+      data: HITLApprovalRequest[];
+      meta: { total: number; limit: number; offset: number };
+    }>('GET', path);
+
+    return {
+      items: response.data || [],
+      total: response.meta?.total ?? 0,
+      has_more:
+        (response.meta?.offset ?? 0) + (response.data?.length ?? 0) < (response.meta?.total ?? 0),
+    };
+  }
+
+  /**
+   * Get a specific HITL approval request by ID.
+   *
+   * Enterprise Feature: Requires AxonFlow Enterprise license.
+   *
+   * @param requestId - The approval request ID
+   * @returns The approval request details
+   *
+   * @example
+   * ```typescript
+   * const request = await client.getHITLRequest('req_abc123');
+   * console.log(`Query: ${request.original_query}`);
+   * console.log(`Policy: ${request.triggered_policy_name}`);
+   * console.log(`Severity: ${request.severity}`);
+   * ```
+   */
+  async getHITLRequest(requestId: string): Promise<HITLApprovalRequest> {
+    if (!requestId) {
+      throw new ConfigurationError('Request ID is required');
+    }
+
+    if (this.config.debug) {
+      debugLog('Getting HITL request', { requestId });
+    }
+
+    const response = await this.orchestratorRequest<{
+      success: boolean;
+      data: HITLApprovalRequest;
+    }>('GET', `/api/v1/hitl/queue/${requestId}`);
+
+    return response.data;
+  }
+
+  /**
+   * Approve an HITL request.
+   *
+   * Approves the specified approval request, allowing the original query to proceed.
+   *
+   * Enterprise Feature: Requires AxonFlow Enterprise license.
+   *
+   * @param requestId - The approval request ID
+   * @param review - Reviewer information and optional comment
+   *
+   * @example
+   * ```typescript
+   * await client.approveHITLRequest('req_abc123', {
+   *   reviewer_id: 'user_456',
+   *   reviewer_email: 'reviewer@example.com',
+   *   comment: 'Approved after verifying compliance'
+   * });
+   * ```
+   */
+  async approveHITLRequest(requestId: string, review: HITLReviewInput): Promise<void> {
+    if (!requestId) {
+      throw new ConfigurationError('Request ID is required');
+    }
+
+    if (this.config.debug) {
+      debugLog('Approving HITL request', { requestId, reviewerId: review.reviewer_id });
+    }
+
+    await this.orchestratorRequest('POST', `/api/v1/hitl/queue/${requestId}/approve`, review);
+  }
+
+  /**
+   * Reject an HITL request.
+   *
+   * Rejects the specified approval request, blocking the original query.
+   *
+   * Enterprise Feature: Requires AxonFlow Enterprise license.
+   *
+   * @param requestId - The approval request ID
+   * @param review - Reviewer information and optional comment
+   *
+   * @example
+   * ```typescript
+   * await client.rejectHITLRequest('req_abc123', {
+   *   reviewer_id: 'user_456',
+   *   reviewer_email: 'reviewer@example.com',
+   *   comment: 'Rejected: query contains PII data'
+   * });
+   * ```
+   */
+  async rejectHITLRequest(requestId: string, review: HITLReviewInput): Promise<void> {
+    if (!requestId) {
+      throw new ConfigurationError('Request ID is required');
+    }
+
+    if (this.config.debug) {
+      debugLog('Rejecting HITL request', { requestId, reviewerId: review.reviewer_id });
+    }
+
+    await this.orchestratorRequest('POST', `/api/v1/hitl/queue/${requestId}/reject`, review);
+  }
+
+  /**
+   * Get HITL queue dashboard statistics.
+   *
+   * Returns summary statistics about the HITL queue including
+   * pending counts, priority breakdown, and age of oldest request.
+   *
+   * Enterprise Feature: Requires AxonFlow Enterprise license.
+   *
+   * @returns HITL queue statistics
+   *
+   * @example
+   * ```typescript
+   * const stats = await client.getHITLStats();
+   * console.log(`Pending: ${stats.total_pending}`);
+   * console.log(`Critical: ${stats.critical_priority}`);
+   * if (stats.oldest_pending_hours && stats.oldest_pending_hours > 24) {
+   *   console.warn('Oldest request is over 24 hours old!');
+   * }
+   * ```
+   */
+  async getHITLStats(): Promise<HITLStats> {
+    if (this.config.debug) {
+      debugLog('Getting HITL stats');
+    }
+
+    const response = await this.orchestratorRequest<{
+      success: boolean;
+      data: HITLStats;
+    }>('GET', '/api/v1/hitl/stats');
+
+    return response.data;
   }
 
   /**
