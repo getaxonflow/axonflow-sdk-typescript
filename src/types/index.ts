@@ -13,3 +13,4 @@ export * from './cost-controls';
 export * from './workflows';
 export * from './masfeat';
 export * from './execution';
+export * from './hitl';
