@@ -13,11 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `async failWorkflow(workflowId: string, reason?: string): Promise<void>`
   - Sends `POST /api/v1/workflows/{id}/fail`
 - **HITL Queue API** (Enterprise): Human-in-the-loop approval queue management
-  - `listHITLQueue(opts?)` — list pending approvals with filtering
-  - `getHITLRequest(requestId)` — get approval details
-  - `approveHITLRequest(requestId, review)` — approve a request
-  - `rejectHITLRequest(requestId, review)` — reject a request
-  - `getHITLStats()` — dashboard statistics
+  - `listHITLQueue(opts?)`: list pending approvals with filtering
+  - `getHITLRequest(requestId)`: get approval details
+  - `approveHITLRequest(requestId, review)`: approve a request
+  - `rejectHITLRequest(requestId, review)`: reject a request
+  - `getHITLStats()`: dashboard statistics
   - New types: `HITLApprovalRequest`, `HITLQueueListOptions`, `HITLQueueListResponse`, `HITLReviewInput`, `HITLStats`
 
 ## [3.3.1] - 2026-02-12
