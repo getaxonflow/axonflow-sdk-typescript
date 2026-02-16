@@ -55,6 +55,8 @@ import {
   PRRecord,
   ListPRsOptions,
   ListPRsResponse,
+  MediaAnalysisResponse,
+  MediaContent,
   CodeGovernanceMetrics,
   ExportOptions,
   ExportResponse,
@@ -646,13 +648,22 @@ export class AxonFlow {
     // Default to "anonymous" if userToken is empty/undefined (community mode)
     const effectiveUserToken = options.userToken || 'anonymous';
 
-    const agentRequest = {
+    const agentRequest: Record<string, unknown> = {
       query: options.query,
       user_token: effectiveUserToken,
       client_id: this.config.clientId || this.config.tenant,
       request_type: options.requestType,
       context: options.context || {},
     };
+
+    if (options.media && options.media.length > 0) {
+      agentRequest.media = options.media.map(m => ({
+        source: m.source,
+        base64_data: m.base64Data,
+        url: m.url,
+        mime_type: m.mimeType,
+      }));
+    }
 
     const url = `${this.config.endpoint}/api/request`;
 
@@ -760,6 +771,30 @@ export class AxonFlow {
         percentage: data.budget_info.percentage || 0,
         exceeded: data.budget_info.exceeded || false,
         action: data.budget_info.action,
+      };
+    }
+
+    // Parse media analysis if present
+    if (data.media_analysis) {
+      result.mediaAnalysis = {
+        results: (data.media_analysis.results || []).map((r: any) => ({
+          mediaIndex: r.media_index || 0,
+          sha256Hash: r.sha256_hash || '',
+          hasFaces: r.has_faces || false,
+          faceCount: r.face_count || 0,
+          hasBiometricData: r.has_biometric_data || false,
+          nsfwScore: r.nsfw_score || 0,
+          violenceScore: r.violence_score || 0,
+          contentSafe: r.content_safe !== undefined ? r.content_safe : true,
+          documentType: r.document_type,
+          isSensitiveDocument: r.is_sensitive_document || false,
+          hasPII: r.has_pii || false,
+          piiTypes: r.pii_types,
+          estimatedCostUsd: r.estimated_cost_usd || 0,
+          warnings: r.warnings,
+        })),
+        totalCostUsd: data.media_analysis.total_cost_usd || 0,
+        analysisTimeMs: data.media_analysis.analysis_time_ms || 0,
       };
     }
 
