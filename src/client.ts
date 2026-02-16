@@ -55,8 +55,6 @@ import {
   PRRecord,
   ListPRsOptions,
   ListPRsResponse,
-  MediaAnalysisResponse,
-  MediaContent,
   CodeGovernanceMetrics,
   ExportOptions,
   ExportResponse,
