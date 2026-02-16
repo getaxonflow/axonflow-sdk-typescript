@@ -777,24 +777,25 @@ export class AxonFlow {
     // Parse media analysis if present
     if (data.media_analysis) {
       result.mediaAnalysis = {
-        results: (data.media_analysis.results || []).map((r: any) => ({
-          mediaIndex: r.media_index || 0,
-          sha256Hash: r.sha256_hash || '',
-          hasFaces: r.has_faces || false,
-          faceCount: r.face_count || 0,
-          hasBiometricData: r.has_biometric_data || false,
-          nsfwScore: r.nsfw_score || 0,
-          violenceScore: r.violence_score || 0,
+        results: (data.media_analysis.results ?? []).map((r: any) => ({
+          mediaIndex: r.media_index ?? 0,
+          sha256Hash: r.sha256_hash ?? '',
+          hasFaces: r.has_faces ?? false,
+          faceCount: r.face_count ?? 0,
+          hasBiometricData: r.has_biometric_data ?? false,
+          nsfwScore: r.nsfw_score ?? 0,
+          violenceScore: r.violence_score ?? 0,
           contentSafe: r.content_safe !== undefined ? r.content_safe : true,
           documentType: r.document_type,
-          isSensitiveDocument: r.is_sensitive_document || false,
-          hasPII: r.has_pii || false,
+          isSensitiveDocument: r.is_sensitive_document ?? false,
+          hasPII: r.has_pii ?? false,
           piiTypes: r.pii_types,
-          estimatedCostUsd: r.estimated_cost_usd || 0,
+          extractedText: r.extracted_text,
+          estimatedCostUsd: r.estimated_cost_usd ?? 0,
           warnings: r.warnings,
         })),
-        totalCostUsd: data.media_analysis.total_cost_usd || 0,
-        analysisTimeMs: data.media_analysis.analysis_time_ms || 0,
+        totalCostUsd: data.media_analysis.total_cost_usd ?? 0,
+        analysisTimeMs: data.media_analysis.analysis_time_ms ?? 0,
       };
     }
 

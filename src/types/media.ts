@@ -47,6 +47,8 @@ export interface MediaAnalysisResult {
   hasPII: boolean;
   /** Types of PII detected */
   piiTypes?: string[];
+  /** Text extracted from image via OCR */
+  extractedText?: string;
   /** Estimated analysis cost for this item in USD */
   estimatedCostUsd: number;
   /** Governance warnings */
