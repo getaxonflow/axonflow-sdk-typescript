@@ -225,11 +225,7 @@ export type {
 export { WorkflowHelpers } from './types/workflows';
 
 // Export Media Governance types
-export type {
-  MediaContent,
-  MediaAnalysisResult,
-  MediaAnalysisResponse,
-} from './types/media';
+export type { MediaContent, MediaAnalysisResult, MediaAnalysisResponse } from './types/media';
 
 // Export HITL Queue types (Enterprise)
 export type {
