@@ -31,7 +31,20 @@ export type PolicyCategory =
   | 'dynamic-compliance'
   | 'dynamic-security'
   | 'dynamic-cost'
-  | 'dynamic-access';
+  | 'dynamic-access'
+  // Media governance categories
+  | 'media-safety'
+  | 'media-biometric'
+  | 'media-document'
+  | 'media-pii';
+
+/**
+ * Media governance policy category constants for use in policy definitions.
+ */
+export const CATEGORY_MEDIA_SAFETY = 'media-safety';
+export const CATEGORY_MEDIA_BIOMETRIC = 'media-biometric';
+export const CATEGORY_MEDIA_DOCUMENT = 'media-document';
+export const CATEGORY_MEDIA_PII = 'media-pii';
 
 /**
  * Policy tiers determine where policies apply
