@@ -5,6 +5,8 @@
  * allowing AxonFlow to handle policy enforcement and optional LLM routing.
  */
 
+import type { MediaContent, MediaAnalysisResponse } from './media';
+
 /**
  * Request type for proxyLLMCall
  */
@@ -23,6 +25,8 @@ export interface ExecuteQueryOptions {
   requestType: RequestType;
   /** Additional context for policy evaluation and processing */
   context?: Record<string, unknown>;
+  /** Optional media content (images) for multimodal governance */
+  media?: MediaContent[];
 }
 
 /**
@@ -116,6 +120,8 @@ export interface ExecuteQueryResponse {
   policyInfo?: PolicyInfo;
   /** Budget status (Issue #1082) */
   budgetInfo?: BudgetInfo;
+  /** Media analysis results (present when media was submitted) */
+  mediaAnalysis?: MediaAnalysisResponse;
 }
 
 /**

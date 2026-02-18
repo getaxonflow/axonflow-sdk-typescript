@@ -14,3 +14,4 @@ export * from './workflows';
 export * from './masfeat';
 export * from './execution';
 export * from './hitl';
+export * from './media';
