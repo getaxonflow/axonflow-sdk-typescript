@@ -5696,8 +5696,8 @@ export class AxonFlow {
    * ```typescript
    * const config = await client.getMediaGovernanceConfig();
    * console.log(`Media governance enabled: ${config.enabled}`);
-   * if (config.allowed_analyzers) {
-   *   console.log(`Allowed analyzers: ${config.allowed_analyzers.join(', ')}`);
+   * if (config.allowedAnalyzers) {
+   *   console.log(`Allowed analyzers: ${config.allowedAnalyzers.join(', ')}`);
    * }
    * ```
    */
@@ -5706,10 +5706,19 @@ export class AxonFlow {
       debugLog('Getting media governance config');
     }
 
-    return this.orchestratorRequest<MediaGovernanceConfig>(
+    const data = await this.orchestratorRequest<Record<string, unknown>>(
       'GET',
       '/api/v1/media-governance/config'
     );
+
+    // Transform snake_case response to camelCase
+    return {
+      tenantId: data.tenant_id as string,
+      enabled: data.enabled as boolean,
+      allowedAnalyzers: data.allowed_analyzers as string[] | undefined,
+      updatedAt: data.updated_at as string,
+      updatedBy: data.updated_by as string | undefined,
+    };
   }
 
   /**
@@ -5729,7 +5738,7 @@ export class AxonFlow {
    * // Enable with specific analyzers only
    * const config = await client.updateMediaGovernanceConfig({
    *   enabled: true,
-   *   allowed_analyzers: ['nsfw', 'pii']
+   *   allowedAnalyzers: ['nsfw', 'pii']
    * });
    * ```
    */
@@ -5740,11 +5749,25 @@ export class AxonFlow {
       debugLog('Updating media governance config', { request });
     }
 
-    return this.orchestratorRequest<MediaGovernanceConfig>(
+    // Convert camelCase to snake_case for API compatibility
+    const requestBody: Record<string, unknown> = {};
+    if (request.enabled !== undefined) requestBody.enabled = request.enabled;
+    if (request.allowedAnalyzers !== undefined) requestBody.allowed_analyzers = request.allowedAnalyzers;
+
+    const data = await this.orchestratorRequest<Record<string, unknown>>(
       'PUT',
       '/api/v1/media-governance/config',
-      request
+      requestBody
     );
+
+    // Transform snake_case response to camelCase
+    return {
+      tenantId: data.tenant_id as string,
+      enabled: data.enabled as boolean,
+      allowedAnalyzers: data.allowed_analyzers as string[] | undefined,
+      updatedAt: data.updated_at as string,
+      updatedBy: data.updated_by as string | undefined,
+    };
   }
 
   /**
@@ -5761,7 +5784,7 @@ export class AxonFlow {
    * const status = await client.getMediaGovernanceStatus();
    * console.log(`Available: ${status.available}`);
    * console.log(`Tier: ${status.tier}`);
-   * console.log(`Per-tenant control: ${status.per_tenant_control}`);
+   * console.log(`Per-tenant control: ${status.perTenantControl}`);
    * ```
    */
   async getMediaGovernanceStatus(): Promise<MediaGovernanceStatus> {
@@ -5769,10 +5792,18 @@ export class AxonFlow {
       debugLog('Getting media governance status');
     }
 
-    return this.orchestratorRequest<MediaGovernanceStatus>(
+    const data = await this.orchestratorRequest<Record<string, unknown>>(
       'GET',
       '/api/v1/media-governance/status'
     );
+
+    // Transform snake_case response to camelCase
+    return {
+      available: data.available as boolean,
+      enabledByDefault: data.enabled_by_default as boolean,
+      perTenantControl: data.per_tenant_control as boolean,
+      tier: data.tier as string,
+    };
   }
 
   /**

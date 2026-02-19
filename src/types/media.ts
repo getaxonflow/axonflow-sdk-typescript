@@ -77,15 +77,15 @@ export interface MediaAnalysisResponse {
  */
 export interface MediaGovernanceConfig {
   /** Tenant identifier */
-  tenant_id: string;
+  tenantId: string;
   /** Whether media governance analysis is enabled for this tenant */
   enabled: boolean;
   /** List of allowed analyzer names (e.g., ["nsfw", "pii", "document"]). If omitted, all analyzers are available. */
-  allowed_analyzers?: string[];
+  allowedAnalyzers?: string[];
   /** ISO 8601 timestamp of last update */
-  updated_at: string;
+  updatedAt: string;
   /** User or system that last updated the config */
-  updated_by?: string;
+  updatedBy?: string;
 }
 
 /**
@@ -99,9 +99,9 @@ export interface MediaGovernanceStatus {
   /** Whether media governance is available on this platform instance */
   available: boolean;
   /** Whether media analysis is enabled by default for new tenants */
-  enabled_by_default: boolean;
+  enabledByDefault: boolean;
   /** Whether per-tenant control is supported */
-  per_tenant_control: boolean;
+  perTenantControl: boolean;
   /** License tier required (e.g., "enterprise", "professional") */
   tier: string;
 }
@@ -113,5 +113,5 @@ export interface UpdateMediaGovernanceConfigRequest {
   /** Enable or disable media governance for the tenant */
   enabled?: boolean;
   /** Set the list of allowed analyzers */
-  allowed_analyzers?: string[];
+  allowedAnalyzers?: string[];
 }
