@@ -22,6 +22,17 @@ jobs:
         node-version: '24'
         registry-url: 'https://registry.npmjs.org'
 
+    - name: Extract version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Update version in package.json
+      run: |
+        VERSION=${{ steps.version.outputs.VERSION }}
+        npm version ${VERSION} --no-git-tag-version
+        echo "Updated version to ${VERSION}"
+        grep '"version"' package.json
+
     - name: Install dependencies
       run: npm ci
 
@@ -61,3 +72,29 @@ jobs:
         generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  verify-publish:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+    - name: Extract version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Wait for npm propagation
+      run: sleep 30
+
+    - name: Verify package on npm
+      run: |
+        VERSION=${{ steps.version.outputs.VERSION }}
+        for i in 1 2 3 4 5; do
+          echo "Attempt $i: Checking npm for @axonflow/sdk@${VERSION}..."
+          if npm view @axonflow/sdk@${VERSION} version 2>/dev/null | grep -q "${VERSION}"; then
+            echo "SUCCESS: @axonflow/sdk@${VERSION} is available on npm"
+            exit 0
+          fi
+          echo "Not yet available, waiting 30 seconds..."
+          sleep 30
+        done
+        echo "FAILURE: @axonflow/sdk@${VERSION} not found on npm after 5 attempts"
+        exit 1
