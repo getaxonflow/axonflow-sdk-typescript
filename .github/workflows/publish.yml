@@ -29,7 +29,7 @@ jobs:
     - name: Update version in package.json
       run: |
         VERSION=${{ steps.version.outputs.VERSION }}
-        npm version ${VERSION} --no-git-tag-version
+        npm version ${VERSION} --no-git-tag-version --allow-same-version
         echo "Updated version to ${VERSION}"
         grep '"version"' package.json
 
