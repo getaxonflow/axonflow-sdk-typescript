@@ -5736,10 +5736,6 @@ export class AxonFlow {
   async updateMediaGovernanceConfig(
     request: UpdateMediaGovernanceConfigRequest
   ): Promise<MediaGovernanceConfig> {
-    const body: Record<string, unknown> = {};
-    if (request.enabled !== undefined) body.enabled = request.enabled;
-    if (request.allowed_analyzers !== undefined) body.allowed_analyzers = request.allowed_analyzers;
-
     if (this.config.debug) {
       debugLog('Updating media governance config', { request });
     }
@@ -5747,7 +5743,7 @@ export class AxonFlow {
     return this.orchestratorRequest<MediaGovernanceConfig>(
       'PUT',
       '/api/v1/media-governance/config',
-      body
+      request
     );
   }
 
