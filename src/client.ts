@@ -5752,7 +5752,8 @@ export class AxonFlow {
     // Convert camelCase to snake_case for API compatibility
     const requestBody: Record<string, unknown> = {};
     if (request.enabled !== undefined) requestBody.enabled = request.enabled;
-    if (request.allowedAnalyzers !== undefined) requestBody.allowed_analyzers = request.allowedAnalyzers;
+    if (request.allowedAnalyzers !== undefined)
+      requestBody.allowed_analyzers = request.allowedAnalyzers;
 
     const data = await this.orchestratorRequest<Record<string, unknown>>(
       'PUT',
