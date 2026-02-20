@@ -63,7 +63,7 @@
     "node": ">=14.0.0"
   },
   "devDependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.955.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.994.0",
     "@types/jest": "^29.0.0",
     "@types/node": "^18.0.0",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
