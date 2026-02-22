@@ -117,6 +117,12 @@ export type {
   PolicyVersion,
   EffectivePoliciesOptions,
 } from './types/policies';
+export {
+  CATEGORY_MEDIA_SAFETY,
+  CATEGORY_MEDIA_BIOMETRIC,
+  CATEGORY_MEDIA_DOCUMENT,
+  CATEGORY_MEDIA_PII,
+} from './types/policies';
 
 // Export MAP (Multi-Agent Planning) types
 export type {
@@ -225,7 +231,14 @@ export type {
 export { WorkflowHelpers } from './types/workflows';
 
 // Export Media Governance types
-export type { MediaContent, MediaAnalysisResult, MediaAnalysisResponse } from './types/media';
+export type {
+  MediaContent,
+  MediaAnalysisResult,
+  MediaAnalysisResponse,
+  MediaGovernanceConfig,
+  MediaGovernanceStatus,
+  UpdateMediaGovernanceConfigRequest,
+} from './types/media';
 
 // Export HITL Queue types (Enterprise)
 export type {

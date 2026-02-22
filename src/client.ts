@@ -135,6 +135,10 @@ import {
   HITLQueueListResponse,
   HITLReviewInput,
   HITLStats,
+  // Media Governance Config types
+  MediaGovernanceConfig,
+  MediaGovernanceStatus,
+  UpdateMediaGovernanceConfigRequest,
 } from './types';
 import {
   AuthenticationError,
@@ -5674,6 +5678,133 @@ export class AxonFlow {
     }>('GET', '/api/v1/hitl/stats');
 
     return response.data;
+  }
+
+  // ============================================================================
+  // Media Governance Config Methods (Issue #1222)
+  // ============================================================================
+
+  /**
+   * Get the current media governance configuration for the authenticated tenant.
+   *
+   * Returns whether media analysis is enabled, which analyzers are allowed,
+   * and when the config was last updated.
+   *
+   * @returns Media governance configuration for the tenant
+   *
+   * @example
+   * ```typescript
+   * const config = await client.getMediaGovernanceConfig();
+   * console.log(`Media governance enabled: ${config.enabled}`);
+   * if (config.allowedAnalyzers) {
+   *   console.log(`Allowed analyzers: ${config.allowedAnalyzers.join(', ')}`);
+   * }
+   * ```
+   */
+  async getMediaGovernanceConfig(): Promise<MediaGovernanceConfig> {
+    if (this.config.debug) {
+      debugLog('Getting media governance config');
+    }
+
+    const data = await this.orchestratorRequest<Record<string, unknown>>(
+      'GET',
+      '/api/v1/media-governance/config'
+    );
+
+    // Transform snake_case response to camelCase
+    return {
+      tenantId: data.tenant_id as string,
+      enabled: data.enabled as boolean,
+      allowedAnalyzers: data.allowed_analyzers as string[] | undefined,
+      updatedAt: data.updated_at as string,
+      updatedBy: data.updated_by as string | undefined,
+    };
+  }
+
+  /**
+   * Update the media governance configuration for the authenticated tenant.
+   *
+   * Use this to enable/disable media analysis or restrict which analyzers
+   * are available for the tenant.
+   *
+   * @param request - Fields to update
+   * @returns Updated media governance configuration
+   *
+   * @example
+   * ```typescript
+   * // Disable media governance
+   * const updated = await client.updateMediaGovernanceConfig({ enabled: false });
+   *
+   * // Enable with specific analyzers only
+   * const config = await client.updateMediaGovernanceConfig({
+   *   enabled: true,
+   *   allowedAnalyzers: ['nsfw', 'pii']
+   * });
+   * ```
+   */
+  async updateMediaGovernanceConfig(
+    request: UpdateMediaGovernanceConfigRequest
+  ): Promise<MediaGovernanceConfig> {
+    if (this.config.debug) {
+      debugLog('Updating media governance config', { request });
+    }
+
+    // Convert camelCase to snake_case for API compatibility
+    const requestBody: Record<string, unknown> = {};
+    if (request.enabled !== undefined) requestBody.enabled = request.enabled;
+    if (request.allowedAnalyzers !== undefined)
+      requestBody.allowed_analyzers = request.allowedAnalyzers;
+
+    const data = await this.orchestratorRequest<Record<string, unknown>>(
+      'PUT',
+      '/api/v1/media-governance/config',
+      requestBody
+    );
+
+    // Transform snake_case response to camelCase
+    return {
+      tenantId: data.tenant_id as string,
+      enabled: data.enabled as boolean,
+      allowedAnalyzers: data.allowed_analyzers as string[] | undefined,
+      updatedAt: data.updated_at as string,
+      updatedBy: data.updated_by as string | undefined,
+    };
+  }
+
+  /**
+   * Get the platform-level media governance status.
+   *
+   * Reports whether media governance is available on this platform instance,
+   * the default enablement state, whether per-tenant control is supported,
+   * and the required license tier.
+   *
+   * @returns Media governance platform status
+   *
+   * @example
+   * ```typescript
+   * const status = await client.getMediaGovernanceStatus();
+   * console.log(`Available: ${status.available}`);
+   * console.log(`Tier: ${status.tier}`);
+   * console.log(`Per-tenant control: ${status.perTenantControl}`);
+   * ```
+   */
+  async getMediaGovernanceStatus(): Promise<MediaGovernanceStatus> {
+    if (this.config.debug) {
+      debugLog('Getting media governance status');
+    }
+
+    const data = await this.orchestratorRequest<Record<string, unknown>>(
+      'GET',
+      '/api/v1/media-governance/status'
+    );
+
+    // Transform snake_case response to camelCase
+    return {
+      available: data.available as boolean,
+      enabledByDefault: data.enabled_by_default as boolean,
+      perTenantControl: data.per_tenant_control as boolean,
+      tier: data.tier as string,
+    };
   }
 
   /**
