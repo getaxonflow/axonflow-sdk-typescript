@@ -200,6 +200,12 @@ export interface MarkStepCompletedRequest {
   output?: Record<string, unknown>;
   /** Additional metadata */
   metadata?: Record<string, unknown>;
+  /** Number of input tokens consumed by this step */
+  tokens_in?: number;
+  /** Number of output tokens produced by this step */
+  tokens_out?: number;
+  /** Estimated cost in USD for this step */
+  cost_usd?: number;
 }
 
 // =============================================================================
