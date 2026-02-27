@@ -54,6 +54,17 @@ export { AxonFlow } from './client';
 // Export connector utilities
 export { wasRedacted } from './types/connector';
 
+// Export MCP connector types
+export type {
+  ConnectorResponse,
+  MCPPolicyInfo,
+  ExfiltrationCheckInfo,
+  MCPCheckInputOptions,
+  MCPCheckInputResponse,
+  MCPCheckOutputOptions,
+  MCPCheckOutputResponse,
+} from './types/connector';
+
 // Export error classes for proper error handling
 export {
   AxonFlowError,
