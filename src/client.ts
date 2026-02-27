@@ -1175,7 +1175,7 @@ export class AxonFlow {
     const body: Record<string, any> = {
       connector_type: options.connectorType,
     };
-    if (options.responseData) {
+    if (options.responseData !== undefined) {
       body.response_data = options.responseData;
     }
     if (options.message !== undefined) {
