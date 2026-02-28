@@ -7,6 +7,10 @@ import {
   ConnectorInstallRequest,
   ConnectorResponse,
   ConnectorHealthStatus,
+  MCPCheckInputOptions,
+  MCPCheckInputResponse,
+  MCPCheckOutputOptions,
+  MCPCheckOutputResponse,
   PlanResponse,
   PlanExecutionResponse,
   PlanExecutionStatus,
@@ -1058,6 +1062,166 @@ export class AxonFlow {
     options?: Record<string, any>;
   }): Promise<ConnectorResponse> {
     return this.mcpQuery(options);
+  }
+
+  /**
+   * Validate an MCP request against configured policies without executing it.
+   * Use this when an external orchestrator (e.g., LangGraph, CrewAI) manages MCP execution
+   * but needs AxonFlow policy enforcement as a pre-execution gate.
+   *
+   * @example
+   * ```typescript
+   * const result = await axonflow.mcpCheckInput({
+   *   connectorType: 'postgres',
+   *   statement: 'SELECT * FROM users WHERE id = $1',
+   *   parameters: { '$1': '123' },
+   * });
+   *
+   * if (!result.allowed) {
+   *   console.log('Blocked:', result.block_reason);
+   * }
+   * ```
+   *
+   * @param options - Input check options including connector type and statement
+   * @returns MCPCheckInputResponse with allowed status and policy evaluation details
+   * @throws ConnectorError if the request fails (non-403 errors)
+   */
+  async mcpCheckInput(options: MCPCheckInputOptions): Promise<MCPCheckInputResponse> {
+    const url = `${this.config.endpoint}/api/v1/mcp/check-input`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
+    };
+
+    const body: Record<string, any> = {
+      connector_type: options.connectorType,
+      statement: options.statement,
+    };
+    if (options.parameters) {
+      body.parameters = options.parameters;
+    }
+    if (options.operation) {
+      body.operation = options.operation;
+    }
+
+    if (this.config.debug) {
+      debugLog('MCP Check Input', {
+        connectorType: options.connectorType,
+        statement: options.statement.substring(0, 50),
+      });
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    const responseData = await response.json();
+
+    // 403 means policy blocked — this is a valid check response, not an error
+    if (!response.ok && response.status !== 403) {
+      throw new ConnectorError(
+        responseData.error || 'MCP check-input failed',
+        options.connectorType,
+        'check-input'
+      );
+    }
+
+    if (this.config.debug) {
+      debugLog('MCP Check Input result', {
+        connectorType: options.connectorType,
+        allowed: responseData.allowed,
+        policiesEvaluated: responseData.policies_evaluated,
+      });
+    }
+
+    return responseData as MCPCheckInputResponse;
+  }
+
+  /**
+   * Validate MCP response data against configured policies.
+   * Use this when an external orchestrator manages MCP execution but needs AxonFlow
+   * policy enforcement as a post-execution gate (PII redaction, exfiltration limits).
+   *
+   * @example
+   * ```typescript
+   * const result = await axonflow.mcpCheckOutput({
+   *   connectorType: 'postgres',
+   *   responseData: [{ id: 1, name: 'Alice', ssn: '123-45-6789' }],
+   *   rowCount: 1,
+   * });
+   *
+   * if (result.redacted_data) {
+   *   console.log('Data was redacted:', result.redacted_data);
+   * }
+   * if (result.exfiltration_info && !result.exfiltration_info.within_limits) {
+   *   console.log('Exfiltration limit exceeded');
+   * }
+   * ```
+   *
+   * @param options - Output check options including connector type and response data
+   * @returns MCPCheckOutputResponse with allowed status, redacted data, and policy details
+   * @throws ConnectorError if the request fails (non-403 errors)
+   */
+  async mcpCheckOutput(options: MCPCheckOutputOptions): Promise<MCPCheckOutputResponse> {
+    const url = `${this.config.endpoint}/api/v1/mcp/check-output`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...this.getAuthHeaders(),
+    };
+
+    const body: Record<string, any> = {
+      connector_type: options.connectorType,
+    };
+    if (options.responseData !== undefined) {
+      body.response_data = options.responseData;
+    }
+    if (options.message !== undefined) {
+      body.message = options.message;
+    }
+    if (options.metadata) {
+      body.metadata = options.metadata;
+    }
+    if (options.rowCount !== undefined && options.rowCount > 0) {
+      body.row_count = options.rowCount;
+    }
+
+    if (this.config.debug) {
+      debugLog('MCP Check Output', {
+        connectorType: options.connectorType,
+        rowCount: options.rowCount,
+      });
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    const responseData = await response.json();
+
+    // 403 means policy blocked — this is a valid check response, not an error
+    if (!response.ok && response.status !== 403) {
+      throw new ConnectorError(
+        responseData.error || 'MCP check-output failed',
+        options.connectorType,
+        'check-output'
+      );
+    }
+
+    if (this.config.debug) {
+      debugLog('MCP Check Output result', {
+        connectorType: options.connectorType,
+        allowed: responseData.allowed,
+        policiesEvaluated: responseData.policies_evaluated,
+      });
+    }
+
+    return responseData as MCPCheckOutputResponse;
   }
 
   /**

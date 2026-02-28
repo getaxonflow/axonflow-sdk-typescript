@@ -116,6 +116,55 @@ export interface ConnectorResponse {
 }
 
 /**
+ * Options for validating an MCP request against policies without executing it.
+ * Used when an external orchestrator manages MCP execution but needs AxonFlow
+ * policy enforcement as a pre-execution gate.
+ */
+export interface MCPCheckInputOptions {
+  connectorType: string;
+  statement: string;
+  parameters?: Record<string, any>;
+  operation?: string;
+}
+
+/**
+ * Response from the MCP check-input endpoint.
+ * Indicates whether the request would be allowed by configured policies.
+ */
+export interface MCPCheckInputResponse {
+  allowed: boolean;
+  block_reason?: string;
+  policies_evaluated: number;
+  policy_info?: MCPPolicyInfo;
+}
+
+/**
+ * Options for validating MCP response data against policies.
+ * Used when an external orchestrator manages MCP execution but needs AxonFlow
+ * policy enforcement as a post-execution gate (PII redaction, exfiltration limits).
+ */
+export interface MCPCheckOutputOptions {
+  connectorType: string;
+  responseData?: Record<string, any>[];
+  message?: string;
+  metadata?: Record<string, any>;
+  rowCount?: number;
+}
+
+/**
+ * Response from the MCP check-output endpoint.
+ * Indicates whether the response data passes policy checks, with optional redaction.
+ */
+export interface MCPCheckOutputResponse {
+  allowed: boolean;
+  block_reason?: string;
+  redacted_data?: any;
+  policies_evaluated: number;
+  exfiltration_info?: ExfiltrationCheckInfo;
+  policy_info?: MCPPolicyInfo;
+}
+
+/**
  * Returns true if the connector response had any fields redacted by policy evaluation.
  */
 export function wasRedacted(response: ConnectorResponse): boolean {

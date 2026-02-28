@@ -5,6 +5,18 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.0] - 2026-02-28
+
+### Added
+
+- **MCP Policy-Check Endpoints** (Platform v4.6.0+): Standalone policy validation for external orchestrators (LangGraph, CrewAI) to enforce AxonFlow policies without executing connector queries
+  - `mcpCheckInput(options)`: Validate SQL/commands against input policies (SQLi detection, dangerous query blocking, PII in queries, dynamic policies). Returns `allowed: true` or `blockReason` with details
+  - `mcpCheckOutput(options)`: Validate MCP response data against output policies (PII redaction, exfiltration limits, dynamic policies). Returns original or redacted data with `policyInfo`
+  - New types: `MCPCheckInputOptions`, `MCPCheckInputResponse`, `MCPCheckOutputOptions`, `MCPCheckOutputResponse`
+  - Supports both query-style (`responseData`) and execute-style (`message` + `metadata`) output validation
+
+---
+
 ## [3.6.0] - 2026-02-22
 
 ### Added
