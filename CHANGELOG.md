@@ -5,6 +5,22 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - TBD
+
+### Added
+
+- `healthCheck()` now returns `capabilities` array and `sdkCompatibility` in `HealthStatus`
+- Static `hasCapability(health, name)` method on `AxonFlow` to check if platform supports a specific feature
+- User-Agent header (`axonflow-sdk-typescript/{version}`) sent on all HTTP requests
+- Version mismatch warning logged when SDK version is below platform's `min_sdk_version`
+- `PlatformCapability` and `SDKCompatibility` interfaces in types
+
+### Fixed
+
+- `VERSION` constant corrected from `3.3.1` to `3.8.0`
+
+---
+
 ## [3.7.0] - 2026-02-28
 
 ### Added
