@@ -161,14 +161,13 @@ import { generateRequestId, debugLog } from './utils/helpers';
  * Returns -1 if a < b, 0 if equal, 1 if a > b.
  */
 function compareSemver(a: string, b: string): number {
-  const partsA = a.split('.').map(Number);
-  const partsB = b.split('.').map(Number);
-  const len = Math.max(partsA.length, partsB.length);
+  const parseVersion = (v: string) => v.split('.').map(p => parseInt(p.split('-')[0], 10) || 0);
+  const aParts = parseVersion(a);
+  const bParts = parseVersion(b);
+  const len = Math.max(aParts.length, bParts.length);
   for (let i = 0; i < len; i++) {
-    const numA = partsA[i] || 0;
-    const numB = partsB[i] || 0;
-    if (numA < numB) return -1;
-    if (numA > numB) return 1;
+    const diff = (aParts[i] || 0) - (bParts[i] || 0);
+    if (diff !== 0) return diff < 0 ? -1 : 1;
   }
   return 0;
 }
@@ -637,6 +636,7 @@ export class AxonFlow {
     try {
       const response = await fetch(url, {
         method: 'GET',
+        headers: this.getAuthHeaders(),
         signal: AbortSignal.timeout(this.config.timeout),
       });
 
@@ -656,6 +656,13 @@ export class AxonFlow {
         version: data.version,
         uptime: data.uptime,
         components: data.components,
+        capabilities: data.capabilities,
+        sdkCompatibility: data.sdk_compatibility
+          ? {
+              minSdkVersion: data.sdk_compatibility.min_sdk_version,
+              recommendedSdkVersion: data.sdk_compatibility.recommended_sdk_version,
+            }
+          : undefined,
       };
     } catch (error) {
       if (this.config.debug) {

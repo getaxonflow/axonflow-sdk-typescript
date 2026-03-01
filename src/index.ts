@@ -240,6 +240,8 @@ export type {
   WebhookSubscription,
   UpdateWebhookRequest,
   ListWebhooksResponse,
+  // Tool governance types
+  ToolContext,
 } from './types/workflows';
 export { WorkflowHelpers } from './types/workflows';
 
