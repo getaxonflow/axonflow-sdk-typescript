@@ -534,6 +534,76 @@ describe('AxonFlow Client Unit Tests', () => {
         const health = await client.healthCheck();
         expect(health.status).toBe('degraded');
       });
+      it('should parse capabilities and sdkCompatibility', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              status: 'healthy',
+              version: '4.8.0',
+              uptime: '1h',
+              capabilities: [
+                { name: 'health_check', since: '1.0.0', description: 'Basic health' },
+                { name: 'version_discovery', since: '4.8.0', description: 'Version discovery' },
+              ],
+              sdk_compatibility: {
+                min_sdk_version: '3.0.0',
+                recommended_sdk_version: '3.8.0',
+              },
+            }),
+        });
+
+        const health = await client.healthCheck();
+        expect(health.version).toBe('4.8.0');
+        expect(health.capabilities).toHaveLength(2);
+        expect(health.capabilities![0].name).toBe('health_check');
+        expect(health.sdkCompatibility).toBeDefined();
+        expect(health.sdkCompatibility!.minSdkVersion).toBe('3.0.0');
+        expect(health.sdkCompatibility!.recommendedSdkVersion).toBe('3.8.0');
+      });
+
+      it('should handle missing capabilities gracefully', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              status: 'healthy',
+              version: '3.0.0',
+            }),
+        });
+
+        const health = await client.healthCheck();
+        expect(health.status).toBe('healthy');
+        expect(health.capabilities).toBeUndefined();
+        expect(health.sdkCompatibility).toBeUndefined();
+      });
+    });
+
+    describe('hasCapability', () => {
+      it('should return true for matching capability', () => {
+        const health = {
+          status: 'healthy',
+          version: '4.8.0',
+          isHealthy: true,
+          capabilities: [{ name: 'health_check', since: '1.0.0', description: 'Basic health' }],
+        };
+        expect(AxonFlow.hasCapability(health as any, 'health_check')).toBe(true);
+      });
+
+      it('should return false for non-matching capability', () => {
+        const health = {
+          status: 'healthy',
+          version: '4.8.0',
+          isHealthy: true,
+          capabilities: [{ name: 'health_check', since: '1.0.0', description: 'Basic health' }],
+        };
+        expect(AxonFlow.hasCapability(health as any, 'nonexistent')).toBe(false);
+      });
+
+      it('should return false when capabilities is undefined', () => {
+        const health = { status: 'healthy', version: '1.0.0', isHealthy: true };
+        expect(AxonFlow.hasCapability(health as any, 'health_check')).toBe(false);
+      });
     });
 
     describe('proxyLLMCall', () => {
