@@ -157,6 +157,23 @@ import {
 import { generateRequestId, debugLog } from './utils/helpers';
 
 /**
+ * Compare two semver version strings numerically.
+ * Returns -1 if a < b, 0 if equal, 1 if a > b.
+ */
+function compareSemver(a: string, b: string): number {
+  const partsA = a.split('.').map(Number);
+  const partsB = b.split('.').map(Number);
+  const len = Math.max(partsA.length, partsB.length);
+  for (let i = 0; i < len; i++) {
+    const numA = partsA[i] || 0;
+    const numB = partsB[i] || 0;
+    if (numA < numB) return -1;
+    if (numA > numB) return 1;
+  }
+  return 0;
+}
+
+/**
  * Main AxonFlow client for invisible AI governance
  */
 export class AxonFlow {
@@ -564,7 +581,7 @@ export class AxonFlow {
       const data = await response.json();
 
       // Warn if SDK version is below platform minimum
-      if (data.sdk_compatibility?.min_sdk_version && VERSION < data.sdk_compatibility.min_sdk_version) {
+      if (data.sdk_compatibility?.min_sdk_version && compareSemver(VERSION, data.sdk_compatibility.min_sdk_version) < 0) {
         console.warn(`[AxonFlow SDK] WARNING: SDK version ${VERSION} is below minimum supported version ${data.sdk_compatibility.min_sdk_version}. Please upgrade.`);
       }
 
