@@ -4497,6 +4497,9 @@ export class AxonFlow {
     if (options?.offset !== undefined) {
       params.set('offset', options.offset.toString());
     }
+    if (options?.trace_id) {
+      params.set('trace_id', options.trace_id);
+    }
 
     const queryString = params.toString();
     const path = queryString ? `/api/v1/workflows?${queryString}` : '/api/v1/workflows';

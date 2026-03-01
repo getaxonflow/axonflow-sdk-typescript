@@ -48,6 +48,8 @@ export interface CreateWorkflowRequest {
   total_steps?: number;
   /** Additional metadata for the workflow */
   metadata?: Record<string, unknown>;
+  /** Optional trace ID for correlating workflows with external tracing systems */
+  trace_id?: string;
 }
 
 /**
@@ -64,6 +66,18 @@ export interface CreateWorkflowResponse {
   status: WorkflowStatus;
   /** When the workflow was created */
   created_at: string;
+  /** Trace ID for correlating with external tracing systems */
+  trace_id?: string;
+}
+
+/** Tool-level context for per-tool governance within tool_call steps. */
+export interface ToolContext {
+  /** Name of the tool being invoked. */
+  tool_name: string;
+  /** Tool type: "function", "mcp", or "api". */
+  tool_type?: string;
+  /** Tool input parameters. */
+  tool_input?: Record<string, unknown>;
 }
 
 /**
@@ -80,6 +94,8 @@ export interface StepGateRequest {
   model?: string;
   /** LLM provider (if applicable) */
   provider?: string;
+  /** Tool context for per-tool governance within tool_call steps */
+  tool_context?: ToolContext;
 }
 
 /**
@@ -148,6 +164,8 @@ export interface WorkflowStatusResponse {
   started_at: string;
   /** When the workflow completed (if completed) */
   completed_at?: string;
+  /** Trace ID for correlating with external tracing systems */
+  trace_id?: string;
   /** List of steps in the workflow */
   steps?: WorkflowStepInfo[];
 }
@@ -164,6 +182,8 @@ export interface ListWorkflowsOptions {
   limit?: number;
   /** Offset for pagination */
   offset?: number;
+  /** Filter by trace ID */
+  trace_id?: string;
 }
 
 /**
