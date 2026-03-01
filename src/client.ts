@@ -581,8 +581,13 @@ export class AxonFlow {
       const data = await response.json();
 
       // Warn if SDK version is below platform minimum
-      if (data.sdk_compatibility?.min_sdk_version && compareSemver(VERSION, data.sdk_compatibility.min_sdk_version) < 0) {
-        console.warn(`[AxonFlow SDK] WARNING: SDK version ${VERSION} is below minimum supported version ${data.sdk_compatibility.min_sdk_version}. Please upgrade.`);
+      if (
+        data.sdk_compatibility?.min_sdk_version &&
+        compareSemver(VERSION, data.sdk_compatibility.min_sdk_version) < 0
+      ) {
+        console.warn(
+          `[AxonFlow SDK] WARNING: SDK version ${VERSION} is below minimum supported version ${data.sdk_compatibility.min_sdk_version}. Please upgrade.`
+        );
       }
 
       return {
@@ -591,10 +596,12 @@ export class AxonFlow {
         uptime: data.uptime,
         components: data.components,
         capabilities: data.capabilities,
-        sdkCompatibility: data.sdk_compatibility ? {
-          minSdkVersion: data.sdk_compatibility.min_sdk_version,
-          recommendedSdkVersion: data.sdk_compatibility.recommended_sdk_version,
-        } : undefined,
+        sdkCompatibility: data.sdk_compatibility
+          ? {
+              minSdkVersion: data.sdk_compatibility.min_sdk_version,
+              recommendedSdkVersion: data.sdk_compatibility.recommended_sdk_version,
+            }
+          : undefined,
       };
     } catch (error) {
       if (this.config.debug) {
