@@ -102,6 +102,8 @@ export type {
   PolicyInfo,
   CodeArtifact,
   HealthStatus,
+  PlatformCapability,
+  SDKCompatibility,
 } from './types';
 
 // Export policy types
@@ -277,7 +279,7 @@ export type {
 export { ExecutionHelpers } from './types/execution';
 
 // Export version
-export const VERSION = '3.3.1';
+export { VERSION } from './version';
 
 // Default export for convenience
 import { AxonFlow } from './client';

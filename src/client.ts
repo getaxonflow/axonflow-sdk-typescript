@@ -1,3 +1,4 @@
+import { VERSION } from './version';
 import {
   AxonFlowConfig,
   AIRequest,
@@ -252,6 +253,9 @@ export class AxonFlow {
       headers['X-Tenant-ID'] = this.config.clientId;
     }
 
+    // Include SDK version for version discovery and compatibility checks
+    headers['User-Agent'] = `axonflow-sdk-typescript/${VERSION}`;
+
     return headers;
   }
 
@@ -502,6 +506,25 @@ export class AxonFlow {
     });
   }
 
+  /**
+   * Check if a health response indicates support for a named capability.
+   *
+   * @param health - HealthStatus returned from healthCheck()
+   * @param name - Capability name to check (e.g. "mcp-policy-check", "circuit-breaker")
+   * @returns true if the capability is present in the health response
+   *
+   * @example
+   * ```typescript
+   * const health = await axonflow.healthCheck();
+   * if (AxonFlow.hasCapability(health, 'mcp-policy-check')) {
+   *   // Platform supports MCP policy check endpoints
+   * }
+   * ```
+   */
+  static hasCapability(health: HealthStatus, name: string): boolean {
+    return health.capabilities?.some(c => c.name === name) ?? false;
+  }
+
   // ============================================================================
   // Proxy Mode Methods
   // ============================================================================
@@ -525,6 +548,7 @@ export class AxonFlow {
     try {
       const response = await fetch(url, {
         method: 'GET',
+        headers: this.getAuthHeaders(),
         signal: AbortSignal.timeout(this.config.timeout),
       });
 
@@ -539,11 +563,21 @@ export class AxonFlow {
 
       const data = await response.json();
 
+      // Warn if SDK version is below platform minimum
+      if (data.sdk_compatibility?.min_sdk_version && VERSION < data.sdk_compatibility.min_sdk_version) {
+        console.warn(`[AxonFlow SDK] WARNING: SDK version ${VERSION} is below minimum supported version ${data.sdk_compatibility.min_sdk_version}. Please upgrade.`);
+      }
+
       return {
         status: data.status === 'healthy' ? 'healthy' : 'degraded',
         version: data.version,
         uptime: data.uptime,
         components: data.components,
+        capabilities: data.capabilities,
+        sdkCompatibility: data.sdk_compatibility ? {
+          minSdkVersion: data.sdk_compatibility.min_sdk_version,
+          recommendedSdkVersion: data.sdk_compatibility.recommended_sdk_version,
+        } : undefined,
       };
     } catch (error) {
       if (this.config.debug) {

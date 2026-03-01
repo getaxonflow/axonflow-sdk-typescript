@@ -125,6 +125,28 @@ export interface ExecuteQueryResponse {
 }
 
 /**
+ * Platform capability description
+ */
+export interface PlatformCapability {
+  /** Capability name */
+  name: string;
+  /** Platform version that introduced this capability */
+  since: string;
+  /** Human-readable description */
+  description: string;
+}
+
+/**
+ * SDK compatibility information
+ */
+export interface SDKCompatibility {
+  /** Minimum supported SDK version */
+  minSdkVersion: string;
+  /** Recommended SDK version */
+  recommendedSdkVersion: string;
+}
+
+/**
  * Health check response
  */
 export interface HealthStatus {
@@ -136,4 +158,8 @@ export interface HealthStatus {
   uptime?: string;
   /** Component health statuses */
   components?: Record<string, { status: string; message?: string }>;
+  /** Platform capabilities */
+  capabilities?: PlatformCapability[];
+  /** SDK compatibility information */
+  sdkCompatibility?: SDKCompatibility;
 }
