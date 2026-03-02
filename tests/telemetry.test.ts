@@ -227,7 +227,7 @@ describe('sendTelemetryPing', () => {
       }).not.toThrow();
 
       // Let the promise settle
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise(resolve => setTimeout(resolve, 50));
     });
 
     it('should not throw when fetch times out (AbortController)', async () => {
@@ -247,7 +247,7 @@ describe('sendTelemetryPing', () => {
       }).not.toThrow();
 
       // Let the promise settle
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise(resolve => setTimeout(resolve, 50));
     });
   });
 
