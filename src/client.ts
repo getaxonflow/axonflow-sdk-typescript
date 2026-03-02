@@ -1,4 +1,5 @@
 import { VERSION } from './version';
+import { sendTelemetryPing } from './telemetry';
 import {
   AxonFlowConfig,
   AIRequest,
@@ -243,6 +244,14 @@ export class AxonFlow {
         authMethod,
       });
     }
+
+    // Send telemetry ping (fire-and-forget).
+    sendTelemetryPing({
+      mode: this.config.mode,
+      endpoint: this.config.endpoint,
+      telemetryEnabled: config.telemetry,
+      debug: this.config.debug,
+    });
   }
 
   /**

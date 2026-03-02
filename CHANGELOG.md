@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ToolContext` interface for per-tool governance within workflow steps
 - `tool_context` field on `StepGateRequest` for tool-level policy enforcement
 - `listWorkflows()` now supports `trace_id` filter parameter
+- Anonymous runtime telemetry for version adoption tracking and feature usage signals
+- `TelemetryEnabled` / `telemetry` configuration option to explicitly control telemetry
+- `AXONFLOW_TELEMETRY=off` and `DO_NOT_TRACK=1` environment variable opt-out support
+
+### Removed
+
+- Removed `@scarf/scarf` install-time telemetry in favor of privacy-preserving runtime telemetry
 
 ### Fixed
 
