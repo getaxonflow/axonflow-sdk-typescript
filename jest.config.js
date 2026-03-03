@@ -34,6 +34,7 @@ module.exports = {
       statements: 80,
     },
   },
+  setupFiles: ['<rootDir>/jest.setup.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   verbose: true,
   testTimeout: 10000,

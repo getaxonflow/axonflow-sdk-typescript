@@ -976,6 +976,12 @@ const axonflow = new AxonFlow({
 
 **Self-hosted users:** No credentials required for localhost endpoints.
 
+## Telemetry
+
+This SDK sends anonymous usage telemetry (SDK version, OS, enabled features) to help improve AxonFlow.
+No prompts, payloads, or PII are ever collected. Opt out: `AXONFLOW_TELEMETRY=off` or `DO_NOT_TRACK=1`.
+See [Telemetry Documentation](https://docs.getaxonflow.com/docs/telemetry) for full details.
+
 ## License
 
 MIT

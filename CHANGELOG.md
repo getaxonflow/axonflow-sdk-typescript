@@ -5,6 +5,33 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - 2026-03-03
+
+### Added
+
+- `healthCheck()` now returns `capabilities` array and `sdkCompatibility` in `HealthStatus`
+- Static `hasCapability(health, name)` method on `AxonFlow` to check if platform supports a specific feature
+- User-Agent header (`axonflow-sdk-typescript/{version}`) sent on all HTTP requests
+- Version mismatch warning logged when SDK version is below platform's `min_sdk_version`
+- `PlatformCapability` and `SDKCompatibility` interfaces in types
+- `trace_id` field on `CreateWorkflowRequest`, `CreateWorkflowResponse`, `WorkflowStatusResponse`, and `ListWorkflowsOptions` for distributed tracing correlation
+- `ToolContext` interface for per-tool governance within workflow steps
+- `tool_context` field on `StepGateRequest` for tool-level policy enforcement
+- `listWorkflows()` now supports `trace_id` filter parameter
+- Anonymous runtime telemetry for version adoption tracking and feature usage signals
+- `TelemetryEnabled` / `telemetry` configuration option to explicitly control telemetry
+- `AXONFLOW_TELEMETRY=off` and `DO_NOT_TRACK=1` environment variable opt-out support
+
+### Removed
+
+- Removed `@scarf/scarf` install-time telemetry in favor of privacy-preserving runtime telemetry
+
+### Fixed
+
+- `VERSION` constant corrected from `3.3.1` to `3.8.0`
+
+---
+
 ## [3.7.0] - 2026-02-28
 
 ### Added
