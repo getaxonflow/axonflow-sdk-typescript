@@ -44,10 +44,10 @@ function isOptedOut(): boolean {
   if (typeof process === 'undefined' || !process.env) {
     return false;
   }
-  if (process.env.DO_NOT_TRACK === '1') {
+  if (process.env.DO_NOT_TRACK?.trim() === '1') {
     return true;
   }
-  if (process.env.AXONFLOW_TELEMETRY?.toLowerCase() === 'off') {
+  if (process.env.AXONFLOW_TELEMETRY?.trim().toLowerCase() === 'off') {
     return true;
   }
   return false;
