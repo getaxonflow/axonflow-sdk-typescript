@@ -74,7 +74,7 @@ function resolveCheckpointUrl(): string {
  */
 function shouldSendTelemetry(
   explicitMode: string | undefined,
-  telemetryEnabled?: boolean,
+  telemetryEnabled?: boolean
 ): boolean {
   // Explicit config override takes priority
   if (telemetryEnabled !== undefined) {
