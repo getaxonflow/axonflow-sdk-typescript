@@ -47,7 +47,7 @@ function isOptedOut(): boolean {
   if (process.env.DO_NOT_TRACK === '1') {
     return true;
   }
-  if (process.env.AXONFLOW_TELEMETRY === 'off') {
+  if (process.env.AXONFLOW_TELEMETRY?.toLowerCase() === 'off') {
     return true;
   }
   return false;
@@ -68,18 +68,30 @@ function resolveCheckpointUrl(): string {
  *
  * Default behavior:
  * - sandbox mode (no credentials): OFF
- * - production mode: ON
+ * - production mode with credentials: ON
+ * - production mode without credentials (self-hosted/community): OFF
  *
  * The explicit `telemetryEnabled` config field overrides the default when defined.
  */
-function shouldSendTelemetry(mode: string, telemetryEnabled?: boolean): boolean {
+function shouldSendTelemetry(
+  mode: string,
+  telemetryEnabled?: boolean,
+  hasCredentials?: boolean
+): boolean {
   // Explicit config override takes priority
   if (telemetryEnabled !== undefined) {
     return telemetryEnabled;
   }
 
-  // Default: ON for production, OFF for sandbox
-  return mode === 'production';
+  // Sandbox mode is always off by default
+  if (mode === 'sandbox') {
+    return false;
+  }
+
+  // Default: ON only for production with credentials.
+  // hasCredentials === undefined means caller didn't pass it (backwards compat) — treat as true.
+  // hasCredentials === false means self-hosted/community — OFF.
+  return hasCredentials !== false;
 }
 
 export interface TelemetryPayload {
@@ -104,6 +116,7 @@ export function sendTelemetryPing(options: {
   mode: string;
   endpoint: string;
   telemetryEnabled?: boolean;
+  hasCredentials?: boolean;
   debug?: boolean;
 }): void {
   // Check env-level opt-out first
@@ -112,7 +125,7 @@ export function sendTelemetryPing(options: {
   }
 
   // Check mode-based default and config override
-  if (!shouldSendTelemetry(options.mode, options.telemetryEnabled)) {
+  if (!shouldSendTelemetry(options.mode, options.telemetryEnabled, options.hasCredentials)) {
     return;
   }
 

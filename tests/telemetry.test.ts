@@ -89,6 +89,17 @@ describe('sendTelemetryPing', () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
+
+    it('should not send when AXONFLOW_TELEMETRY=OFF (case insensitive)', () => {
+      process.env.AXONFLOW_TELEMETRY = 'OFF';
+
+      sendTelemetryPing({
+        mode: 'production',
+        endpoint: 'https://api.axonflow.com',
+      });
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
   });
 
   // ============================================================
@@ -105,6 +116,35 @@ describe('sendTelemetryPing', () => {
     });
 
     it('should send by default for production mode', () => {
+      sendTelemetryPing({
+        mode: 'production',
+        endpoint: 'https://api.axonflow.com',
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should NOT send for production mode without credentials (hasCredentials=false)', () => {
+      sendTelemetryPing({
+        mode: 'production',
+        endpoint: 'https://api.axonflow.com',
+        hasCredentials: false,
+      });
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should send for production mode with credentials (hasCredentials=true)', () => {
+      sendTelemetryPing({
+        mode: 'production',
+        endpoint: 'https://api.axonflow.com',
+        hasCredentials: true,
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should send for production mode with hasCredentials undefined (backwards compat)', () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
@@ -145,6 +185,29 @@ describe('sendTelemetryPing', () => {
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
         telemetryEnabled: true,
+      });
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('AXONFLOW_TELEMETRY=off takes priority over telemetryEnabled=true', () => {
+      process.env.AXONFLOW_TELEMETRY = 'off';
+
+      sendTelemetryPing({
+        mode: 'production',
+        endpoint: 'https://api.axonflow.com',
+        telemetryEnabled: true,
+      });
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('config override false skips even with hasCredentials=true', () => {
+      sendTelemetryPing({
+        mode: 'production',
+        endpoint: 'https://api.axonflow.com',
+        telemetryEnabled: false,
+        hasCredentials: true,
       });
 
       expect(mockFetch).not.toHaveBeenCalled();
@@ -238,6 +301,38 @@ describe('sendTelemetryPing', () => {
             setTimeout(() => reject(new DOMException('Aborted', 'AbortError')), 5000);
           })
       );
+
+      expect(() => {
+        sendTelemetryPing({
+          mode: 'production',
+          endpoint: 'https://api.axonflow.com',
+        });
+      }).not.toThrow();
+
+      // Let the promise settle
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    it('should not throw when server returns non-200', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      expect(() => {
+        sendTelemetryPing({
+          mode: 'production',
+          endpoint: 'https://api.axonflow.com',
+        });
+      }).not.toThrow();
+
+      // Let the promise settle
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    it('should not throw on connection refused (TypeError)', async () => {
+      mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
 
       expect(() => {
         sendTelemetryPing({
