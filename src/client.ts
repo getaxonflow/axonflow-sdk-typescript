@@ -250,6 +250,7 @@ export class AxonFlow {
       mode: this.config.mode,
       endpoint: this.config.endpoint,
       telemetryEnabled: config.telemetry,
+      hasCredentials: !!(config.clientId && config.clientSecret),
       debug: this.config.debug,
     });
   }
