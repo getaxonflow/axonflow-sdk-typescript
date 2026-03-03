@@ -3,7 +3,7 @@
  *
  * Verifies the anonymous usage telemetry ping behavior:
  * - Opt-out via DO_NOT_TRACK and AXONFLOW_TELEMETRY env vars
- * - Default ON for production mode, OFF for sandbox mode
+ * - Default ON for all modes except sandbox
  * - Config-level override of defaults
  * - Payload format correctness
  * - Silent failure on network errors
@@ -124,29 +124,18 @@ describe('sendTelemetryPing', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
-    it('should NOT send for production mode without credentials (hasCredentials=false)', () => {
+    it('should send by default for staging mode', () => {
       sendTelemetryPing({
-        mode: 'production',
+        mode: 'staging',
         endpoint: 'https://api.axonflow.com',
-        hasCredentials: false,
-      });
-
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it('should send for production mode with credentials (hasCredentials=true)', () => {
-      sendTelemetryPing({
-        mode: 'production',
-        endpoint: 'https://api.axonflow.com',
-        hasCredentials: true,
       });
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
-    it('should send for production mode with hasCredentials undefined (backwards compat)', () => {
+    it('should send by default for development mode', () => {
       sendTelemetryPing({
-        mode: 'production',
+        mode: 'development',
         endpoint: 'https://api.axonflow.com',
       });
 
@@ -202,12 +191,11 @@ describe('sendTelemetryPing', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('config override false skips even with hasCredentials=true', () => {
+    it('config override false skips regardless of mode', () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
         telemetryEnabled: false,
-        hasCredentials: true,
       });
 
       expect(mockFetch).not.toHaveBeenCalled();
