@@ -106,13 +106,25 @@ describe('sendTelemetryPing', () => {
   // Default mode-based behavior
   // ============================================================
   describe('default mode-based behavior', () => {
-    it('should NOT send by default for sandbox mode', () => {
+    it('should NOT send when user explicitly sets sandbox mode', () => {
+      sendTelemetryPing({
+        mode: 'sandbox',
+        explicitMode: 'sandbox',
+        endpoint: 'https://api.axonflow.com',
+      });
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should send when sandbox is auto-detected (no explicitMode)', () => {
+      // This covers the case where TS SDK auto-selects sandbox because no credentials.
+      // Only explicitly-set sandbox should disable telemetry.
       sendTelemetryPing({
         mode: 'sandbox',
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
     it('should send by default for production mode', () => {
@@ -147,9 +159,10 @@ describe('sendTelemetryPing', () => {
   // Config override of defaults
   // ============================================================
   describe('config telemetryEnabled override', () => {
-    it('should send in sandbox mode when telemetryEnabled=true', () => {
+    it('should send in explicit sandbox mode when telemetryEnabled=true', () => {
       sendTelemetryPing({
         mode: 'sandbox',
+        explicitMode: 'sandbox',
         endpoint: 'https://api.axonflow.com',
         telemetryEnabled: true,
       });

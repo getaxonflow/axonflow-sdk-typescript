@@ -248,6 +248,7 @@ export class AxonFlow {
     // Send telemetry ping (fire-and-forget).
     sendTelemetryPing({
       mode: this.config.mode,
+      explicitMode: config.mode,
       endpoint: this.config.endpoint,
       telemetryEnabled: config.telemetry,
       debug: this.config.debug,

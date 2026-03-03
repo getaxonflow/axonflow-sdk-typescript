@@ -67,13 +67,13 @@ function resolveCheckpointUrl(): string {
  * Determine whether telemetry should be sent based on mode and explicit config.
  *
  * Default behavior:
- * - sandbox mode: OFF
- * - all other modes: ON
+ * - explicitly-set sandbox mode: OFF
+ * - all other modes (including auto-detected sandbox): ON
  *
  * The explicit `telemetryEnabled` config field overrides the default when defined.
  */
 function shouldSendTelemetry(
-  mode: string,
+  explicitMode: string | undefined,
   telemetryEnabled?: boolean,
 ): boolean {
   // Explicit config override takes priority
@@ -81,8 +81,9 @@ function shouldSendTelemetry(
     return telemetryEnabled;
   }
 
-  // Default: ON everywhere except sandbox mode.
-  return mode !== 'sandbox';
+  // Default: ON everywhere except explicitly-set sandbox mode.
+  // When mode is undefined (auto-detected), telemetry stays ON.
+  return explicitMode !== 'sandbox';
 }
 
 export interface TelemetryPayload {
@@ -105,6 +106,7 @@ export interface TelemetryPayload {
  */
 export function sendTelemetryPing(options: {
   mode: string;
+  explicitMode?: string;
   endpoint: string;
   telemetryEnabled?: boolean;
   debug?: boolean;
@@ -114,9 +116,16 @@ export function sendTelemetryPing(options: {
     return;
   }
 
-  // Check mode-based default and config override
-  if (!shouldSendTelemetry(options.mode, options.telemetryEnabled)) {
+  // Check mode-based default and config override.
+  // Use explicitMode (user's original input) so auto-detected sandbox doesn't disable telemetry.
+  if (!shouldSendTelemetry(options.explicitMode, options.telemetryEnabled)) {
     return;
+  }
+
+  if (typeof console !== 'undefined') {
+    console.log(
+      '[AxonFlow] Anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/telemetry'
+    );
   }
 
   const checkpointUrl = resolveCheckpointUrl();
