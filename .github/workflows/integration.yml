@@ -18,6 +18,7 @@ permissions:
   contents: read
 
 env:
+  DO_NOT_TRACK: '1'
   AXONFLOW_AGENT_URL: http://localhost:8080
   AXONFLOW_CLIENT_ID: integration-test-client
   AXONFLOW_CLIENT_SECRET: integration-test-secret
