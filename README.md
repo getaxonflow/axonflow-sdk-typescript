@@ -985,5 +985,3 @@ See [Telemetry Documentation](https://docs.getaxonflow.com/docs/telemetry) for f
 ## License
 
 MIT
-
-<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=4970d33a-d1ab-4baf-880c-1670f3c6cf0e" />
