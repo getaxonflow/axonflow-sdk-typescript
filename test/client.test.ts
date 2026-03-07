@@ -3030,5 +3030,58 @@ describe('AxonFlow Client Unit Tests', () => {
         });
       });
     });
+
+    describe('mcpCheckInput', () => {
+      it('should default operation to "execute" when not specified', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              allowed: true,
+              policies_evaluated: 5,
+            }),
+        });
+
+        await client.mcpCheckInput({
+          connectorType: 'postgres',
+          statement: 'SELECT * FROM users',
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/v1/mcp/check-input'),
+          expect.objectContaining({
+            method: 'POST',
+            body: expect.any(String),
+          })
+        );
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1].body);
+        expect(body.operation).toBe('execute');
+        expect(body.connector_type).toBe('postgres');
+        expect(body.statement).toBe('SELECT * FROM users');
+      });
+
+      it('should preserve explicit operation when specified', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              allowed: true,
+              policies_evaluated: 3,
+            }),
+        });
+
+        await client.mcpCheckInput({
+          connectorType: 'postgres',
+          statement: 'SELECT 1',
+          operation: 'query',
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1].body);
+        expect(body.operation).toBe('query');
+      });
+    });
   });
 });

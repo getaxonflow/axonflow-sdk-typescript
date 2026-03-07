@@ -1175,9 +1175,7 @@ export class AxonFlow {
     if (options.parameters) {
       body.parameters = options.parameters;
     }
-    if (options.operation) {
-      body.operation = options.operation;
-    }
+    body.operation = options.operation || 'execute';
 
     if (this.config.debug) {
       debugLog('MCP Check Input', {
