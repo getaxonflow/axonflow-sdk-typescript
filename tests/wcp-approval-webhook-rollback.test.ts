@@ -722,7 +722,6 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
       const result = await client.createWorkflow({
         workflow_name: 'test-workflow',
         source: 'langgraph',
-        total_steps: 3,
       });
 
       expect(result.workflow_id).toBe('wf_new');
@@ -744,7 +743,6 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
       const result = await client.createWorkflow({
         workflow_name: 'meta-workflow',
         source: 'crewai',
-        total_steps: 2,
         metadata: { customer_id: 'cust-123' },
       });
 
@@ -762,7 +760,6 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
         client.createWorkflow({
           workflow_name: 'bad',
           source: 'external',
-          total_steps: 0,
         })
       ).rejects.toThrow();
     });
