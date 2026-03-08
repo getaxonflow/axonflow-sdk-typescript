@@ -5,7 +5,7 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.0.0] - Unreleased
+## [4.0.0] - 2026-03-09
 
 ### Breaking Changes
 
@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Total steps are auto-computed when the workflow reaches a terminal state.
 - **`mcpCheckInput()` default `operation` changed from `"query"` to `"execute"`**. Callers relying on
   the implicit `"query"` default must now pass `operation: "query"` explicitly.
+  Aligns TypeScript SDK behavior with Python, Java, and Go SDKs.
+
+### Removed
+
+- Scarf tracking pixel from README — GitHub's camo proxy strips viewer identity, making the pixel unattributable
+
+### Changed
+
+- CI workflows now set `DO_NOT_TRACK=1` to prevent telemetry pings during test and publish runs
 
 ### Note
 
