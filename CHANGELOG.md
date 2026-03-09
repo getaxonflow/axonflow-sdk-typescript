@@ -15,14 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the implicit `"query"` default must now pass `operation: "query"` explicitly.
   Aligns TypeScript SDK behavior with Python, Java, and Go SDKs.
 
-### Removed
-
-- Scarf tracking pixel from README — GitHub's camo proxy strips viewer identity, making the pixel unattributable
-
-### Changed
-
-- CI workflows now set `DO_NOT_TRACK=1` to prevent telemetry pings during test and publish runs
-
 ### Note
 
 `MediaAnalysisResult.extractedText` was replaced by `hasExtractedText` + `extractedTextLength`
