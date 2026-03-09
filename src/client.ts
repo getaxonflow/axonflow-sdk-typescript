@@ -4301,7 +4301,6 @@ export class AxonFlow {
    * const workflow = await client.createWorkflow({
    *   workflow_name: 'customer-support-agent',
    *   source: 'langgraph',
-   *   total_steps: 5,
    *   metadata: { customer_id: 'cust-123' }
    * });
    * console.log(`Workflow created: ${workflow.workflow_id}`);

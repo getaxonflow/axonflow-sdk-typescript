@@ -44,8 +44,6 @@ export interface CreateWorkflowRequest {
   workflow_name: string;
   /** Source orchestrator running the workflow */
   source?: WorkflowSource;
-  /** Total number of steps in the workflow (if known) */
-  total_steps?: number;
   /** Additional metadata for the workflow */
   metadata?: Record<string, unknown>;
   /** Optional trace ID for correlating workflows with external tracing systems */
