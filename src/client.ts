@@ -215,7 +215,7 @@ export class AxonFlow {
       clientId: config.clientId,
       clientSecret: config.clientSecret,
       endpoint,
-      mode: config.mode || (hasCredentials ? 'production' : 'sandbox'),
+      mode: config.mode || 'production',
       tenant: config.tenant || '',
       debug: config.debug || false,
       timeout: config.timeout || 30000,
