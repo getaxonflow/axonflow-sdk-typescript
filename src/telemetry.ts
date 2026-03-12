@@ -68,7 +68,7 @@ function resolveCheckpointUrl(): string {
  *
  * Default behavior:
  * - explicitly-set sandbox mode: OFF
- * - all other modes (including auto-detected sandbox): ON
+ * - all other modes: ON
  *
  * The explicit `telemetryEnabled` config field overrides the default when defined.
  */
@@ -82,7 +82,6 @@ function shouldSendTelemetry(
   }
 
   // Default: ON everywhere except explicitly-set sandbox mode.
-  // When mode is undefined (auto-detected), telemetry stays ON.
   return explicitMode !== 'sandbox';
 }
 
