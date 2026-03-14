@@ -54,6 +54,19 @@ function isOptedOut(): boolean {
 }
 
 /**
+ * Check whether the endpoint is a localhost address.
+ */
+function isLocalhostEndpoint(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint);
+    const host = url.hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resolve the checkpoint URL, allowing override via environment variable.
  */
 function resolveCheckpointUrl(): string {
@@ -118,6 +131,15 @@ export function sendTelemetryPing(options: {
   // Check mode-based default and config override.
   // Use explicitMode (user's original input) so auto-detected sandbox doesn't disable telemetry.
   if (!shouldSendTelemetry(options.explicitMode, options.telemetryEnabled)) {
+    return;
+  }
+
+  // Suppress telemetry for localhost endpoints unless explicitly enabled.
+  // Local development setups should not send telemetry by default.
+  if (
+    options.telemetryEnabled !== true &&
+    isLocalhostEndpoint(options.endpoint)
+  ) {
     return;
   }
 
