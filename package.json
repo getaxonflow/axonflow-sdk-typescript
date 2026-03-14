@@ -18,6 +18,8 @@
     "LICENSE"
   ],
   "scripts": {
+    "stamp-version": "node scripts/stamp-version.js",
+    "prebuild": "npm run stamp-version",
     "build": "npm run clean && npm run compile",
     "clean": "rm -rf dist",
     "compile": "tsc && tsc --project tsconfig.esm.json && node scripts/fix-esm-imports.js",

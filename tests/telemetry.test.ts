@@ -54,14 +54,16 @@ beforeEach(() => {
   mockFetch.mockClear();
 });
 
-afterEach(async () => {
-  // Let any fire-and-forget async operations settle before restoring fetch.
-  // Without this, dangling async operations may resolve against the real fetch
-  // and send actual HTTP requests to checkpoint.getaxonflow.com.
-  await new Promise(resolve => setTimeout(resolve, 100));
-
-  // Restore original env and fetch
+afterEach(() => {
+  // Restore original env but keep mock fetch active.
+  // Real fetch must NOT be restored between tests — fire-and-forget async
+  // operations (especially timeout/abort tests with 2s delays) may still be
+  // in flight and would leak real HTTP requests to checkpoint.getaxonflow.com.
   process.env = originalEnv;
+});
+
+afterAll(() => {
+  // Restore real fetch only after all tests complete.
   global.fetch = originalFetch;
 });
 
