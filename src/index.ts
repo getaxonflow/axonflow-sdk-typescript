@@ -97,6 +97,11 @@ export type {
   PolicyApprovalOptions,
   AuditResult,
   AuditOptions,
+  // Audit Log Read types
+  AuditSearchRequest,
+  AuditQueryOptions,
+  AuditLogEntry,
+  AuditSearchResponse,
   // Proxy Mode types
   RequestType,
   PolicyInfo,
