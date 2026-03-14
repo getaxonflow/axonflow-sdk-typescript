@@ -2,7 +2,8 @@
  * SDK version constant.
  *
  * Read from package.json to avoid version drift between the npm package
- * and the telemetry payload.
+ * and the telemetry payload. Uses import syntax for CJS/ESM compatibility.
  */
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-export const VERSION: string = require('../package.json').version;
+import packageJson from '../package.json';
+
+export const VERSION: string = packageJson.version;
