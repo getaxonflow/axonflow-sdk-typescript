@@ -90,6 +90,52 @@ export interface AuditOptions {
 }
 
 // ============================================================================
+// Audit Tool Call Types
+// ============================================================================
+
+/**
+ * Request to audit a non-LLM tool call.
+ * Records function calls, MCP tool invocations, and API calls
+ * for compliance and observability.
+ */
+export interface AuditToolCallRequest {
+  /** Name of the tool that was called */
+  toolName: string;
+  /** Type of tool: "function", "mcp", or "api" */
+  toolType?: string;
+  /** Input parameters passed to the tool */
+  input?: Record<string, unknown>;
+  /** Output returned by the tool */
+  output?: Record<string, unknown>;
+  /** Associated workflow ID */
+  workflowId?: string;
+  /** Associated step ID */
+  stepId?: string;
+  /** User who triggered the tool call */
+  userId?: string;
+  /** Duration of the tool call in milliseconds */
+  durationMs?: number;
+  /** Policies that were applied during the call */
+  policiesApplied?: string[];
+  /** Whether the tool call succeeded */
+  success?: boolean;
+  /** Error message if the call failed */
+  errorMessage?: string;
+}
+
+/**
+ * Response from auditing a tool call.
+ */
+export interface AuditToolCallResponse {
+  /** Unique audit ID for the recorded tool call */
+  auditId: string;
+  /** Status of the audit record */
+  status: string;
+  /** When the audit was recorded */
+  timestamp: string;
+}
+
+// ============================================================================
 // Audit Log Read Types
 // ============================================================================
 

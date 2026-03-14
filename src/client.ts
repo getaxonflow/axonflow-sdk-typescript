@@ -145,6 +145,9 @@ import {
   MediaGovernanceConfig,
   MediaGovernanceStatus,
   UpdateMediaGovernanceConfigRequest,
+  // Audit Tool Call types
+  AuditToolCallRequest,
+  AuditToolCallResponse,
 } from './types';
 import {
   AuthenticationError,
@@ -1892,6 +1895,62 @@ export class AxonFlow {
     }
 
     return result;
+  }
+
+  /**
+   * Audit a non-LLM tool call for compliance and observability.
+   *
+   * Records function calls, MCP tool invocations, and API calls in the
+   * AxonFlow audit trail. Use this alongside auditLLMCall() to get complete
+   * visibility into all tool usage within your AI workflows.
+   *
+   * @param request - Tool call details to audit
+   * @returns Promise resolving to the audit record
+   *
+   * @example
+   * ```typescript
+   * const result = await axonflow.auditToolCall({
+   *   toolName: 'search_database',
+   *   toolType: 'function',
+   *   input: { query: 'SELECT * FROM users' },
+   *   output: { rows: 42 },
+   *   workflowId: 'wf-123',
+   *   durationMs: 150,
+   *   success: true
+   * });
+   * console.log(result.auditId); // "audit-abc-123"
+   * ```
+   */
+  async auditToolCall(request: AuditToolCallRequest): Promise<AuditToolCallResponse> {
+    if (!request.toolName) {
+      throw new ConfigurationError('tool_name is required');
+    }
+
+    const body: Record<string, unknown> = {
+      tool_name: request.toolName,
+    };
+    if (request.toolType !== undefined) body.tool_type = request.toolType;
+    if (request.input !== undefined) body.input = request.input;
+    if (request.output !== undefined) body.output = request.output;
+    if (request.workflowId !== undefined) body.workflow_id = request.workflowId;
+    if (request.stepId !== undefined) body.step_id = request.stepId;
+    if (request.userId !== undefined) body.user_id = request.userId;
+    if (request.durationMs !== undefined) body.duration_ms = request.durationMs;
+    if (request.policiesApplied !== undefined) body.policies_applied = request.policiesApplied;
+    if (request.success !== undefined) body.success = request.success;
+    if (request.errorMessage !== undefined) body.error_message = request.errorMessage;
+
+    const data = await this.orchestratorRequest<{
+      audit_id: string;
+      status: string;
+      timestamp: string;
+    }>('POST', '/api/v1/audit/tool-call', body);
+
+    return {
+      auditId: data.audit_id,
+      status: data.status,
+      timestamp: data.timestamp,
+    };
   }
 
   // ============================================================================

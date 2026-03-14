@@ -102,6 +102,9 @@ export type {
   AuditQueryOptions,
   AuditLogEntry,
   AuditSearchResponse,
+  // Audit Tool Call types
+  AuditToolCallRequest,
+  AuditToolCallResponse,
   // Proxy Mode types
   RequestType,
   PolicyInfo,
