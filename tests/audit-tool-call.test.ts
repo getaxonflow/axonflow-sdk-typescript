@@ -123,17 +123,13 @@ describe('auditToolCall', () => {
   it('should handle server error (500)', async () => {
     mockFetch.mockReturnValueOnce(mockResponse({ error: 'internal error' }, 500));
 
-    await expect(
-      client.auditToolCall({ toolName: 'search_database' })
-    ).rejects.toThrow();
+    await expect(client.auditToolCall({ toolName: 'search_database' })).rejects.toThrow();
   });
 
   it('should handle authentication error (401)', async () => {
     mockFetch.mockReturnValueOnce(mockResponse({ error: 'unauthorized' }, 401));
 
-    await expect(
-      client.auditToolCall({ toolName: 'search_database' })
-    ).rejects.toThrow();
+    await expect(client.auditToolCall({ toolName: 'search_database' })).rejects.toThrow();
   });
 
   it('should include error_message for failed tool calls', async () => {

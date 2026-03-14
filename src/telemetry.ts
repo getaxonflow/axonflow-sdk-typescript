@@ -136,10 +136,7 @@ export function sendTelemetryPing(options: {
 
   // Suppress telemetry for localhost endpoints unless explicitly enabled.
   // Local development setups should not send telemetry by default.
-  if (
-    options.telemetryEnabled !== true &&
-    isLocalhostEndpoint(options.endpoint)
-  ) {
+  if (options.telemetryEnabled !== true && isLocalhostEndpoint(options.endpoint)) {
     return;
   }
 

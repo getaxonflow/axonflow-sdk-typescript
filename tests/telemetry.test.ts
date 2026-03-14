@@ -419,9 +419,7 @@ describe('sendTelemetryPing', () => {
         new Promise((_, reject) => {
           setTimeout(() => reject(new DOMException('Aborted', 'AbortError')), 5000);
         });
-      mockFetch
-        .mockImplementationOnce(slowResponse)
-        .mockImplementationOnce(slowResponse);
+      mockFetch.mockImplementationOnce(slowResponse).mockImplementationOnce(slowResponse);
 
       expect(() => {
         sendTelemetryPing({

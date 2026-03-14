@@ -300,15 +300,10 @@ export type {
 export { ExecutionHelpers } from './types/execution';
 
 // Export config types
-export type {
-  RetryConfig,
-  CacheConfig,
-} from './types/config';
+export type { RetryConfig, CacheConfig } from './types/config';
 
 // Export proxy types
-export type {
-  BudgetInfo,
-} from './types/proxy';
+export type { BudgetInfo } from './types/proxy';
 
 // Export MAS FEAT Compliance types (Enterprise)
 export type {
