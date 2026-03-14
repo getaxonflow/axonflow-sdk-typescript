@@ -1,7 +1,8 @@
 /**
  * SDK version constant.
  *
- * Defined in its own module to avoid circular imports between
- * client.ts and index.ts.
+ * Read from package.json to avoid version drift between the npm package
+ * and the telemetry payload.
  */
-export const VERSION = '3.8.0';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+export const VERSION: string = require('../package.json').version;

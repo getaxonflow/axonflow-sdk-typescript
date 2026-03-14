@@ -17,10 +17,29 @@ import { VERSION } from '../src/version';
 const originalEnv = { ...process.env };
 const originalFetch = global.fetch;
 
-// Mock fetch globally
-const mockFetch = jest.fn().mockResolvedValue({
-  ok: true,
-  json: () => Promise.resolve({ latest_version: '3.8.0', alerts: [] }),
+// ---------------------------------------------------------------------------
+// Version constant integrity
+// ---------------------------------------------------------------------------
+describe('VERSION constant', () => {
+  it('should match package.json version', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const pkgVersion = require('../package.json').version;
+    expect(VERSION).toBe(pkgVersion);
+  });
+});
+
+// Mock fetch globally — handles both /health and checkpoint calls
+const mockFetch = jest.fn().mockImplementation((url: string) => {
+  if (typeof url === 'string' && url.endsWith('/health')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ status: 'healthy', version: '5.1.0' }),
+    });
+  }
+  return Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({ latest_version: '4.0.1', alerts: [] }),
+  });
 });
 
 beforeEach(() => {
@@ -68,7 +87,7 @@ describe('sendTelemetryPing', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('should send when DO_NOT_TRACK is not set to 1', () => {
+    it('should send when DO_NOT_TRACK is not set to 1', async () => {
       process.env.DO_NOT_TRACK = '0';
 
       sendTelemetryPing({
@@ -76,10 +95,12 @@ describe('sendTelemetryPing', () => {
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
     });
 
-    it('should send when AXONFLOW_TELEMETRY is not off', () => {
+    it('should send when AXONFLOW_TELEMETRY is not off', async () => {
       process.env.AXONFLOW_TELEMETRY = 'on';
 
       sendTelemetryPing({
@@ -87,7 +108,9 @@ describe('sendTelemetryPing', () => {
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
     });
 
     it('should not send when AXONFLOW_TELEMETRY=OFF (case insensitive)', () => {
@@ -116,7 +139,7 @@ describe('sendTelemetryPing', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('should send when sandbox is auto-detected (no explicitMode)', () => {
+    it('should send when sandbox is auto-detected (no explicitMode)', async () => {
       // This covers the case where TS SDK auto-selects sandbox because no credentials.
       // Only explicitly-set sandbox should disable telemetry.
       sendTelemetryPing({
@@ -124,34 +147,42 @@ describe('sendTelemetryPing', () => {
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
     });
 
-    it('should send by default for production mode', () => {
+    it('should send by default for production mode', async () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
     });
 
-    it('should send by default for staging mode', () => {
+    it('should send by default for staging mode', async () => {
       sendTelemetryPing({
         mode: 'staging',
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
     });
 
-    it('should send by default for development mode', () => {
+    it('should send by default for development mode', async () => {
       sendTelemetryPing({
         mode: 'development',
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
     });
   });
 
@@ -159,7 +190,7 @@ describe('sendTelemetryPing', () => {
   // Config override of defaults
   // ============================================================
   describe('config telemetryEnabled override', () => {
-    it('should send in explicit sandbox mode when telemetryEnabled=true', () => {
+    it('should send in explicit sandbox mode when telemetryEnabled=true', async () => {
       sendTelemetryPing({
         mode: 'sandbox',
         explicitMode: 'sandbox',
@@ -167,7 +198,9 @@ describe('sendTelemetryPing', () => {
         telemetryEnabled: true,
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
     });
 
     it('should NOT send in production mode when telemetryEnabled=false', () => {
@@ -219,14 +252,18 @@ describe('sendTelemetryPing', () => {
   // Payload format
   // ============================================================
   describe('payload format', () => {
-    it('should send correct payload shape', () => {
+    it('should send correct payload shape', async () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url, options] = mockFetch.mock.calls[0];
+      // Let async health check + checkpoint POST settle
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // First call is GET /health, second is POST to checkpoint
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      const [url, options] = mockFetch.mock.calls[1];
 
       expect(url).toBe('https://checkpoint.getaxonflow.com/v1/ping');
       expect(options.method).toBe('POST');
@@ -235,7 +272,7 @@ describe('sendTelemetryPing', () => {
       const payload: TelemetryPayload = JSON.parse(options.body);
       expect(payload.sdk).toBe('typescript');
       expect(payload.sdk_version).toBe(VERSION);
-      expect(payload.platform_version).toBeNull();
+      expect(payload.platform_version).toBe('5.1.0');
       expect(payload.os).toBe(process.platform);
       expect(payload.arch).toBe(process.arch);
       expect(payload.runtime_version).toBe(process.version);
@@ -246,18 +283,21 @@ describe('sendTelemetryPing', () => {
       );
     });
 
-    it('should include deployment_mode matching the mode option', () => {
+    it('should include deployment_mode matching the mode option', async () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
         telemetryEnabled: true,
       });
 
-      const payload: TelemetryPayload = JSON.parse(mockFetch.mock.calls[0][1].body);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Index 1 = checkpoint POST (index 0 = health GET)
+      const payload: TelemetryPayload = JSON.parse(mockFetch.mock.calls[1][1].body);
       expect(payload.deployment_mode).toBe('production');
     });
 
-    it('should generate unique instance_id per call', () => {
+    it('should generate unique instance_id per call', async () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
@@ -268,9 +308,17 @@ describe('sendTelemetryPing', () => {
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-      const id1 = JSON.parse(mockFetch.mock.calls[0][1].body).instance_id;
-      const id2 = JSON.parse(mockFetch.mock.calls[1][1].body).instance_id;
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Each sendTelemetryPing makes 2 calls (health + checkpoint)
+      expect(mockFetch).toHaveBeenCalledTimes(4);
+      // Filter to only POST calls (checkpoint pings)
+      const postCalls = mockFetch.mock.calls.filter(
+        (call: [string, { method?: string }]) => call[1]?.method === 'POST'
+      );
+      expect(postCalls).toHaveLength(2);
+      const id1 = JSON.parse(postCalls[0][1].body).instance_id;
+      const id2 = JSON.parse(postCalls[1][1].body).instance_id;
       expect(id1).not.toBe(id2);
     });
   });
@@ -351,7 +399,7 @@ describe('sendTelemetryPing', () => {
   // Custom endpoint via AXONFLOW_CHECKPOINT_URL
   // ============================================================
   describe('custom checkpoint endpoint', () => {
-    it('should use AXONFLOW_CHECKPOINT_URL when set', () => {
+    it('should use AXONFLOW_CHECKPOINT_URL when set', async () => {
       process.env.AXONFLOW_CHECKPOINT_URL = 'https://custom-telemetry.example.com/ping';
 
       sendTelemetryPing({
@@ -359,19 +407,24 @@ describe('sendTelemetryPing', () => {
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url] = mockFetch.mock.calls[0];
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // calls[0] = health, calls[1] = checkpoint POST
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      const [url] = mockFetch.mock.calls[1];
       expect(url).toBe('https://custom-telemetry.example.com/ping');
     });
 
-    it('should use default endpoint when AXONFLOW_CHECKPOINT_URL is not set', () => {
+    it('should use default endpoint when AXONFLOW_CHECKPOINT_URL is not set', async () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url] = mockFetch.mock.calls[0];
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      const [url] = mockFetch.mock.calls[1];
       expect(url).toBe('https://checkpoint.getaxonflow.com/v1/ping');
     });
   });
@@ -380,14 +433,17 @@ describe('sendTelemetryPing', () => {
   // AbortController signal
   // ============================================================
   describe('abort signal', () => {
-    it('should pass an AbortSignal to fetch', () => {
+    it('should pass an AbortSignal to fetch', async () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [, options] = mockFetch.mock.calls[0];
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      // Checkpoint POST (index 1) should have an abort signal
+      const [, options] = mockFetch.mock.calls[1];
       expect(options.signal).toBeDefined();
       expect(options.signal).toBeInstanceOf(AbortSignal);
     });
