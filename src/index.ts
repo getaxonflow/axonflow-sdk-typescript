@@ -57,6 +57,12 @@ export { wasRedacted } from './types/connector';
 // Export MCP connector types
 export type {
   ConnectorResponse,
+  ConnectorMetadata,
+  ConnectorInstallRequest,
+  PolicyMatchInfo,
+  DynamicPolicyInfo,
+  DynamicPolicyMatch,
+  ConnectorHealthStatus,
   MCPPolicyInfo,
   ExfiltrationCheckInfo,
   MCPCheckInputOptions,
@@ -97,6 +103,14 @@ export type {
   PolicyApprovalOptions,
   AuditResult,
   AuditOptions,
+  // Audit Log Read types
+  AuditSearchRequest,
+  AuditQueryOptions,
+  AuditLogEntry,
+  AuditSearchResponse,
+  // Audit Tool Call types
+  AuditToolCallRequest,
+  AuditToolCallResponse,
   // Proxy Mode types
   RequestType,
   PolicyInfo,
@@ -129,6 +143,8 @@ export type {
   TestPatternMatch,
   PolicyVersion,
   EffectivePoliciesOptions,
+  EffectivePoliciesResponse,
+  PaginatedResponse,
 } from './types/policies';
 export {
   CATEGORY_MEDIA_SAFETY,
@@ -172,6 +188,9 @@ export type {
   PRRecord,
   ListPRsOptions,
   ListPRsResponse,
+  CodeGovernanceMetrics,
+  ExportOptions,
+  ExportResponse,
 } from './types/code-governance';
 
 // Export Execution Replay types
@@ -279,6 +298,44 @@ export type {
   StreamExecutionStatusOptions,
 } from './types/execution';
 export { ExecutionHelpers } from './types/execution';
+
+// Export config types
+export type { RetryConfig, CacheConfig } from './types/config';
+
+// Export proxy types
+export type { BudgetInfo } from './types/proxy';
+
+// Export MAS FEAT Compliance types (Enterprise)
+export type {
+  MaterialityClassification,
+  SystemStatus,
+  FEATAssessmentStatus,
+  KillSwitchStatus,
+  FEATPillar,
+  AISystemUseCase,
+  KillSwitchEventType,
+  FindingSeverity,
+  FindingStatus,
+  Finding,
+  AISystemRegistry,
+  RegistrySummary,
+  RegisterSystemRequest,
+  UpdateSystemRequest,
+  ListSystemsOptions,
+  FEATAssessment,
+  CreateAssessmentRequest,
+  UpdateAssessmentRequest,
+  ApproveAssessmentRequest,
+  RejectAssessmentRequest,
+  ListAssessmentsOptions,
+  KillSwitch,
+  KillSwitchEvent,
+  ConfigureKillSwitchRequest,
+  CheckKillSwitchRequest,
+  TriggerKillSwitchRequest,
+  RestoreKillSwitchRequest,
+  DisableKillSwitchRequest,
+} from './types/masfeat';
 
 // Export version
 export { VERSION } from './version';

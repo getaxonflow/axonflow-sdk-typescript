@@ -54,6 +54,19 @@ function isOptedOut(): boolean {
 }
 
 /**
+ * Check whether the endpoint is a localhost address.
+ */
+function isLocalhostEndpoint(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint);
+    const host = url.hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resolve the checkpoint URL, allowing override via environment variable.
  */
 function resolveCheckpointUrl(): string {
@@ -121,6 +134,12 @@ export function sendTelemetryPing(options: {
     return;
   }
 
+  // Suppress telemetry for localhost endpoints unless explicitly enabled.
+  // Local development setups should not send telemetry by default.
+  if (options.telemetryEnabled !== true && isLocalhostEndpoint(options.endpoint)) {
+    return;
+  }
+
   if (typeof console !== 'undefined') {
     console.log(
       '[AxonFlow] Anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/telemetry'
@@ -135,35 +154,68 @@ export function sendTelemetryPing(options: {
     platform_version: null,
     os: typeof process !== 'undefined' ? process.platform : 'unknown',
     arch: typeof process !== 'undefined' ? process.arch : 'unknown',
-    runtime_version: typeof process !== 'undefined' ? process.version : 'unknown',
+    runtime_version: typeof process !== 'undefined' ? process.version.replace(/^v/, '') : 'unknown',
     deployment_mode: options.mode,
     features: [],
     instance_id: generateInstanceId(),
   };
 
-  if (options.debug) {
-    console.log('[AxonFlow] Sending telemetry ping', JSON.stringify(payload, null, 2));
-  }
-
-  // Fire-and-forget with AbortController timeout
+  // Fire-and-forget: detect platform version then send ping
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TELEMETRY_TIMEOUT_MS);
+    void (async () => {
+      try {
+        // Attempt to detect platform version from the health endpoint
+        payload.platform_version = await detectPlatformVersion(options.endpoint);
+      } catch {
+        // Silent — platform version remains null
+      }
 
-    void fetch(checkpointUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    })
-      .then(() => {
+      if (options.debug) {
+        console.log('[AxonFlow] Sending telemetry ping', JSON.stringify(payload, null, 2));
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TELEMETRY_TIMEOUT_MS);
+
+      try {
+        await fetch(checkpointUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+      } finally {
         clearTimeout(timeoutId);
-      })
-      .catch(() => {
-        clearTimeout(timeoutId);
-        // Silent failure — telemetry should never affect SDK behavior
-      });
+      }
+    })().catch(() => {
+      // Silent failure — telemetry should never affect SDK behavior
+    });
   } catch {
     // Silent failure — fetch may be unavailable in some environments
+  }
+}
+
+/**
+ * Detect the platform version by calling the agent's /health endpoint.
+ * Returns the version string or null on any failure.
+ */
+async function detectPlatformVersion(endpoint: string): Promise<string | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+  try {
+    const resp = await fetch(`${endpoint}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!resp.ok) return null;
+
+    const body = await resp.json();
+    return typeof body.version === 'string' && body.version ? body.version : null;
+  } catch {
+    clearTimeout(timeoutId);
+    return null;
   }
 }
