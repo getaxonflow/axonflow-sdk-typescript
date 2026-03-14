@@ -5,6 +5,19 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-03-14
+
+### Added
+
+- **`auditToolCall()`**: Record non-LLM tool call audit entries (API calls, MCP executions, function invocations) for compliance tracking. Requires Platform v5.1.0+.
+
+### Fixed
+
+- Telemetry pings now suppressed for localhost/127.0.0.1 endpoints unless `telemetryEnabled` is explicitly set to `true`. Prevents telemetry noise during local development and E2E testing.
+- Build script now stamps `VERSION` constant from `package.json`, fixing telemetry reporting stale SDK version.
+
+---
+
 ## [4.0.1] - 2026-03-12
 
 ### Fixed
