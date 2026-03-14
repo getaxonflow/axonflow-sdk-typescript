@@ -334,10 +334,15 @@ describe('sendTelemetryPing', () => {
   // Silent failure on network error
   // ============================================================
   describe('silent failure', () => {
-    it('should not throw when fetch rejects', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    it('should not throw when checkpoint POST rejects', async () => {
+      // First call (health) succeeds, second call (checkpoint) rejects
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ status: 'healthy', version: '5.1.0' }),
+        })
+        .mockRejectedValueOnce(new Error('Network error'));
 
-      // Should not throw
       expect(() => {
         sendTelemetryPing({
           mode: 'production',
@@ -345,18 +350,32 @@ describe('sendTelemetryPing', () => {
         });
       }).not.toThrow();
 
-      // Let the promise settle
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    it('should not throw when health check rejects', async () => {
+      // Health rejects, checkpoint should still be attempted
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      expect(() => {
+        sendTelemetryPing({
+          mode: 'production',
+          endpoint: 'https://api.axonflow.com',
+        });
+      }).not.toThrow();
+
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 
     it('should not throw when fetch times out (AbortController)', async () => {
-      // Simulate a very slow response
-      mockFetch.mockImplementationOnce(
-        () =>
-          new Promise((_, reject) => {
-            setTimeout(() => reject(new DOMException('Aborted', 'AbortError')), 5000);
-          })
-      );
+      // Both calls time out
+      const slowResponse = () =>
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new DOMException('Aborted', 'AbortError')), 5000);
+        });
+      mockFetch
+        .mockImplementationOnce(slowResponse)
+        .mockImplementationOnce(slowResponse);
 
       expect(() => {
         sendTelemetryPing({
@@ -365,16 +384,21 @@ describe('sendTelemetryPing', () => {
         });
       }).not.toThrow();
 
-      // Let the promise settle
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 
     it('should not throw when server returns non-200', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-      });
+      // Health succeeds, checkpoint returns 500
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ status: 'healthy', version: '5.1.0' }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+        });
 
       expect(() => {
         sendTelemetryPing({
@@ -383,12 +407,14 @@ describe('sendTelemetryPing', () => {
         });
       }).not.toThrow();
 
-      // Let the promise settle
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 
     it('should not throw on connection refused (TypeError)', async () => {
-      mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+      // Both calls fail with connection refused
+      mockFetch
+        .mockRejectedValueOnce(new TypeError('fetch failed'))
+        .mockRejectedValueOnce(new TypeError('fetch failed'));
 
       expect(() => {
         sendTelemetryPing({
@@ -397,7 +423,6 @@ describe('sendTelemetryPing', () => {
         });
       }).not.toThrow();
 
-      // Let the promise settle
       await new Promise(resolve => setTimeout(resolve, 50));
     });
   });
