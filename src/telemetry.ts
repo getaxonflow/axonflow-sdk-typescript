@@ -135,7 +135,7 @@ export function sendTelemetryPing(options: {
     platform_version: null,
     os: typeof process !== 'undefined' ? process.platform : 'unknown',
     arch: typeof process !== 'undefined' ? process.arch : 'unknown',
-    runtime_version: typeof process !== 'undefined' ? process.version : 'unknown',
+    runtime_version: typeof process !== 'undefined' ? process.version.replace(/^v/, '') : 'unknown',
     deployment_mode: options.mode,
     features: [],
     instance_id: generateInstanceId(),

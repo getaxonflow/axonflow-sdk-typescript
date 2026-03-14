@@ -54,7 +54,12 @@ beforeEach(() => {
   mockFetch.mockClear();
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // Let any fire-and-forget async operations settle before restoring fetch.
+  // Without this, dangling async operations may resolve against the real fetch
+  // and send actual HTTP requests to checkpoint.getaxonflow.com.
+  await new Promise(resolve => setTimeout(resolve, 100));
+
   // Restore original env and fetch
   process.env = originalEnv;
   global.fetch = originalFetch;
@@ -275,7 +280,7 @@ describe('sendTelemetryPing', () => {
       expect(payload.platform_version).toBe('5.1.0');
       expect(payload.os).toBe(process.platform);
       expect(payload.arch).toBe(process.arch);
-      expect(payload.runtime_version).toBe(process.version);
+      expect(payload.runtime_version).toBe(process.version.replace(/^v/, ''));
       expect(payload.deployment_mode).toBe('production');
       expect(payload.features).toEqual([]);
       expect(payload.instance_id).toMatch(
