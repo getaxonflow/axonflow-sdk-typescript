@@ -345,13 +345,13 @@ export class AxonFlow {
    * });
    * ```
    *
-   * See: https://docs.getaxonflow.com/sdk/gateway-mode
+   * See: https://docs.getaxonflow.com/docs/sdk/gateway-mode
    */
   async protect<T = any>(aiCall: () => Promise<T>): Promise<T> {
     console.warn(
       '[AxonFlow] protect() is deprecated and will be removed in a future version. ' +
         'Use Gateway Mode (getPolicyApprovedContext + auditLLMCall) or Proxy Mode (proxyLLMCall) instead. ' +
-        'See: https://docs.getaxonflow.com/sdk/gateway-mode'
+        'See: https://docs.getaxonflow.com/docs/sdk/gateway-mode'
     );
     try {
       // Extract request details from the AI call
