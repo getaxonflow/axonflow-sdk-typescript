@@ -142,7 +142,7 @@ export function sendTelemetryPing(options: {
 
   if (typeof console !== 'undefined') {
     console.log(
-      '[AxonFlow] Anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/telemetry'
+      '[AxonFlow] Anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/docs/telemetry'
     );
   }
 
