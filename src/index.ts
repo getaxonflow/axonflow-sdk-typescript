@@ -264,6 +264,22 @@ export type {
 } from './types/workflows';
 export { WorkflowHelpers } from './types/workflows';
 
+// Export LangGraph adapter
+export {
+  AxonFlowLangGraphAdapter,
+  WorkflowBlockedError,
+  WorkflowApprovalRequiredError,
+} from './adapters/langgraph';
+export type {
+  MCPInterceptorOptions,
+  LangGraphAdapterOptions,
+  CheckGateOptions,
+  CheckToolGateOptions,
+  StepCompletedOptions,
+  ToolCompletedOptions,
+  WaitForApprovalOptions,
+} from './adapters/langgraph';
+
 // Export Media Governance types
 export type {
   MediaContent,
