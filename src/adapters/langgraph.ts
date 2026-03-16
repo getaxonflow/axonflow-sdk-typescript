@@ -28,12 +28,12 @@
  */
 
 import { AxonFlow } from '../client';
-import { AxonFlowError, PolicyViolationError, TimeoutError as AxonFlowTimeoutError } from '../errors';
-import type {
-  StepType,
-  ToolContext,
-  WorkflowSource,
-} from '../types/workflows';
+import {
+  AxonFlowError,
+  PolicyViolationError,
+  TimeoutError as AxonFlowTimeoutError,
+} from '../errors';
+import type { StepType, ToolContext, WorkflowSource } from '../types/workflows';
 
 /**
  * Error thrown when a workflow step is blocked by policy.
@@ -43,12 +43,7 @@ export class WorkflowBlockedError extends AxonFlowError {
   public readonly reason?: string;
   public readonly policyIds: string[];
 
-  constructor(
-    message: string,
-    stepId?: string,
-    reason?: string,
-    policyIds?: string[]
-  ) {
+  constructor(message: string, stepId?: string, reason?: string, policyIds?: string[]) {
     super(message, { stepId, reason, policyIds: policyIds || [] });
     this.name = 'WorkflowBlockedError';
     this.stepId = stepId;
@@ -66,12 +61,7 @@ export class WorkflowApprovalRequiredError extends AxonFlowError {
   public readonly approvalUrl?: string;
   public readonly reason?: string;
 
-  constructor(
-    message: string,
-    stepId?: string,
-    approvalUrl?: string,
-    reason?: string
-  ) {
+  constructor(message: string, stepId?: string, approvalUrl?: string, reason?: string) {
     super(message, { stepId, approvalUrl, reason });
     this.name = 'WorkflowApprovalRequiredError';
     this.stepId = stepId;
@@ -217,11 +207,7 @@ export class AxonFlowLangGraphAdapter {
   private _stepCounter = 0;
   private readonly _autoBlock: boolean;
 
-  constructor(
-    client: AxonFlow,
-    workflowName: string,
-    options?: LangGraphAdapterOptions
-  ) {
+  constructor(client: AxonFlow, workflowName: string, options?: LangGraphAdapterOptions) {
     this.client = client;
     this.workflowName = workflowName;
     this.source = options?.source ?? 'langgraph';
@@ -237,10 +223,7 @@ export class AxonFlowLangGraphAdapter {
    * @param traceId - External trace ID for correlation (Langsmith, Datadog, OTel)
    * @returns The assigned workflow ID
    */
-  async startWorkflow(
-    metadata?: Record<string, unknown>,
-    traceId?: string
-  ): Promise<string> {
+  async startWorkflow(metadata?: Record<string, unknown>, traceId?: string): Promise<string> {
     const response = await this.client.createWorkflow({
       workflow_name: this.workflowName,
       source: this.source,
@@ -264,11 +247,7 @@ export class AxonFlowLangGraphAdapter {
    * @throws WorkflowApprovalRequiredError if step requires approval
    * @throws Error if workflow not started
    */
-  async checkGate(
-    stepName: string,
-    stepType: StepType,
-    opts?: CheckGateOptions
-  ): Promise<boolean> {
+  async checkGate(stepName: string, stepType: StepType, opts?: CheckGateOptions): Promise<boolean> {
     if (!this.workflowId) {
       throw new Error('Workflow not started. Call startWorkflow() first.');
     }
@@ -322,10 +301,7 @@ export class AxonFlowLangGraphAdapter {
    * @param stepName - Step name (used to generate step_id if not provided)
    * @param opts - Additional options
    */
-  async stepCompleted(
-    stepName: string,
-    opts?: StepCompletedOptions
-  ): Promise<void> {
+  async stepCompleted(stepName: string, opts?: StepCompletedOptions): Promise<void> {
     if (!this.workflowId) {
       throw new Error('Workflow not started. Call startWorkflow() first.');
     }
@@ -386,10 +362,7 @@ export class AxonFlowLangGraphAdapter {
    * @param toolName - Name of the tool that was invoked
    * @param opts - Additional options
    */
-  async toolCompleted(
-    toolName: string,
-    opts?: ToolCompletedOptions
-  ): Promise<void> {
+  async toolCompleted(toolName: string, opts?: ToolCompletedOptions): Promise<void> {
     const stepName = opts?.stepName ?? `tools/${toolName}`;
 
     await this.stepCompleted(stepName, {
@@ -451,10 +424,7 @@ export class AxonFlowLangGraphAdapter {
    * @returns True if approved, false if rejected
    * @throws Error if approval not received within timeout
    */
-  async waitForApproval(
-    stepId: string,
-    opts?: WaitForApprovalOptions
-  ): Promise<boolean> {
+  async waitForApproval(stepId: string, opts?: WaitForApprovalOptions): Promise<boolean> {
     if (!this.workflowId) {
       throw new Error('Workflow not started. Call startWorkflow() first.');
     }
@@ -483,7 +453,7 @@ export class AxonFlowLangGraphAdapter {
         }
       }
 
-      await new Promise((resolve) => setTimeout(resolve, pollInterval * 1000));
+      await new Promise(resolve => setTimeout(resolve, pollInterval * 1000));
       elapsed += pollInterval;
     }
 
@@ -518,10 +488,7 @@ export class AxonFlowLangGraphAdapter {
 
     const resolveConnectorType = opts?.connectorTypeFn ?? defaultConnectorType;
 
-    return async (
-      request: any,
-      handler: (request: any) => Promise<any>
-    ): Promise<any> => {
+    return async (request: any, handler: (request: any) => Promise<any>): Promise<any> => {
       const connectorType = resolveConnectorType(request);
       let argsStr = '{}';
       if (request.args) {
@@ -541,9 +508,7 @@ export class AxonFlowLangGraphAdapter {
       });
 
       if (!preCheck.allowed) {
-        throw new PolicyViolationError(
-          preCheck.block_reason || 'Tool call blocked by policy'
-        );
+        throw new PolicyViolationError(preCheck.block_reason || 'Tool call blocked by policy');
       }
 
       const result = await handler(request);
@@ -561,9 +526,7 @@ export class AxonFlowLangGraphAdapter {
       });
 
       if (!outputCheck.allowed) {
-        throw new PolicyViolationError(
-          outputCheck.block_reason || 'Tool result blocked by policy'
-        );
+        throw new PolicyViolationError(outputCheck.block_reason || 'Tool result blocked by policy');
       }
 
       if (outputCheck.redacted_data !== undefined && outputCheck.redacted_data !== null) {

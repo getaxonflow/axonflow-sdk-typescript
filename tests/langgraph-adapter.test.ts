@@ -14,10 +14,7 @@ import type {
   StepGateResponse,
   WorkflowStatusResponse,
 } from '../src/types/workflows';
-import type {
-  MCPCheckInputResponse,
-  MCPCheckOutputResponse,
-} from '../src/types/connector';
+import type { MCPCheckInputResponse, MCPCheckOutputResponse } from '../src/types/connector';
 
 // Create a mock client with jest.fn() for each method
 function createMockClient(): AxonFlow {
@@ -133,9 +130,7 @@ describe('AxonFlowLangGraphAdapter', () => {
 
     it('should throw if workflow not started', async () => {
       const fresh = new AxonFlowLangGraphAdapter(mockClient, 'w');
-      await expect(
-        fresh.checkGate('step1', 'llm_call')
-      ).rejects.toThrow('Workflow not started');
+      await expect(fresh.checkGate('step1', 'llm_call')).rejects.toThrow('Workflow not started');
     });
 
     it('should return true on allow decision', async () => {
@@ -209,11 +204,7 @@ describe('AxonFlowLangGraphAdapter', () => {
 
       await adapter.checkGate('step1', 'llm_call', { stepId: 'custom-id' });
 
-      expect(mockClient.stepGate).toHaveBeenCalledWith(
-        'wf-100',
-        'custom-id',
-        expect.anything()
-      );
+      expect(mockClient.stepGate).toHaveBeenCalledWith('wf-100', 'custom-id', expect.anything());
     });
 
     it('should throw WorkflowBlockedError on block with autoBlock=true', async () => {
@@ -224,9 +215,7 @@ describe('AxonFlowLangGraphAdapter', () => {
         policy_ids: ['pol-1', 'pol-2'],
       } as StepGateResponse);
 
-      await expect(adapter.checkGate('gen', 'llm_call')).rejects.toThrow(
-        WorkflowBlockedError
-      );
+      await expect(adapter.checkGate('gen', 'llm_call')).rejects.toThrow(WorkflowBlockedError);
 
       try {
         await adapter.checkGate('gen2', 'llm_call');
@@ -294,9 +283,7 @@ describe('AxonFlowLangGraphAdapter', () => {
         expect(err).toBeInstanceOf(AxonFlowError);
         const approval = err as WorkflowApprovalRequiredError;
         expect(approval.stepId).toBe('step-1-review');
-        expect(approval.approvalUrl).toBe(
-          'https://portal.example.com/approve/123'
-        );
+        expect(approval.approvalUrl).toBe('https://portal.example.com/approve/123');
         expect(approval.reason).toBe('Needs manager approval');
         expect(approval.message).toContain("Step 'review' requires approval");
       }
@@ -338,9 +325,7 @@ describe('AxonFlowLangGraphAdapter', () => {
 
     it('should throw if workflow not started', async () => {
       const fresh = new AxonFlowLangGraphAdapter(mockClient, 'w');
-      await expect(fresh.stepCompleted('s')).rejects.toThrow(
-        'Workflow not started'
-      );
+      await expect(fresh.stepCompleted('s')).rejects.toThrow('Workflow not started');
     });
 
     it('should call markStepCompleted with auto-generated stepId', async () => {
@@ -378,17 +363,13 @@ describe('AxonFlowLangGraphAdapter', () => {
         costUsd: 0.05,
       });
 
-      expect(mockClient.markStepCompleted).toHaveBeenCalledWith(
-        'wf-100',
-        'step-1-s',
-        {
-          output: { result: 'ok' },
-          metadata: { key: 'val' },
-          tokens_in: 100,
-          tokens_out: 200,
-          cost_usd: 0.05,
-        }
-      );
+      expect(mockClient.markStepCompleted).toHaveBeenCalledWith('wf-100', 'step-1-s', {
+        output: { result: 'ok' },
+        metadata: { key: 'val' },
+        tokens_in: 100,
+        tokens_out: 200,
+        cost_usd: 0.05,
+      });
     });
 
     it('should use provided stepId', async () => {
@@ -543,9 +524,7 @@ describe('AxonFlowLangGraphAdapter', () => {
 
   describe('completeWorkflow', () => {
     it('should throw if workflow not started', async () => {
-      await expect(adapter.completeWorkflow()).rejects.toThrow(
-        'Workflow not started'
-      );
+      await expect(adapter.completeWorkflow()).rejects.toThrow('Workflow not started');
     });
 
     it('should call client.completeWorkflow', async () => {
@@ -561,9 +540,7 @@ describe('AxonFlowLangGraphAdapter', () => {
 
   describe('abortWorkflow', () => {
     it('should throw if workflow not started', async () => {
-      await expect(adapter.abortWorkflow()).rejects.toThrow(
-        'Workflow not started'
-      );
+      await expect(adapter.abortWorkflow()).rejects.toThrow('Workflow not started');
     });
 
     it('should call client.abortWorkflow with reason', async () => {
@@ -573,10 +550,7 @@ describe('AxonFlowLangGraphAdapter', () => {
       await adapter.startWorkflow();
 
       await adapter.abortWorkflow('user cancelled');
-      expect(mockClient.abortWorkflow).toHaveBeenCalledWith(
-        'wf-100',
-        'user cancelled'
-      );
+      expect(mockClient.abortWorkflow).toHaveBeenCalledWith('wf-100', 'user cancelled');
     });
 
     it('should call client.abortWorkflow without reason', async () => {
@@ -586,18 +560,13 @@ describe('AxonFlowLangGraphAdapter', () => {
       await adapter.startWorkflow();
 
       await adapter.abortWorkflow();
-      expect(mockClient.abortWorkflow).toHaveBeenCalledWith(
-        'wf-100',
-        undefined
-      );
+      expect(mockClient.abortWorkflow).toHaveBeenCalledWith('wf-100', undefined);
     });
   });
 
   describe('failWorkflow', () => {
     it('should throw if workflow not started', async () => {
-      await expect(adapter.failWorkflow()).rejects.toThrow(
-        'Workflow not started'
-      );
+      await expect(adapter.failWorkflow()).rejects.toThrow('Workflow not started');
     });
 
     it('should call client.failWorkflow with reason', async () => {
@@ -607,10 +576,7 @@ describe('AxonFlowLangGraphAdapter', () => {
       await adapter.startWorkflow();
 
       await adapter.failWorkflow('pipeline crashed');
-      expect(mockClient.failWorkflow).toHaveBeenCalledWith(
-        'wf-100',
-        'pipeline crashed'
-      );
+      expect(mockClient.failWorkflow).toHaveBeenCalledWith('wf-100', 'pipeline crashed');
     });
   });
 
@@ -628,9 +594,7 @@ describe('AxonFlowLangGraphAdapter', () => {
 
     it('should throw if workflow not started', async () => {
       const fresh = new AxonFlowLangGraphAdapter(mockClient, 'w');
-      await expect(fresh.waitForApproval('step-1')).rejects.toThrow(
-        'Workflow not started'
-      );
+      await expect(fresh.waitForApproval('step-1')).rejects.toThrow('Workflow not started');
     });
 
     it('should return true when step is approved', async () => {
@@ -676,16 +640,12 @@ describe('AxonFlowLangGraphAdapter', () => {
         if (callCount < 3) {
           return {
             workflow_id: 'wf-100',
-            steps: [
-              { step_id: 'step-1', approval_status: 'pending' },
-            ],
+            steps: [{ step_id: 'step-1', approval_status: 'pending' }],
           };
         }
         return {
           workflow_id: 'wf-100',
-          steps: [
-            { step_id: 'step-1', approval_status: 'approved' },
-          ],
+          steps: [{ step_id: 'step-1', approval_status: 'approved' }],
         };
       });
 
@@ -700,9 +660,7 @@ describe('AxonFlowLangGraphAdapter', () => {
     it('should throw on timeout', async () => {
       (mockClient.getWorkflow as jest.Mock).mockResolvedValue({
         workflow_id: 'wf-100',
-        steps: [
-          { step_id: 'step-1', approval_status: 'pending' },
-        ],
+        steps: [{ step_id: 'step-1', approval_status: 'pending' }],
       });
 
       await expect(
@@ -730,9 +688,7 @@ describe('AxonFlowLangGraphAdapter', () => {
     it('should handle step not found in steps list', async () => {
       (mockClient.getWorkflow as jest.Mock).mockResolvedValue({
         workflow_id: 'wf-100',
-        steps: [
-          { step_id: 'other-step', approval_status: 'approved' },
-        ],
+        steps: [{ step_id: 'other-step', approval_status: 'approved' }],
       });
 
       await expect(
@@ -806,16 +762,12 @@ describe('AxonFlowLangGraphAdapter', () => {
       const handler = jest.fn();
       const interceptor = adapter.mcpToolInterceptor();
 
-      await expect(interceptor(makeRequest(), handler)).rejects.toThrow(
-        PolicyViolationError
-      );
+      await expect(interceptor(makeRequest(), handler)).rejects.toThrow(PolicyViolationError);
 
       try {
         await interceptor(makeRequest(), handler);
       } catch (err) {
-        expect((err as PolicyViolationError).blockReason).toBe(
-          'Forbidden query pattern'
-        );
+        expect((err as PolicyViolationError).blockReason).toBe('Forbidden query pattern');
       }
 
       // Handler should not have been called
@@ -835,9 +787,7 @@ describe('AxonFlowLangGraphAdapter', () => {
         await interceptor(makeRequest(), handler);
         fail('Expected PolicyViolationError');
       } catch (err) {
-        expect((err as PolicyViolationError).blockReason).toBe(
-          'Tool call blocked by policy'
-        );
+        expect((err as PolicyViolationError).blockReason).toBe('Tool call blocked by policy');
       }
     });
 
@@ -860,9 +810,7 @@ describe('AxonFlowLangGraphAdapter', () => {
         await interceptor(makeRequest(), handler);
         fail('Expected PolicyViolationError');
       } catch (err) {
-        expect((err as PolicyViolationError).blockReason).toBe(
-          'PII in response'
-        );
+        expect((err as PolicyViolationError).blockReason).toBe('PII in response');
       }
     });
 
@@ -884,9 +832,7 @@ describe('AxonFlowLangGraphAdapter', () => {
         await interceptor(makeRequest(), handler);
         fail('Expected PolicyViolationError');
       } catch (err) {
-        expect((err as PolicyViolationError).blockReason).toBe(
-          'Tool result blocked by policy'
-        );
+        expect((err as PolicyViolationError).blockReason).toBe('Tool result blocked by policy');
       }
     });
 
@@ -1016,9 +962,7 @@ describe('AxonFlowLangGraphAdapter', () => {
 
   describe('error classes', () => {
     it('WorkflowBlockedError should extend AxonFlowError', () => {
-      const err = new WorkflowBlockedError('blocked', 'step-1', 'reason', [
-        'p1',
-      ]);
+      const err = new WorkflowBlockedError('blocked', 'step-1', 'reason', ['p1']);
       expect(err).toBeInstanceOf(AxonFlowError);
       expect(err).toBeInstanceOf(Error);
       expect(err.name).toBe('WorkflowBlockedError');
