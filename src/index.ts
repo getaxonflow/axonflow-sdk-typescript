@@ -111,6 +111,13 @@ export type {
   // Audit Tool Call types
   AuditToolCallRequest,
   AuditToolCallResponse,
+  // Circuit Breaker types
+  CircuitBreakerCircuit,
+  CircuitBreakerStatusResponse,
+  CircuitBreakerHistoryEntry,
+  CircuitBreakerHistoryResponse,
+  CircuitBreakerConfig,
+  CircuitBreakerConfigUpdate,
   // Proxy Mode types
   RequestType,
   PolicyInfo,
