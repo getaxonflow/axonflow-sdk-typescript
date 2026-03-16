@@ -282,9 +282,12 @@ export class AxonFlow {
       headers['Authorization'] = `Basic ${credentials}`;
     }
 
-    // Always add X-Tenant-ID when clientId is set (required for multi-tenant APIs)
+    // Always add X-Tenant-ID and X-Org-ID when clientId is set
+    // X-Tenant-ID: required for multi-tenant APIs
+    // X-Org-ID: required for circuit breaker and other agent-level APIs
     if (this.config.clientId) {
       headers['X-Tenant-ID'] = this.config.clientId;
+      headers['X-Org-ID'] = this.config.clientId;
     }
 
     // Include SDK version for version discovery and compatibility checks
