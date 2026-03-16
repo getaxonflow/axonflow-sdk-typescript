@@ -710,7 +710,7 @@ describe('AxonFlowLangGraphAdapter', () => {
           pollInterval: 0.01,
           timeout: 0.03,
         })
-      ).rejects.toThrow('Approval timeout');
+      ).rejects.toThrow('timed out');
     });
 
     it('should handle missing steps array', async () => {
@@ -724,7 +724,7 @@ describe('AxonFlowLangGraphAdapter', () => {
           pollInterval: 0.01,
           timeout: 0.03,
         })
-      ).rejects.toThrow('Approval timeout');
+      ).rejects.toThrow('timed out');
     });
 
     it('should handle step not found in steps list', async () => {
@@ -740,7 +740,7 @@ describe('AxonFlowLangGraphAdapter', () => {
           pollInterval: 0.01,
           timeout: 0.03,
         })
-      ).rejects.toThrow('Approval timeout');
+      ).rejects.toThrow('timed out');
     });
   });
 

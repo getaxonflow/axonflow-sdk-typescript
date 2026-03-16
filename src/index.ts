@@ -270,7 +270,15 @@ export {
   WorkflowBlockedError,
   WorkflowApprovalRequiredError,
 } from './adapters/langgraph';
-export type { MCPInterceptorOptions, LangGraphAdapterOptions } from './adapters/langgraph';
+export type {
+  MCPInterceptorOptions,
+  LangGraphAdapterOptions,
+  CheckGateOptions,
+  CheckToolGateOptions,
+  StepCompletedOptions,
+  ToolCompletedOptions,
+  WaitForApprovalOptions,
+} from './adapters/langgraph';
 
 // Export Media Governance types
 export type {

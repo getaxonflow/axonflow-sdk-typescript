@@ -28,7 +28,7 @@
  */
 
 import { AxonFlow } from '../client';
-import { AxonFlowError, PolicyViolationError } from '../errors';
+import { AxonFlowError, PolicyViolationError, TimeoutError as AxonFlowTimeoutError } from '../errors';
 import type {
   StepType,
   ToolContext,
@@ -487,7 +487,7 @@ export class AxonFlowLangGraphAdapter {
       elapsed += pollInterval;
     }
 
-    throw new Error(`Approval timeout after ${timeout}s for step ${stepId}`);
+    throw new AxonFlowTimeoutError(timeout * 1000);
   }
 
   /**
