@@ -30,12 +30,9 @@
 import { AxonFlow } from '../client';
 import { AxonFlowError, PolicyViolationError } from '../errors';
 import type {
-  GateDecision,
   StepType,
   ToolContext,
   WorkflowSource,
-  StepGateResponse,
-  WorkflowStepInfo,
 } from '../types/workflows';
 
 /**
@@ -526,9 +523,14 @@ export class AxonFlowLangGraphAdapter {
       handler: (request: any) => Promise<any>
     ): Promise<any> => {
       const connectorType = resolveConnectorType(request);
-      const argsStr = request.args
-        ? JSON.stringify(request.args)
-        : '{}';
+      let argsStr = '{}';
+      if (request.args) {
+        try {
+          argsStr = JSON.stringify(request.args);
+        } catch {
+          argsStr = String(request.args);
+        }
+      }
       const statement = `${connectorType}(${argsStr})`;
 
       const preCheck = await this.client.mcpCheckInput({
