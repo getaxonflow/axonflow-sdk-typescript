@@ -136,6 +136,81 @@ export interface AuditToolCallResponse {
 }
 
 // ============================================================================
+// Circuit Breaker Types
+// ============================================================================
+
+/** Active circuit info from circuit breaker status */
+export interface CircuitBreakerCircuit {
+  id: string;
+  scope: string;
+  scopeId: string;
+  orgId: string;
+  state: string;
+  tripReason?: string;
+  trippedBy?: string;
+  trippedAt?: string;
+  expiresAt?: string;
+  errorCount: number;
+  violationCount: number;
+}
+
+/** Response from GET /api/v1/circuit-breaker/status */
+export interface CircuitBreakerStatusResponse {
+  activeCircuits: CircuitBreakerCircuit[];
+  count: number;
+  emergencyStopActive: boolean;
+}
+
+/** A single entry in circuit breaker history */
+export interface CircuitBreakerHistoryEntry {
+  id: string;
+  orgId: string;
+  scope: string;
+  scopeId: string;
+  state: string;
+  tripReason?: string;
+  trippedBy?: string;
+  trippedByEmail?: string;
+  tripComment?: string;
+  trippedAt?: string;
+  expiresAt?: string;
+  resetBy?: string;
+  resetAt?: string;
+  errorCount: number;
+  violationCount: number;
+}
+
+/** Response from GET /api/v1/circuit-breaker/history */
+export interface CircuitBreakerHistoryResponse {
+  history: CircuitBreakerHistoryEntry[];
+  count: number;
+}
+
+/** Effective circuit breaker config */
+export interface CircuitBreakerConfig {
+  source: string;
+  errorThreshold: number;
+  violationThreshold: number;
+  windowSeconds: number;
+  defaultTimeoutSeconds: number;
+  maxTimeoutSeconds: number;
+  enableAutoRecovery: boolean;
+  tenantId?: string;
+  overrides?: Record<string, unknown>;
+}
+
+/** Request to update per-tenant circuit breaker config */
+export interface CircuitBreakerConfigUpdate {
+  tenantId: string;
+  errorThreshold?: number;
+  violationThreshold?: number;
+  windowSeconds?: number;
+  defaultTimeoutSeconds?: number;
+  maxTimeoutSeconds?: number;
+  enableAutoRecovery?: boolean;
+}
+
+// ============================================================================
 // Audit Log Read Types
 // ============================================================================
 

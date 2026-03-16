@@ -148,6 +148,11 @@ import {
   // Audit Tool Call types
   AuditToolCallRequest,
   AuditToolCallResponse,
+  // Circuit Breaker types
+  CircuitBreakerStatusResponse,
+  CircuitBreakerHistoryResponse,
+  CircuitBreakerConfig,
+  CircuitBreakerConfigUpdate,
 } from './types';
 import {
   AuthenticationError,
@@ -1950,6 +1955,203 @@ export class AxonFlow {
       auditId: data.audit_id,
       status: data.status,
       timestamp: data.timestamp,
+    };
+  }
+
+  // ============================================================================
+  // Circuit Breaker Observability Methods
+  // ============================================================================
+
+  /**
+   * Get all active circuit breaker circuits.
+   *
+   * Returns the current state of all open/half-open circuits across
+   * the platform, including emergency stop status.
+   *
+   * @returns Promise resolving to circuit breaker status
+   *
+   * @example
+   * ```typescript
+   * const status = await axonflow.getCircuitBreakerStatus();
+   * console.log(`Active circuits: ${status.count}`);
+   * console.log(`Emergency stop: ${status.emergencyStopActive}`);
+   * for (const circuit of status.activeCircuits) {
+   *   console.log(`${circuit.scope}/${circuit.scopeId}: ${circuit.state}`);
+   * }
+   * ```
+   */
+  async getCircuitBreakerStatus(): Promise<CircuitBreakerStatusResponse> {
+    const response = await this.orchestratorRequest<{
+      data: {
+        active_circuits: Array<{
+          id: string; scope: string; scope_id: string; org_id: string;
+          state: string; trip_reason?: string; tripped_by?: string;
+          tripped_at?: string; expires_at?: string;
+          error_count: number; violation_count: number;
+        }>;
+        count: number;
+        emergency_stop_active: boolean;
+      };
+    }>('GET', '/api/v1/circuit-breaker/status');
+
+    const data = response.data;
+    return {
+      activeCircuits: (data.active_circuits || []).map(c => ({
+        id: c.id, scope: c.scope, scopeId: c.scope_id, orgId: c.org_id,
+        state: c.state, tripReason: c.trip_reason, trippedBy: c.tripped_by,
+        trippedAt: c.tripped_at, expiresAt: c.expires_at,
+        errorCount: c.error_count, violationCount: c.violation_count,
+      })),
+      count: data.count,
+      emergencyStopActive: data.emergency_stop_active,
+    };
+  }
+
+  /**
+   * Get circuit breaker history for audit trail.
+   *
+   * Returns historical circuit breaker events including trips, resets,
+   * and manual interventions. Useful for compliance reporting.
+   *
+   * @param limit - Maximum number of history entries to return
+   * @returns Promise resolving to circuit breaker history
+   *
+   * @example
+   * ```typescript
+   * const history = await axonflow.getCircuitBreakerHistory(50);
+   * for (const entry of history.history) {
+   *   console.log(`${entry.trippedAt}: ${entry.scope}/${entry.scopeId} - ${entry.state}`);
+   * }
+   * ```
+   */
+  async getCircuitBreakerHistory(limit?: number): Promise<CircuitBreakerHistoryResponse> {
+    const params = new URLSearchParams();
+    if (limit !== undefined) params.set('limit', String(limit));
+    const queryString = params.toString();
+    const path = `/api/v1/circuit-breaker/history${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.orchestratorRequest<{
+      data: {
+        history: Array<{
+          id: string; org_id: string; scope: string; scope_id: string;
+          state: string; trip_reason?: string; tripped_by?: string;
+          tripped_by_email?: string; trip_comment?: string;
+          tripped_at?: string; expires_at?: string;
+          reset_by?: string; reset_at?: string;
+          error_count: number; violation_count: number;
+        }>;
+        count: number;
+      };
+    }>('GET', path);
+
+    const data = response.data;
+    return {
+      history: (data.history || []).map(h => ({
+        id: h.id, orgId: h.org_id, scope: h.scope, scopeId: h.scope_id,
+        state: h.state, tripReason: h.trip_reason, trippedBy: h.tripped_by,
+        trippedByEmail: h.tripped_by_email, tripComment: h.trip_comment,
+        trippedAt: h.tripped_at, expiresAt: h.expires_at,
+        resetBy: h.reset_by, resetAt: h.reset_at,
+        errorCount: h.error_count, violationCount: h.violation_count,
+      })),
+      count: data.count,
+    };
+  }
+
+  /**
+   * Get circuit breaker config (global or tenant-specific).
+   *
+   * Returns the effective circuit breaker configuration, including
+   * any tenant-specific overrides.
+   *
+   * @param tenantId - Optional tenant ID to get tenant-specific config
+   * @returns Promise resolving to circuit breaker config
+   *
+   * @example
+   * ```typescript
+   * // Get global config
+   * const globalConfig = await axonflow.getCircuitBreakerConfig();
+   * console.log(`Error threshold: ${globalConfig.errorThreshold}`);
+   *
+   * // Get tenant-specific config
+   * const tenantConfig = await axonflow.getCircuitBreakerConfig('tenant-123');
+   * ```
+   */
+  async getCircuitBreakerConfig(tenantId?: string): Promise<CircuitBreakerConfig> {
+    const params = new URLSearchParams();
+    if (tenantId !== undefined) params.set('tenant_id', tenantId);
+    const queryString = params.toString();
+    const path = `/api/v1/circuit-breaker/config${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.orchestratorRequest<{
+      data: {
+        source: string;
+        error_threshold: number;
+        violation_threshold: number;
+        window_seconds: number;
+        default_timeout_seconds: number;
+        max_timeout_seconds: number;
+        enable_auto_recovery: boolean;
+        tenant_id?: string;
+        overrides?: Record<string, unknown>;
+      };
+    }>('GET', path);
+
+    const data = response.data;
+    return {
+      source: data.source,
+      errorThreshold: data.error_threshold,
+      violationThreshold: data.violation_threshold,
+      windowSeconds: data.window_seconds,
+      defaultTimeoutSeconds: data.default_timeout_seconds,
+      maxTimeoutSeconds: data.max_timeout_seconds,
+      enableAutoRecovery: data.enable_auto_recovery,
+      tenantId: data.tenant_id,
+      overrides: data.overrides,
+    };
+  }
+
+  /**
+   * Update per-tenant circuit breaker config.
+   *
+   * Allows customizing circuit breaker thresholds for a specific tenant.
+   * Only provided fields will be updated; others retain their current values.
+   *
+   * @param config - Configuration update with tenant ID and fields to change
+   * @returns Promise resolving to confirmation with tenant ID and message
+   *
+   * @example
+   * ```typescript
+   * const result = await axonflow.updateCircuitBreakerConfig({
+   *   tenantId: 'tenant-123',
+   *   errorThreshold: 10,
+   *   windowSeconds: 120,
+   * });
+   * console.log(result.message); // "config updated"
+   * ```
+   */
+  async updateCircuitBreakerConfig(config: CircuitBreakerConfigUpdate): Promise<{ tenantId: string; message: string }> {
+    if (!config.tenantId) {
+      throw new ConfigurationError('tenantId is required');
+    }
+
+    const body: Record<string, unknown> = {
+      tenant_id: config.tenantId,
+    };
+    if (config.errorThreshold !== undefined) body.error_threshold = config.errorThreshold;
+    if (config.violationThreshold !== undefined) body.violation_threshold = config.violationThreshold;
+    if (config.windowSeconds !== undefined) body.window_seconds = config.windowSeconds;
+    if (config.defaultTimeoutSeconds !== undefined) body.default_timeout_seconds = config.defaultTimeoutSeconds;
+    if (config.maxTimeoutSeconds !== undefined) body.max_timeout_seconds = config.maxTimeoutSeconds;
+    if (config.enableAutoRecovery !== undefined) body.enable_auto_recovery = config.enableAutoRecovery;
+
+    const response = await this.orchestratorRequest<{
+      data: { tenant_id: string; message: string };
+    }>('PUT', '/api/v1/circuit-breaker/config', body);
+
+    return {
+      tenantId: response.data.tenant_id,
+      message: response.data.message,
     };
   }
 
