@@ -230,7 +230,7 @@ describe('AxonFlowLangGraphAdapter', () => {
 
       try {
         await adapter.checkGate('gen2', 'llm_call');
-      } catch (err: any) {
+      } catch {
         // The second call auto-increments counter, so step_id differs
         // but the mock returns same response
       }
