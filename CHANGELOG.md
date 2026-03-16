@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `startWorkflow()` / `completeWorkflow()` / `abortWorkflow()` / `failWorkflow()` — workflow lifecycle management
 - `WorkflowBlockedError` and `WorkflowApprovalRequiredError` exception classes
 - `MCPInterceptorOptions` and `LangGraphAdapterOptions` configuration interfaces
+- `getCircuitBreakerStatus()` — query active circuit breaker circuits and emergency stop state
+- `getCircuitBreakerHistory(limit)` — retrieve circuit breaker trip/reset audit trail
+- `getCircuitBreakerConfig(tenantId)` — get effective circuit breaker config (global or tenant-specific)
+- `updateCircuitBreakerConfig(config)` — update per-tenant circuit breaker thresholds
 
 ---
 
