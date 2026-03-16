@@ -5,6 +5,21 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `AxonFlowLangGraphAdapter` class — wraps LangGraph workflows with AxonFlow governance gates and per-tool policy enforcement. Includes:
+  - `checkGate()` / `stepCompleted()` — step-level governance at LangGraph node boundaries
+  - `checkToolGate()` / `toolCompleted()` — per-tool governance within tool_call nodes (each tool gets its own gate check)
+  - `mcpToolInterceptor()` — factory returning an interceptor that enforces `mcp_check_input → handler → mcp_check_output` around every MCP tool call
+  - `waitForApproval()` — poll until a step is approved or rejected
+  - `startWorkflow()` / `completeWorkflow()` / `abortWorkflow()` / `failWorkflow()` — workflow lifecycle management
+- `WorkflowBlockedError` and `WorkflowApprovalRequiredError` exception classes
+- `MCPInterceptorOptions` and `LangGraphAdapterOptions` configuration interfaces
+
+---
+
 ## [4.1.0] - 2026-03-14
 
 ### Added
