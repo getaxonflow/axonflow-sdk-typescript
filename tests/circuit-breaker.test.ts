@@ -384,9 +384,9 @@ describe('Circuit Breaker Observability', () => {
     });
 
     it('should throw ConfigurationError for empty tenantId', async () => {
-      await expect(
-        client.updateCircuitBreakerConfig({ tenantId: '' })
-      ).rejects.toThrow('tenantId is required');
+      await expect(client.updateCircuitBreakerConfig({ tenantId: '' })).rejects.toThrow(
+        'tenantId is required'
+      );
     });
 
     it('should handle server error (500)', async () => {
@@ -400,9 +400,7 @@ describe('Circuit Breaker Observability', () => {
     it('should handle authentication error (401)', async () => {
       mockFetch.mockReturnValueOnce(mockResponse({ error: 'unauthorized' }, 401));
 
-      await expect(
-        client.updateCircuitBreakerConfig({ tenantId: 'tenant-789' })
-      ).rejects.toThrow();
+      await expect(client.updateCircuitBreakerConfig({ tenantId: 'tenant-789' })).rejects.toThrow();
     });
   });
 });

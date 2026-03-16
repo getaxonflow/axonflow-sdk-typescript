@@ -1984,10 +1984,17 @@ export class AxonFlow {
     const response = await this.orchestratorRequest<{
       data: {
         active_circuits: Array<{
-          id: string; scope: string; scope_id: string; org_id: string;
-          state: string; trip_reason?: string; tripped_by?: string;
-          tripped_at?: string; expires_at?: string;
-          error_count: number; violation_count: number;
+          id: string;
+          scope: string;
+          scope_id: string;
+          org_id: string;
+          state: string;
+          trip_reason?: string;
+          tripped_by?: string;
+          tripped_at?: string;
+          expires_at?: string;
+          error_count: number;
+          violation_count: number;
         }>;
         count: number;
         emergency_stop_active: boolean;
@@ -1997,10 +2004,17 @@ export class AxonFlow {
     const data = response.data;
     return {
       activeCircuits: (data.active_circuits || []).map(c => ({
-        id: c.id, scope: c.scope, scopeId: c.scope_id, orgId: c.org_id,
-        state: c.state, tripReason: c.trip_reason, trippedBy: c.tripped_by,
-        trippedAt: c.tripped_at, expiresAt: c.expires_at,
-        errorCount: c.error_count, violationCount: c.violation_count,
+        id: c.id,
+        scope: c.scope,
+        scopeId: c.scope_id,
+        orgId: c.org_id,
+        state: c.state,
+        tripReason: c.trip_reason,
+        trippedBy: c.tripped_by,
+        trippedAt: c.tripped_at,
+        expiresAt: c.expires_at,
+        errorCount: c.error_count,
+        violationCount: c.violation_count,
       })),
       count: data.count,
       emergencyStopActive: data.emergency_stop_active,
@@ -2033,12 +2047,21 @@ export class AxonFlow {
     const response = await this.orchestratorRequest<{
       data: {
         history: Array<{
-          id: string; org_id: string; scope: string; scope_id: string;
-          state: string; trip_reason?: string; tripped_by?: string;
-          tripped_by_email?: string; trip_comment?: string;
-          tripped_at?: string; expires_at?: string;
-          reset_by?: string; reset_at?: string;
-          error_count: number; violation_count: number;
+          id: string;
+          org_id: string;
+          scope: string;
+          scope_id: string;
+          state: string;
+          trip_reason?: string;
+          tripped_by?: string;
+          tripped_by_email?: string;
+          trip_comment?: string;
+          tripped_at?: string;
+          expires_at?: string;
+          reset_by?: string;
+          reset_at?: string;
+          error_count: number;
+          violation_count: number;
         }>;
         count: number;
       };
@@ -2047,12 +2070,21 @@ export class AxonFlow {
     const data = response.data;
     return {
       history: (data.history || []).map(h => ({
-        id: h.id, orgId: h.org_id, scope: h.scope, scopeId: h.scope_id,
-        state: h.state, tripReason: h.trip_reason, trippedBy: h.tripped_by,
-        trippedByEmail: h.tripped_by_email, tripComment: h.trip_comment,
-        trippedAt: h.tripped_at, expiresAt: h.expires_at,
-        resetBy: h.reset_by, resetAt: h.reset_at,
-        errorCount: h.error_count, violationCount: h.violation_count,
+        id: h.id,
+        orgId: h.org_id,
+        scope: h.scope,
+        scopeId: h.scope_id,
+        state: h.state,
+        tripReason: h.trip_reason,
+        trippedBy: h.tripped_by,
+        trippedByEmail: h.tripped_by_email,
+        tripComment: h.trip_comment,
+        trippedAt: h.tripped_at,
+        expiresAt: h.expires_at,
+        resetBy: h.reset_by,
+        resetAt: h.reset_at,
+        errorCount: h.error_count,
+        violationCount: h.violation_count,
       })),
       count: data.count,
     };
@@ -2130,7 +2162,9 @@ export class AxonFlow {
    * console.log(result.message); // "config updated"
    * ```
    */
-  async updateCircuitBreakerConfig(config: CircuitBreakerConfigUpdate): Promise<{ tenantId: string; message: string }> {
+  async updateCircuitBreakerConfig(
+    config: CircuitBreakerConfigUpdate
+  ): Promise<{ tenantId: string; message: string }> {
     if (!config.tenantId) {
       throw new ConfigurationError('tenantId is required');
     }
@@ -2139,11 +2173,14 @@ export class AxonFlow {
       tenant_id: config.tenantId,
     };
     if (config.errorThreshold !== undefined) body.error_threshold = config.errorThreshold;
-    if (config.violationThreshold !== undefined) body.violation_threshold = config.violationThreshold;
+    if (config.violationThreshold !== undefined)
+      body.violation_threshold = config.violationThreshold;
     if (config.windowSeconds !== undefined) body.window_seconds = config.windowSeconds;
-    if (config.defaultTimeoutSeconds !== undefined) body.default_timeout_seconds = config.defaultTimeoutSeconds;
+    if (config.defaultTimeoutSeconds !== undefined)
+      body.default_timeout_seconds = config.defaultTimeoutSeconds;
     if (config.maxTimeoutSeconds !== undefined) body.max_timeout_seconds = config.maxTimeoutSeconds;
-    if (config.enableAutoRecovery !== undefined) body.enable_auto_recovery = config.enableAutoRecovery;
+    if (config.enableAutoRecovery !== undefined)
+      body.enable_auto_recovery = config.enableAutoRecovery;
 
     const response = await this.orchestratorRequest<{
       data: { tenant_id: string; message: string };
