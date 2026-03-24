@@ -144,17 +144,13 @@ describe('Policy Simulation', () => {
     it('should handle 403 forbidden (community tier)', async () => {
       mockFetch.mockReturnValueOnce(mockResponse({ error: 'forbidden' }, 403));
 
-      await expect(
-        client.simulatePolicies({ query: 'test' })
-      ).rejects.toThrow();
+      await expect(client.simulatePolicies({ query: 'test' })).rejects.toThrow();
     });
 
     it('should handle 429 rate limit', async () => {
       mockFetch.mockReturnValueOnce(mockResponse({ error: 'rate limit exceeded' }, 429));
 
-      await expect(
-        client.simulatePolicies({ query: 'test' })
-      ).rejects.toThrow();
+      await expect(client.simulatePolicies({ query: 'test' })).rejects.toThrow();
     });
 
     it('should handle response without daily_usage', async () => {
