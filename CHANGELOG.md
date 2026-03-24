@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ESM build: `fix-esm-imports.js` post-build script now appends `.js` extension to parent-directory imports (`../errors`, `../types`, etc.) in addition to same-directory imports. Previously, the regex only matched `./` prefixed imports, causing `ERR_MODULE_NOT_FOUND` at runtime when consuming the ESM bundle in Node.js.
 
+### Security
+
+- Bumped `flatted` from 3.3.3 to 3.4.2 — fixes Prototype Pollution via `parse()` (GHSA-rf6f-7fwh-wjgh) and unbounded recursion DoS (GHSA-25h7-pfq9-p65f)
+- Bumped `fast-xml-parser` from 5.3.6 to 5.5.8 via `@aws-sdk/xml-builder` 3.972.15 — fixes entity expansion limit bypass (GHSA-jp2q-39xq-3w4g, GHSA-8gc5-j5rx-235r) and stack overflow in XMLBuilder (GHSA-fj3w-jwp8-x2g3)
+- Bumped `minimatch` from 3.1.2 to 3.1.5 and 9.0.5 to 9.0.9 — fixes multiple ReDoS vulnerabilities (GHSA-3ppc-4f35-3m26, GHSA-7r86-cg39-jmmj, GHSA-23c5-xmqv-rm74)
+- Bumped `ajv` from 6.12.6 to 6.14.0 — fixes ReDoS when using `$data` option (GHSA-2g4f-4pwh-qvx6)
+
 ---
 
 ## [4.2.0] - 2026-03-17
