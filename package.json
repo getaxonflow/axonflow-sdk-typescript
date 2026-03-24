@@ -1,6 +1,6 @@
 {
   "name": "@axonflow/sdk",
-  "version": "4.2.1",
+  "version": "4.3.0",
   "description": "AxonFlow SDK - Add invisible AI governance to your applications in 3 lines of code",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
