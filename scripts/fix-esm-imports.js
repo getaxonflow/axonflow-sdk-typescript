@@ -13,8 +13,8 @@ const esmDir = path.join(__dirname, '../dist/esm');
 function fixImportsInFile(filePath) {
   let content = fs.readFileSync(filePath, 'utf8');
 
-  // Fix relative imports: from './foo' -> from './foo.js'
-  content = content.replace(/from\s+['"](\.\/.+?)(['"]);/g, (match, importPath, quote) => {
+  // Fix relative imports: from './foo' or from '../foo' -> with .js extension
+  content = content.replace(/from\s+['"](\.\..+?|\.\/[^'"]+?)(['"]);/g, (match, importPath, quote) => {
     // Don't add .js if it already has an extension
     if (importPath.endsWith('.js') || importPath.endsWith('.json')) {
       return match;
@@ -22,8 +22,8 @@ function fixImportsInFile(filePath) {
     return `from ${quote}${importPath}.js${quote};`;
   });
 
-  // Fix export statements: export ... from './foo' -> export ... from './foo.js'
-  content = content.replace(/export\s+.*?from\s+['"](\.\/.+?)(['"]);/g, (match, importPath, quote) => {
+  // Fix export statements: export ... from './foo' or '../foo' -> with .js extension
+  content = content.replace(/export\s+.*?from\s+['"](\.\..+?|\.\/[^'"]+?)(['"]);/g, (match, importPath, quote) => {
     if (importPath.endsWith('.js') || importPath.endsWith('.json')) {
       return match;
     }
