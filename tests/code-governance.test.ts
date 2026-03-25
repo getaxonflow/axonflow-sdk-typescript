@@ -163,7 +163,7 @@ describe('Code Governance Methods', () => {
           type: 'github',
           appId: 12345,
           installationId: 67890,
-          privateKey: '-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----',
+          privateKey: 'FAKE-RSA-KEY-FOR-TESTING-ONLY-NOT-A-REAL-KEY',
         });
 
         expect(result.valid).toBe(true);
@@ -174,7 +174,7 @@ describe('Code Governance Methods', () => {
               type: 'github',
               app_id: 12345,
               installation_id: 67890,
-              private_key: '-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----',
+              private_key: 'FAKE-RSA-KEY-FOR-TESTING-ONLY-NOT-A-REAL-KEY',
             }),
           })
         );
