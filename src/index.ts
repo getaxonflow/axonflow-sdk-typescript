@@ -322,6 +322,20 @@ export type {
 } from './types/execution';
 export { ExecutionHelpers } from './types/execution';
 
+// Export Policy Simulation types (Evaluation Tier+)
+export type {
+  SimulatePoliciesRequest,
+  SimulationDailyUsage,
+  SimulatePoliciesResponse,
+  ImpactReportInput,
+  ImpactReportRequest,
+  ImpactReportResult,
+  ImpactReportResponse,
+  PolicyConflictRef,
+  PolicyConflict,
+  PolicyConflictResponse,
+} from './types/simulation';
+
 // Export config types
 export type { RetryConfig, CacheConfig } from './types/config';
 

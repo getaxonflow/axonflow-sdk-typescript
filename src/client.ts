@@ -153,6 +153,12 @@ import {
   CircuitBreakerHistoryResponse,
   CircuitBreakerConfig,
   CircuitBreakerConfigUpdate,
+  // Policy Simulation types
+  SimulatePoliciesRequest,
+  SimulatePoliciesResponse,
+  ImpactReportInput,
+  ImpactReportResponse,
+  PolicyConflictResponse,
 } from './types';
 import {
   AuthenticationError,
@@ -2190,6 +2196,112 @@ export class AxonFlow {
       tenantId: response.data.tenant_id,
       message: response.data.message,
     };
+  }
+
+  // ============================================================================
+  // Policy Simulation Methods (Evaluation Tier+)
+  // ============================================================================
+
+  /**
+   * Simulate policy evaluation against a hypothetical request.
+   *
+   * Dry-run policy evaluation that shows which policies would match and what
+   * actions would be taken, without affecting live traffic. Available on
+   * Evaluation tier and above.
+   *
+   * @param request - The simulated request to evaluate against policies
+   * @returns Promise resolving to simulation results
+   *
+   * @example
+   * ```typescript
+   * const result = await axonflow.simulatePolicies({
+   *   query: 'Show me all customer SSNs',
+   *   request_type: 'chat',
+   *   user: { role: 'analyst', department: 'support' },
+   * });
+   * console.log(`Allowed: ${result.allowed}`);
+   * console.log(`Policies matched: ${result.applied_policies.join(', ')}`);
+   * console.log(`Risk score: ${result.risk_score}`);
+   * ```
+   */
+  async simulatePolicies(request: SimulatePoliciesRequest): Promise<SimulatePoliciesResponse> {
+    const body: Record<string, unknown> = { query: request.query };
+    if (request.request_type !== undefined) body.request_type = request.request_type;
+    if (request.user !== undefined) body.user = request.user;
+    if (request.client !== undefined) body.client = request.client;
+    if (request.context !== undefined) body.context = request.context;
+
+    return this.orchestratorRequest<SimulatePoliciesResponse>(
+      'POST',
+      '/api/v1/policies/simulate',
+      body
+    );
+  }
+
+  /**
+   * Generate a policy impact report for a specific policy against sample inputs.
+   *
+   * Tests a policy against multiple sample inputs to understand its match rate,
+   * block rate, and per-input behavior. Useful for tuning policy configurations
+   * before deploying to production.
+   *
+   * @param policyId - The ID of the policy to evaluate
+   * @param inputs - Array of sample inputs to test against the policy
+   * @returns Promise resolving to the impact report
+   *
+   * @example
+   * ```typescript
+   * const report = await axonflow.getPolicyImpactReport('policy-123', [
+   *   { query: 'Show me all customer SSNs', request_type: 'chat' },
+   *   { query: 'What is the weather today?', request_type: 'chat' },
+   *   { query: 'Delete all user records', request_type: 'chat' },
+   * ]);
+   * console.log(`Match rate: ${report.match_rate}`);
+   * console.log(`Block rate: ${report.block_rate}`);
+   * ```
+   */
+  async getPolicyImpactReport(
+    policyId: string,
+    inputs: ImpactReportInput[]
+  ): Promise<ImpactReportResponse> {
+    return this.orchestratorRequest<ImpactReportResponse>(
+      'POST',
+      '/api/v1/policies/impact-report',
+      {
+        policy_id: policyId,
+        inputs,
+      }
+    );
+  }
+
+  /**
+   * Detect conflicts between policies.
+   *
+   * Analyzes policies for overlapping rules, contradictory actions, or
+   * other conflict patterns. Optionally scoped to a specific policy.
+   *
+   * @param policyId - Optional policy ID to check conflicts for a specific policy
+   * @returns Promise resolving to detected conflicts
+   *
+   * @example
+   * ```typescript
+   * // Check all policies for conflicts
+   * const allConflicts = await axonflow.detectPolicyConflicts();
+   * console.log(`Found ${allConflicts.conflict_count} conflicts`);
+   *
+   * // Check conflicts for a specific policy
+   * const policyConflicts = await axonflow.detectPolicyConflicts('policy-123');
+   * ```
+   */
+  async detectPolicyConflicts(policyId?: string): Promise<PolicyConflictResponse> {
+    const body: Record<string, unknown> = {};
+    if (policyId !== undefined) body.policy_id = policyId;
+
+    return this.orchestratorRequest<PolicyConflictResponse>(
+      'POST',
+      '/api/v1/policies/conflicts',
+      body
+    );
   }
 
   // ============================================================================

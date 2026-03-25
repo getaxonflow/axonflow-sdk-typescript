@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [4.3.0] - 2026-03-25
 
+### Added
+
+- `simulatePolicies()` — dry-run all active policies against an input query. Returns allowed/blocked status, applied policies, risk score, and daily usage. Requires Evaluation tier or above.
+- `getPolicyImpactReport()` — test a single policy against multiple inputs and get aggregate match/block statistics.
+- `detectPolicyConflicts()` — analyze active policies for contradictions, shadows, and redundancies. Optionally filter to conflicts involving a specific policy.
+- Types: `SimulatePoliciesRequest`, `SimulatePoliciesResponse`, `SimulationDailyUsage`, `ImpactReportInput`, `ImpactReportRequest`, `ImpactReportResult`, `ImpactReportResponse`, `PolicyConflictRef`, `PolicyConflict`, `PolicyConflictResponse`
+
 ### Fixed
 
 - ESM build: `fix-esm-imports.js` post-build script now appends `.js` extension to parent-directory imports (`../errors`, `../types`, etc.) in addition to same-directory imports. Previously, the regex only matched `./` prefixed imports, causing `ERR_MODULE_NOT_FOUND` at runtime when consuming the ESM bundle in Node.js.
