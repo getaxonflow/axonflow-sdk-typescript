@@ -1,0 +1,18 @@
+# Source maps - prevent source code exposure via published package
+*.map
+
+# Source code
+src/
+tests/
+examples/
+
+# Config files
+tsconfig*.json
+jest.config.*
+.eslintrc*
+.prettierrc*
+.github/
+
+# Dev files
+*.test.ts
+*.spec.ts

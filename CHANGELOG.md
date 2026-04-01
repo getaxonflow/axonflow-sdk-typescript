@@ -5,6 +5,16 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.1] - 2026-04-01
+
+### Security
+
+- Bumped `handlebars` from 4.7.8 to 4.7.9 — fixes 7 vulnerabilities including JS injection via AST type confusion, prototype pollution leading to XSS, and DoS via malformed decorator syntax
+- Bumped `picomatch` from 2.3.1 to 2.3.2 — fixes ReDoS via extglob quantifiers and method injection in POSIX character classes
+- Bumped `brace-expansion` from 1.1.12 to 1.1.13 and 2.0.2 to 2.0.3 — fixes memory exhaustion via zero-step sequences
+
+---
+
 ## [4.3.0] - 2026-03-25
 
 ### Added
