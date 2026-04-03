@@ -723,7 +723,7 @@ describe('Policy CRUD Methods', () => {
       );
     });
 
-    it('should include X-Tenant-ID header from clientId', async () => {
+    it('should not include X-Tenant-ID header', async () => {
       const credentialsClient = new AxonFlow({
         endpoint: 'https://api.example.com',
         clientId: 'my-client',
@@ -736,7 +736,7 @@ describe('Policy CRUD Methods', () => {
 
       const callArgs = mockFetch.mock.calls[0];
       const headers = callArgs[1].headers;
-      expect(headers['X-Tenant-ID']).toBe('my-client');
+      expect(headers['X-Tenant-ID']).toBeUndefined();
     });
 
     it('should include auth headers when credentials are provided for localhost', async () => {

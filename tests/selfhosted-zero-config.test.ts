@@ -364,7 +364,8 @@ describe('7. Auth Headers Based on Credentials', () => {
 
       // OAuth2 Basic auth header SHOULD be present when credentials are provided
       expect(capturedHeaders['Authorization']).toMatch(/^Basic /);
-      expect(capturedHeaders['X-Tenant-ID']).toBe('test-client');
+      // X-Tenant-ID should NOT be sent (tenant derived server-side from credentials)
+      expect(capturedHeaders['X-Tenant-ID']).toBeUndefined();
 
       // Content-Type should still be present
       expect(capturedHeaders['Content-Type']).toBe('application/json');

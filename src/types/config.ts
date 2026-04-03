@@ -34,7 +34,7 @@ export interface AxonFlowConfig {
 
   /**
    * Tenant identifier for multi-tenant deployments.
-   * This specifies WHICH organization context (X-Tenant-ID header).
+   * This specifies WHICH organization context.
    * Separate from authentication identity (clientId).
    *
    * @deprecated Using tenant without clientId is deprecated.

@@ -273,7 +273,7 @@ export class AxonFlow {
    * Get authentication headers based on configured credentials.
    *
    * Uses OAuth2-style Basic auth: Authorization: Basic base64(clientId:clientSecret)
-   * Also adds X-Tenant-ID header from clientId for tenant context.
+   * Tenant identity is derived server-side from the client credentials.
    *
    * @returns Headers object with authentication headers
    */
@@ -286,11 +286,6 @@ export class AxonFlow {
         `${this.config.clientId}:${this.config.clientSecret}`
       ).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
-    }
-
-    // Always add X-Tenant-ID when clientId is set (required for multi-tenant APIs)
-    if (this.config.clientId) {
-      headers['X-Tenant-ID'] = this.config.clientId;
     }
 
     // Include SDK version for version discovery and compatibility checks
@@ -2477,7 +2472,6 @@ export class AxonFlow {
       ...this.getAuthHeaders(),
     };
 
-    // Note: X-Tenant-ID is set by getAuthHeaders() from clientId
     // Do NOT set X-Org-ID here - the server derives org from tenant context
     // Setting X-Org-ID to 'default' breaks budget queries which expect org_id to match client.OrgID
 
