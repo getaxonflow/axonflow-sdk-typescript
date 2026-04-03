@@ -377,7 +377,7 @@ describe('7. Auth Headers Based on Credentials', () => {
     }
   });
 
-  test('should not include auth headers when no credentials are provided', async () => {
+  test('should send community Basic auth when no credentials are provided', async () => {
     const client = new AxonFlow({
       endpoint: 'http://127.0.0.1:8080',
       // No credentials - community mode
@@ -410,11 +410,13 @@ describe('7. Auth Headers Based on Credentials', () => {
         requestType: 'chat',
       });
 
-      // Verify auth headers are NOT present when no credentials configured
-      expect(capturedHeaders['Authorization']).toBeUndefined();
+      // Basic auth always sent — uses effective clientId (tenant "default" from config)
+      const expectedCredentials = Buffer.from('default:').toString('base64');
+      expect(capturedHeaders['Authorization']).toBe(`Basic ${expectedCredentials}`);
+      // X-Tenant-ID no longer sent
       expect(capturedHeaders['X-Tenant-ID']).toBeUndefined();
 
-      console.log('✅ Auth headers correctly NOT sent in community mode (no credentials)');
+      console.log('✅ Community mode: Basic auth with effective clientId, no X-Tenant-ID');
     } finally {
       global.fetch = originalFetch;
     }
