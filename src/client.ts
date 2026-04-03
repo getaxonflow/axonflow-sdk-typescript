@@ -280,10 +280,12 @@ export class AxonFlow {
   private getAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {};
 
-    // OAuth2-style client credentials
-    if (this.config.clientId && this.config.clientSecret) {
+    // Always send Basic auth when clientId is set — server derives tenant from it.
+    // clientSecret defaults to empty string for community/no-secret mode.
+    const effectiveClientId = this.getEffectiveClientId();
+    if (effectiveClientId) {
       const credentials = Buffer.from(
-        `${this.config.clientId}:${this.config.clientSecret}`
+        `${effectiveClientId}:${this.config.clientSecret || ''}`
       ).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
     }
