@@ -48,7 +48,7 @@ describe('MAS FEAT Compliance Module', () => {
         customer_impact: 3,
         model_complexity: 2,
         human_reliance: 1,
-        materiality: 'high',
+        materiality_classification: 'high',
         status: 'draft',
         created_at: '2026-01-23T12:00:00Z',
         updated_at: '2026-01-23T12:00:00Z',
@@ -68,7 +68,7 @@ describe('MAS FEAT Compliance Module', () => {
 
       expect(result.id).toBe('sys-123');
       expect(result.systemName).toBe('Credit Scoring Model');
-      expect(result.materiality).toBe('high');
+      expect(result.materialityClassification).toBe('high');
     });
   });
 
@@ -84,7 +84,7 @@ describe('MAS FEAT Compliance Module', () => {
         customer_impact: 3,
         model_complexity: 2,
         human_reliance: 1,
-        materiality: 'high',
+        materiality_classification: 'high',
         status: 'active',
         created_at: '2026-01-23T12:00:00Z',
         updated_at: '2026-01-23T12:00:00Z',
@@ -111,7 +111,7 @@ describe('MAS FEAT Compliance Module', () => {
         customer_impact: 3,
         model_complexity: 2,
         human_reliance: 1,
-        materiality: 'high',
+        materiality_classification: 'high',
         status: 'active',
         created_at: '2026-01-23T12:00:00Z',
         updated_at: '2026-01-23T12:00:00Z',
@@ -138,7 +138,7 @@ describe('MAS FEAT Compliance Module', () => {
           customer_impact: 3,
           model_complexity: 2,
           human_reliance: 1,
-          materiality: 'high',
+          materiality_classification: 'high',
           status: 'active',
           created_at: '2026-01-23T12:00:00Z',
           updated_at: '2026-01-23T12:00:00Z',
@@ -496,7 +496,7 @@ describe('MAS FEAT Compliance Module', () => {
         system_name: 'Updated Model',
         use_case: 'credit_scoring',
         owner_team: 'new-team',
-        materiality: 'high',
+        materiality_classification: 'high',
         status: 'active',
         created_at: '2026-01-23T12:00:00Z',
         updated_at: '2026-01-23T12:00:00Z',
@@ -522,7 +522,7 @@ describe('MAS FEAT Compliance Module', () => {
         system_name: 'Test Model',
         use_case: 'credit_scoring',
         owner_team: 'team',
-        materiality: 'high',
+        materiality_classification: 'high',
         status: 'retired',
         created_at: '2026-01-23T12:00:00Z',
         updated_at: '2026-01-23T12:00:00Z',
@@ -808,7 +808,7 @@ describe('MAS FEAT Compliance Module', () => {
       await client.masfeat.listSystems({
         status: 'active',
         useCase: 'credit_scoring',
-        materiality: 'high',
+        materialityClassification: 'high',
         limit: 10,
         offset: 5,
       });
@@ -862,7 +862,7 @@ describe('MAS FEAT Compliance Module', () => {
         model_complexity: 3,
         human_reliance: 2,
         metadata: { key: 'value' },
-        materiality: 'high',
+        materiality_classification: 'high',
         status: 'active',
         created_at: '2026-01-23T12:00:00Z',
         updated_at: '2026-01-23T12:00:00Z',
@@ -948,7 +948,7 @@ describe('MAS FEAT Compliance Module', () => {
         technical_owner: 'tech@example.com',
         business_owner: 'biz@example.com',
         metadata: { env: 'prod' },
-        materiality: 'high',
+        materiality_classification: 'high',
         status: 'draft',
         created_at: '2026-01-23T12:00:00Z',
         updated_at: '2026-01-23T12:00:00Z',

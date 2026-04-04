@@ -91,7 +91,7 @@ export interface AISystemRegistry {
   customerImpact?: number;
   modelComplexity?: number;
   humanReliance?: number;
-  materiality: MaterialityClassification;
+  materialityClassification: MaterialityClassification;
   status: SystemStatus;
   metadata?: Record<string, unknown>;
   createdAt: Date;
@@ -144,7 +144,7 @@ export interface UpdateSystemRequest {
 export interface ListSystemsOptions {
   status?: SystemStatus;
   useCase?: AISystemUseCase;
-  materiality?: MaterialityClassification;
+  materialityClassification?: MaterialityClassification;
   limit?: number;
   offset?: number;
 }

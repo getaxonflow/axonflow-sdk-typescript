@@ -681,23 +681,23 @@ describe('Policy CRUD Methods', () => {
       );
     });
 
-    it('should not include auth headers when no credentials are provided', async () => {
+    it('should send community Basic auth when no credentials provided', async () => {
       const localClient = new AxonFlow({
         endpoint: 'http://localhost:8080',
-        // No credentials
+        // No credentials — defaults to community
       });
 
       mockFetch.mockReturnValueOnce(mockResponse([sampleStaticPolicy]));
 
       await localClient.listStaticPolicies();
 
-      // Check that the call was made
       expect(mockFetch).toHaveBeenCalled();
 
-      // Verify no Authorization header
+      // Basic auth always sent with effective clientId (defaults to "community")
       const callArgs = mockFetch.mock.calls[0];
       const headers = callArgs[1].headers;
-      expect(headers['Authorization']).toBeUndefined();
+      const expectedCredentials = Buffer.from('community:').toString('base64');
+      expect(headers['Authorization']).toBe(`Basic ${expectedCredentials}`);
     });
 
     it('should use OAuth2 Basic auth format', async () => {
@@ -723,7 +723,7 @@ describe('Policy CRUD Methods', () => {
       );
     });
 
-    it('should include X-Tenant-ID header from clientId', async () => {
+    it('should not include X-Tenant-ID header', async () => {
       const credentialsClient = new AxonFlow({
         endpoint: 'https://api.example.com',
         clientId: 'my-client',
@@ -736,7 +736,7 @@ describe('Policy CRUD Methods', () => {
 
       const callArgs = mockFetch.mock.calls[0];
       const headers = callArgs[1].headers;
-      expect(headers['X-Tenant-ID']).toBe('my-client');
+      expect(headers['X-Tenant-ID']).toBeUndefined();
     });
 
     it('should include auth headers when credentials are provided for localhost', async () => {

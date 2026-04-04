@@ -273,24 +273,21 @@ export class AxonFlow {
    * Get authentication headers based on configured credentials.
    *
    * Uses OAuth2-style Basic auth: Authorization: Basic base64(clientId:clientSecret)
-   * Also adds X-Tenant-ID header from clientId for tenant context.
+   * Tenant identity is derived server-side from the client credentials.
    *
    * @returns Headers object with authentication headers
    */
   private getAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {};
 
-    // OAuth2-style client credentials
-    if (this.config.clientId && this.config.clientSecret) {
+    // Always send Basic auth when clientId is set — server derives tenant from it.
+    // clientSecret defaults to empty string for community/no-secret mode.
+    const effectiveClientId = this.getEffectiveClientId();
+    if (effectiveClientId) {
       const credentials = Buffer.from(
-        `${this.config.clientId}:${this.config.clientSecret}`
+        `${effectiveClientId}:${this.config.clientSecret || ''}`
       ).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
-    }
-
-    // Always add X-Tenant-ID when clientId is set (required for multi-tenant APIs)
-    if (this.config.clientId) {
-      headers['X-Tenant-ID'] = this.config.clientId;
     }
 
     // Include SDK version for version discovery and compatibility checks
@@ -1383,6 +1380,7 @@ export class AxonFlow {
 
     return {
       planId,
+      status: agentResponse.data?.status || 'pending',
       steps: agentResponse.data?.steps || [],
       domain: agentResponse.data?.domain || domain || 'generic',
       complexity: agentResponse.data?.complexity || 0,
@@ -2477,7 +2475,6 @@ export class AxonFlow {
       ...this.getAuthHeaders(),
     };
 
-    // Note: X-Tenant-ID is set by getAuthHeaders() from clientId
     // Do NOT set X-Org-ID here - the server derives org from tenant context
     // Setting X-Org-ID to 'default' breaks budget queries which expect org_id to match client.OrgID
 
@@ -5365,7 +5362,8 @@ export class AxonFlow {
     const params = new URLSearchParams();
     if (options?.status) params.append('status', options.status);
     if (options?.useCase) params.append('use_case', options.useCase);
-    if (options?.materiality) params.append('materiality', options.materiality);
+    if (options?.materialityClassification)
+      params.append('materiality', options.materialityClassification);
     if (options?.limit) params.append('limit', options.limit.toString());
     if (options?.offset) params.append('offset', options.offset.toString());
 
@@ -5923,7 +5921,7 @@ export class AxonFlow {
       customerImpact: data.customer_impact ?? data.risk_rating_impact,
       modelComplexity: data.model_complexity ?? data.risk_rating_complexity,
       humanReliance: data.human_reliance ?? data.risk_rating_reliance,
-      materiality: data.materiality || data.materiality_classification,
+      materialityClassification: data.materiality_classification,
       status: data.status,
       metadata: data.metadata,
       createdAt: new Date(data.created_at),

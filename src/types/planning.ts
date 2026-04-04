@@ -57,6 +57,7 @@ export interface PlanStep {
 
 export interface PlanResponse {
   planId: string;
+  status: string;
   steps: PlanStep[];
   domain: string;
   complexity: number;
