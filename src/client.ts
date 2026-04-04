@@ -5362,7 +5362,7 @@ export class AxonFlow {
     const params = new URLSearchParams();
     if (options?.status) params.append('status', options.status);
     if (options?.useCase) params.append('use_case', options.useCase);
-    if (options?.materiality) params.append('materiality', options.materiality);
+    if (options?.materialityClassification) params.append('materiality', options.materialityClassification);
     if (options?.limit) params.append('limit', options.limit.toString());
     if (options?.offset) params.append('offset', options.offset.toString());
 
@@ -5920,7 +5920,7 @@ export class AxonFlow {
       customerImpact: data.customer_impact ?? data.risk_rating_impact,
       modelComplexity: data.model_complexity ?? data.risk_rating_complexity,
       humanReliance: data.human_reliance ?? data.risk_rating_reliance,
-      materiality: data.materiality_classification,
+      materialityClassification: data.materiality_classification,
       status: data.status,
       metadata: data.metadata,
       createdAt: new Date(data.created_at),
