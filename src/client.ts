@@ -1380,6 +1380,7 @@ export class AxonFlow {
 
     return {
       planId,
+      status: agentResponse.data?.status || 'pending',
       steps: agentResponse.data?.steps || [],
       domain: agentResponse.data?.domain || domain || 'generic',
       complexity: agentResponse.data?.complexity || 0,
