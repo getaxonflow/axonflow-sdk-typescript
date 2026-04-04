@@ -5362,7 +5362,8 @@ export class AxonFlow {
     const params = new URLSearchParams();
     if (options?.status) params.append('status', options.status);
     if (options?.useCase) params.append('use_case', options.useCase);
-    if (options?.materialityClassification) params.append('materiality', options.materialityClassification);
+    if (options?.materialityClassification)
+      params.append('materiality', options.materialityClassification);
     if (options?.limit) params.append('limit', options.limit.toString());
     if (options?.offset) params.append('offset', options.offset.toString());
 
