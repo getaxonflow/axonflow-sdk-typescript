@@ -218,6 +218,14 @@ export class AxonFlow {
       );
     }
 
+    // Demo mode: when AXONFLOW_DEMO=1 is set, override endpoint and require clientId
+    if (process.env['AXONFLOW_DEMO'] === '1') {
+      if (!config.clientId) {
+        throw new ConfigurationError('clientId is required in demo mode (AXONFLOW_DEMO=1)');
+      }
+      config = { ...config, endpoint: 'https://demo.getaxonflow.com' };
+    }
+
     // Set defaults first to determine endpoint
     const endpoint = config.endpoint || 'https://staging-eu.getaxonflow.com';
 
