@@ -223,7 +223,11 @@ export class AxonFlow {
       if (!config.clientId) {
         throw new ConfigurationError('clientId is required in demo mode (AXONFLOW_DEMO=1)');
       }
-      config = { ...config, endpoint: 'https://demo.getaxonflow.com' };
+      config = {
+        ...config,
+        endpoint: 'https://demo.getaxonflow.com',
+        clientId: `${config.clientId}-${Math.random().toString(36).slice(2, 8)}`,
+      };
     }
 
     // Set defaults first to determine endpoint
