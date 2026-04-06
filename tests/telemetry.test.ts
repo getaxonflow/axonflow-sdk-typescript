@@ -13,16 +13,14 @@
 import { sendTelemetryPing, TelemetryPayload } from '../src/telemetry';
 import { VERSION } from '../src/version';
 
-// Save original env and fetch
+// Save original env
 const originalEnv = { ...process.env };
-const originalFetch = global.fetch;
 
 // ---------------------------------------------------------------------------
 // Version constant integrity
 // ---------------------------------------------------------------------------
 describe('VERSION constant', () => {
   it('should match package.json version', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const pkgVersion = require('../package.json').version;
     expect(VERSION).toBe(pkgVersion);
   });
@@ -63,8 +61,11 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  // Restore real fetch only after all tests complete.
-  global.fetch = originalFetch;
+  // Do NOT restore originalFetch here. sendTelemetryPing uses a fire-and-forget
+  // async pattern (void IIFE) that can outlive individual tests. Restoring real
+  // fetch allows lingering async operations to leak real HTTP requests to the
+  // checkpoint service. Jest runs each test file in its own worker, so keeping
+  // the mock active until process exit is safe and prevents telemetry leaks.
 });
 
 describe('sendTelemetryPing', () => {
@@ -194,31 +195,13 @@ describe('sendTelemetryPing', () => {
   });
 
   // ============================================================
-  // Localhost endpoint suppression
+  // Localhost endpoints — telemetry enabled by default
   // ============================================================
-  describe('localhost endpoint suppression', () => {
-    it('should NOT send when endpoint is localhost', () => {
+  describe('localhost endpoints send telemetry', () => {
+    it('should send when endpoint is localhost', async () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'http://localhost:8080',
-      });
-
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it('should NOT send when endpoint is 127.0.0.1', () => {
-      sendTelemetryPing({
-        mode: 'production',
-        endpoint: 'http://127.0.0.1:8080',
-      });
-
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it('should send when endpoint is a remote URL', async () => {
-      sendTelemetryPing({
-        mode: 'production',
-        endpoint: 'https://api.axonflow.com',
       });
 
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -226,11 +209,21 @@ describe('sendTelemetryPing', () => {
       expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
     });
 
-    it('should send for localhost when telemetryEnabled=true', async () => {
+    it('should send when endpoint is 127.0.0.1', async () => {
       sendTelemetryPing({
         mode: 'production',
-        endpoint: 'http://localhost:8080',
-        telemetryEnabled: true,
+        endpoint: 'http://127.0.0.1:8080',
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
+    });
+
+    it('should send when endpoint is a remote URL', async () => {
+      sendTelemetryPing({
+        mode: 'production',
+        endpoint: 'https://api.axonflow.com',
       });
 
       await new Promise(resolve => setTimeout(resolve, 50));

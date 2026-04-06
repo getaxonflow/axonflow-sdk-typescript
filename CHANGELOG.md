@@ -5,6 +5,19 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.0] - 2026-04-06
+
+### Added
+
+- **`GovernedTool` adapter** — framework-agnostic tool governance wrapper. Wraps any `ToolDefinition` with input/output policy enforcement (`mcpCheckInput` before execution, `mcpCheckOutput` after). Helper: `governTools(tools, client)`.
+- **`checkToolInput()` / `checkToolOutput()`** — generic aliases for tool governance. Existing `mcpCheckInput()` / `mcpCheckOutput()` remain supported.
+
+### Changed
+
+- Anonymous telemetry is now enabled by default for all endpoints, including localhost/self-hosted evaluation. Opt out with `DO_NOT_TRACK=1` or `AXONFLOW_TELEMETRY=off`.
+
+---
+
 ## [5.0.0] - 2026-04-05
 
 ### BREAKING CHANGES

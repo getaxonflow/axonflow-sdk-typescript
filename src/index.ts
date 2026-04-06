@@ -271,6 +271,10 @@ export type {
 } from './types/workflows';
 export { WorkflowHelpers } from './types/workflows';
 
+// Export GovernedTool adapter (framework-agnostic tool governance)
+export { GovernedTool, governTools } from './adapters/governed-tool';
+export type { ToolDefinition, GovernedToolOptions } from './adapters/governed-tool';
+
 // Export LangGraph adapter
 export {
   AxonFlowLangGraphAdapter,

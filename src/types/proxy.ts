@@ -140,10 +140,10 @@ export interface PlatformCapability {
  * SDK compatibility information
  */
 export interface SDKCompatibility {
-  /** Minimum supported SDK version */
-  minSdkVersion: string;
-  /** Recommended SDK version */
-  recommendedSdkVersion: string;
+  /** Minimum supported SDK version per language (e.g. {"typescript":"5.0.0","python":"6.0.0"}) */
+  minSdkVersion: Record<string, string>;
+  /** Recommended SDK version per language */
+  recommendedSdkVersion: Record<string, string>;
 }
 
 /**
