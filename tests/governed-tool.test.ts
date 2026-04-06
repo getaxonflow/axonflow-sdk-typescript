@@ -6,14 +6,13 @@ import { AxonFlow } from '../src/client';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createMockClient(overrides?: {
-  mcpCheckInput?: jest.Mock;
-  mcpCheckOutput?: jest.Mock;
-}) {
+function createMockClient(overrides?: { mcpCheckInput?: jest.Mock; mcpCheckOutput?: jest.Mock }) {
   return {
-    mcpCheckInput: overrides?.mcpCheckInput ??
+    mcpCheckInput:
+      overrides?.mcpCheckInput ??
       jest.fn().mockResolvedValue({ allowed: true, policies_evaluated: 1 }),
-    mcpCheckOutput: overrides?.mcpCheckOutput ??
+    mcpCheckOutput:
+      overrides?.mcpCheckOutput ??
       jest.fn().mockResolvedValue({ allowed: true, policies_evaluated: 1 }),
   } as unknown as AxonFlow;
 }
@@ -42,12 +41,12 @@ describe('GovernedTool', () => {
 
     expect(result).toBe('search result');
     expect(mockTool.invoke).toHaveBeenCalledWith({ query: 'test' });
-    expect((mockClient.mcpCheckInput as jest.Mock)).toHaveBeenCalledWith({
+    expect(mockClient.mcpCheckInput as jest.Mock).toHaveBeenCalledWith({
       connectorType: 'search',
       statement: '{"query":"test"}',
       operation: 'execute',
     });
-    expect((mockClient.mcpCheckOutput as jest.Mock)).toHaveBeenCalledWith({
+    expect(mockClient.mcpCheckOutput as jest.Mock).toHaveBeenCalledWith({
       connectorType: 'search',
       message: 'search result',
     });
@@ -65,13 +64,9 @@ describe('GovernedTool', () => {
     const mockTool = createMockTool();
     const governed = new GovernedTool(mockTool, mockClient);
 
-    await expect(governed.invoke('DROP TABLE users'))
-      .rejects
-      .toThrow(PolicyViolationError);
+    await expect(governed.invoke('DROP TABLE users')).rejects.toThrow(PolicyViolationError);
 
-    await expect(governed.invoke('DROP TABLE users'))
-      .rejects
-      .toThrow('SQL injection detected');
+    await expect(governed.invoke('DROP TABLE users')).rejects.toThrow('SQL injection detected');
 
     // Tool should never have been invoked
     expect(mockTool.invoke).not.toHaveBeenCalled();
@@ -89,9 +84,7 @@ describe('GovernedTool', () => {
     const mockTool = createMockTool();
     const governed = new GovernedTool(mockTool, mockClient);
 
-    await expect(governed.invoke('find user data'))
-      .rejects
-      .toThrow(PolicyViolationError);
+    await expect(governed.invoke('find user data')).rejects.toThrow(PolicyViolationError);
 
     // Tool WAS invoked before output check blocked it
     expect(mockTool.invoke).toHaveBeenCalledWith('find user data');
@@ -121,16 +114,16 @@ describe('GovernedTool', () => {
     const mockClient = createMockClient();
     const mockTool = createMockTool({ name: 'web_search' });
     const governed = new GovernedTool(mockTool, mockClient, {
-      connectorTypeFn: (name) => `custom_${name}`,
+      connectorTypeFn: name => `custom_${name}`,
     });
 
     await governed.invoke('test');
 
-    expect((mockClient.mcpCheckInput as jest.Mock)).toHaveBeenCalledWith(
-      expect.objectContaining({ connectorType: 'custom_web_search' }),
+    expect(mockClient.mcpCheckInput as jest.Mock).toHaveBeenCalledWith(
+      expect.objectContaining({ connectorType: 'custom_web_search' })
     );
-    expect((mockClient.mcpCheckOutput as jest.Mock)).toHaveBeenCalledWith(
-      expect.objectContaining({ connectorType: 'custom_web_search' }),
+    expect(mockClient.mcpCheckOutput as jest.Mock).toHaveBeenCalledWith(
+      expect.objectContaining({ connectorType: 'custom_web_search' })
     );
   });
 
@@ -142,8 +135,8 @@ describe('GovernedTool', () => {
 
     await governed.invoke('SELECT * FROM users');
 
-    expect((mockClient.mcpCheckInput as jest.Mock)).toHaveBeenCalledWith(
-      expect.objectContaining({ operation: 'query' }),
+    expect(mockClient.mcpCheckInput as jest.Mock).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: 'query' })
     );
   });
 
@@ -172,17 +165,17 @@ describe('GovernedTool', () => {
     const tool2 = createMockTool({ name: 'db_write' });
 
     const governed = governTools([tool1, tool2], mockClient, {
-      connectorTypeFn: (name) => `postgres_${name}`,
+      connectorTypeFn: name => `postgres_${name}`,
       operation: 'query',
     });
 
     await governed[0].invoke('test');
 
-    expect((mockClient.mcpCheckInput as jest.Mock)).toHaveBeenCalledWith(
+    expect(mockClient.mcpCheckInput as jest.Mock).toHaveBeenCalledWith(
       expect.objectContaining({
         connectorType: 'postgres_db_read',
         operation: 'query',
-      }),
+      })
     );
   });
 
@@ -194,8 +187,8 @@ describe('GovernedTool', () => {
 
     await governed.invoke('plain text query');
 
-    expect((mockClient.mcpCheckInput as jest.Mock)).toHaveBeenCalledWith(
-      expect.objectContaining({ statement: 'plain text query' }),
+    expect(mockClient.mcpCheckInput as jest.Mock).toHaveBeenCalledWith(
+      expect.objectContaining({ statement: 'plain text query' })
     );
     // Tool receives the original string, not a JSON-quoted string
     expect(mockTool.invoke).toHaveBeenCalledWith('plain text query');
@@ -210,10 +203,10 @@ describe('GovernedTool', () => {
     const input = { query: 'test', filters: [1, 2, 3] };
     await governed.invoke(input);
 
-    expect((mockClient.mcpCheckInput as jest.Mock)).toHaveBeenCalledWith(
+    expect(mockClient.mcpCheckInput as jest.Mock).toHaveBeenCalledWith(
       expect.objectContaining({
         statement: JSON.stringify(input),
-      }),
+      })
     );
     // Tool receives original object, not serialized string
     expect(mockTool.invoke).toHaveBeenCalledWith(input);
@@ -223,26 +216,22 @@ describe('GovernedTool', () => {
   describe('constructor validation', () => {
     it('rejects tool with missing name', () => {
       const mockClient = createMockClient();
-      expect(() => new GovernedTool(
-        { name: '', description: 'test', invoke: jest.fn() },
-        mockClient,
-      )).toThrow(TypeError);
-      expect(() => new GovernedTool(
-        { name: '', description: 'test', invoke: jest.fn() },
-        mockClient,
-      )).toThrow('non-empty "name"');
+      expect(
+        () => new GovernedTool({ name: '', description: 'test', invoke: jest.fn() }, mockClient)
+      ).toThrow(TypeError);
+      expect(
+        () => new GovernedTool({ name: '', description: 'test', invoke: jest.fn() }, mockClient)
+      ).toThrow('non-empty "name"');
     });
 
     it('rejects tool with missing invoke', () => {
       const mockClient = createMockClient();
-      expect(() => new GovernedTool(
-        { name: 'test', description: 'test' } as any,
-        mockClient,
-      )).toThrow(TypeError);
-      expect(() => new GovernedTool(
-        { name: 'test', description: 'test' } as any,
-        mockClient,
-      )).toThrow('"invoke" method');
+      expect(
+        () => new GovernedTool({ name: 'test', description: 'test' } as any, mockClient)
+      ).toThrow(TypeError);
+      expect(
+        () => new GovernedTool({ name: 'test', description: 'test' } as any, mockClient)
+      ).toThrow('"invoke" method');
     });
 
     it('rejects null tool', () => {
@@ -294,11 +283,11 @@ describe('GovernedTool', () => {
 
       await governed.invoke('SELECT 1');
 
-      expect((mockClient.mcpCheckInput as jest.Mock)).toHaveBeenCalledWith(
+      expect(mockClient.mcpCheckInput as jest.Mock).toHaveBeenCalledWith(
         expect.objectContaining({
           connectorType: 'postgres',
           operation: 'query',
-        }),
+        })
       );
     });
   });
@@ -333,9 +322,7 @@ describe('GovernedTool', () => {
       });
       const governed = new GovernedTool(createMockTool(), mockClient);
 
-      await expect(governed.invoke('test'))
-        .rejects
-        .toThrow('Tool call blocked by input policy');
+      await expect(governed.invoke('test')).rejects.toThrow('Tool call blocked by input policy');
     });
 
     it('uses default block reason when output block_reason is undefined', async () => {
@@ -347,9 +334,7 @@ describe('GovernedTool', () => {
       });
       const governed = new GovernedTool(createMockTool(), mockClient);
 
-      await expect(governed.invoke('test'))
-        .rejects
-        .toThrow('Tool output blocked by policy');
+      await expect(governed.invoke('test')).rejects.toThrow('Tool output blocked by policy');
     });
 
     it('does not return redacted_data when it is null', async () => {
@@ -395,10 +380,10 @@ describe('GovernedTool', () => {
 
       const result = await governed.invoke('test');
 
-      expect((mockClient.mcpCheckOutput as jest.Mock)).toHaveBeenCalledWith(
+      expect(mockClient.mcpCheckOutput as jest.Mock).toHaveBeenCalledWith(
         expect.objectContaining({
           message: '{"data":[1,2,3]}',
-        }),
+        })
       );
       expect(result).toEqual({ data: [1, 2, 3] });
     });
@@ -410,8 +395,8 @@ describe('GovernedTool', () => {
 
       await governed.invoke(42);
 
-      expect((mockClient.mcpCheckInput as jest.Mock)).toHaveBeenCalledWith(
-        expect.objectContaining({ statement: '42' }),
+      expect(mockClient.mcpCheckInput as jest.Mock).toHaveBeenCalledWith(
+        expect.objectContaining({ statement: '42' })
       );
       expect(mockTool.invoke).toHaveBeenCalledWith(42);
     });

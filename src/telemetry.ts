@@ -53,7 +53,6 @@ function isOptedOut(): boolean {
   return false;
 }
 
-
 /**
  * Resolve the checkpoint URL, allowing override via environment variable.
  */

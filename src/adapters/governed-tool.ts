@@ -88,9 +88,7 @@ export class GovernedTool implements ToolDefinition {
     this.description = tool.description || '';
     this.wrapped = tool;
     this.client = client;
-    this.connectorType = options?.connectorTypeFn
-      ? options.connectorTypeFn(tool.name)
-      : tool.name;
+    this.connectorType = options?.connectorTypeFn ? options.connectorTypeFn(tool.name) : tool.name;
     this.operation = options?.operation || 'execute';
   }
 
@@ -101,7 +99,7 @@ export class GovernedTool implements ToolDefinition {
   static fromLangChain(
     tool: { name: string; description: string; invoke: (input: unknown) => Promise<unknown> },
     client: AxonFlow,
-    options?: GovernedToolOptions,
+    options?: GovernedToolOptions
   ): GovernedTool {
     const adapted: ToolDefinition = {
       name: tool.name,
@@ -132,7 +130,7 @@ export class GovernedTool implements ToolDefinition {
 
     if (!inputCheck.allowed) {
       throw new PolicyViolationError(
-        inputCheck.block_reason || 'Tool call blocked by input policy',
+        inputCheck.block_reason || 'Tool call blocked by input policy'
       );
     }
 
@@ -147,9 +145,7 @@ export class GovernedTool implements ToolDefinition {
     });
 
     if (!outputCheck.allowed) {
-      throw new PolicyViolationError(
-        outputCheck.block_reason || 'Tool output blocked by policy',
-      );
+      throw new PolicyViolationError(outputCheck.block_reason || 'Tool output blocked by policy');
     }
 
     if (outputCheck.redacted_data !== undefined && outputCheck.redacted_data !== null) {
@@ -175,7 +171,7 @@ export class GovernedTool implements ToolDefinition {
 export function governTools(
   tools: ToolDefinition[],
   client: AxonFlow,
-  options?: GovernedToolOptions,
+  options?: GovernedToolOptions
 ): GovernedTool[] {
-  return tools.map((t) => new GovernedTool(t, client, options));
+  return tools.map(t => new GovernedTool(t, client, options));
 }
