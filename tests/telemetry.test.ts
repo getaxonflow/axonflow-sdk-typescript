@@ -21,7 +21,6 @@ const originalEnv = { ...process.env };
 // ---------------------------------------------------------------------------
 describe('VERSION constant', () => {
   it('should match package.json version', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const pkgVersion = require('../package.json').version;
     expect(VERSION).toBe(pkgVersion);
   });

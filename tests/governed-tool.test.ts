@@ -1,4 +1,4 @@
-import { GovernedTool, governTools, ToolDefinition, GovernedToolOptions } from '../src/adapters/governed-tool';
+import { GovernedTool, governTools, ToolDefinition } from '../src/adapters/governed-tool';
 import { PolicyViolationError } from '../src/errors';
 import { AxonFlow } from '../src/client';
 

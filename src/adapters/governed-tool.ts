@@ -23,7 +23,6 @@
 
 import { AxonFlow } from '../client';
 import { PolicyViolationError } from '../errors';
-import type { MCPCheckInputOptions, MCPCheckOutputOptions } from '../types/connector';
 
 /**
  * Minimal tool interface for governance wrapping.
