@@ -53,18 +53,6 @@ function isOptedOut(): boolean {
   return false;
 }
 
-/**
- * Check whether the endpoint is a localhost address.
- */
-function isLocalhostEndpoint(endpoint: string): boolean {
-  try {
-    const url = new URL(endpoint);
-    const host = url.hostname;
-    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Resolve the checkpoint URL, allowing override via environment variable.
@@ -134,14 +122,8 @@ export function sendTelemetryPing(options: {
     return;
   }
 
-  // Suppress telemetry for localhost endpoints unless explicitly enabled.
-  // Local development setups should not send telemetry by default.
-  if (options.telemetryEnabled !== true && isLocalhostEndpoint(options.endpoint)) {
-    return;
-  }
-
   if (typeof console !== 'undefined') {
-    console.log(
+    console.debug(
       '[AxonFlow] Anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/docs/telemetry'
     );
   }

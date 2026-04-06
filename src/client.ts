@@ -600,13 +600,14 @@ export class AxonFlow {
 
       const data = await response.json();
 
-      // Warn if SDK version is below platform minimum
-      if (
-        data.sdk_compatibility?.min_sdk_version &&
-        compareSemver(VERSION, data.sdk_compatibility.min_sdk_version) < 0
-      ) {
+      // Warn if SDK version is below platform minimum for TypeScript
+      const minVersion =
+        typeof data.sdk_compatibility?.min_sdk_version === 'string'
+          ? data.sdk_compatibility.min_sdk_version
+          : data.sdk_compatibility?.min_sdk_version?.typescript;
+      if (minVersion && compareSemver(VERSION, minVersion) < 0) {
         console.warn(
-          `[AxonFlow SDK] WARNING: SDK version ${VERSION} is below minimum supported version ${data.sdk_compatibility.min_sdk_version}. Please upgrade.`
+          `[AxonFlow SDK] WARNING: SDK version ${VERSION} is below minimum supported version ${minVersion}. Please upgrade.`
         );
       }
 
@@ -1306,6 +1307,26 @@ export class AxonFlow {
     }
 
     return responseData as MCPCheckOutputResponse;
+  }
+
+  /**
+   * Alias for {@link mcpCheckInput}. Validates tool input against configured policies.
+   *
+   * @param options - Input check options including connector type and statement
+   * @returns MCPCheckInputResponse with allowed status and policy evaluation details
+   */
+  async checkToolInput(options: MCPCheckInputOptions): Promise<MCPCheckInputResponse> {
+    return this.mcpCheckInput(options);
+  }
+
+  /**
+   * Alias for {@link mcpCheckOutput}. Validates tool output against configured policies.
+   *
+   * @param options - Output check options including connector type and response data
+   * @returns MCPCheckOutputResponse with allowed status, redacted data, and policy details
+   */
+  async checkToolOutput(options: MCPCheckOutputOptions): Promise<MCPCheckOutputResponse> {
+    return this.mcpCheckOutput(options);
   }
 
   /**
