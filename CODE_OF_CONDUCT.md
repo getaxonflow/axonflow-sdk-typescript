@@ -24,7 +24,7 @@ Examples of unacceptable behavior:
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders at dev@getaxonflow.com. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders at hello@getaxonflow.com. All complaints will be reviewed and investigated promptly and fairly.
 
 ## Attribution
 

@@ -97,7 +97,7 @@ We recognize security researchers who responsibly disclose vulnerabilities:
 ## Contact
 
 - **Security issues**: security@getaxonflow.com
-- **General support**: dev@getaxonflow.com
+- **General support**: hello@getaxonflow.com
 - **GitHub Security Advisories**: https://github.com/getaxonflow/axonflow-sdk-typescript/security/advisories
 
 Thank you for keeping AxonFlow secure!
