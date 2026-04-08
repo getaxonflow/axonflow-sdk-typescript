@@ -109,12 +109,20 @@ export type EndpointType = 'localhost' | 'private_network' | 'remote' | 'unknown
  * Classify the configured AxonFlow endpoint URL for analytics (#1525).
  *
  * Returns one of:
- *   - "localhost": localhost, 127.0.0.1, ::1, 0.0.0.0, *.localhost
- *   - "private_network": RFC1918 v4, link-local, *.internal, *.local, *.lan, *.intranet
+ *   - "localhost": localhost, 127.0.0.0/8, ::1, any expanded IPv6 loopback
+ *                  (e.g. 0:0:0:0:0:0:0:1), 0.0.0.0, *.localhost
+ *   - "private_network": RFC1918 v4 (10/8, 172.16-31, 192.168/16), link-local
+ *                        (169.254/16), IPv6 ULA (fc00::/7, RFC4193), IPv6
+ *                        link-local (fe80::/10), *.internal, *.local, *.lan,
+ *                        *.intranet
  *   - "remote": everything else (public hostnames and IPs)
  *   - "unknown": on parse failure
  *
  * The raw URL is never sent to the checkpoint service — only the classification.
+ *
+ * v5.3.0: IPv6 ULA + link-local + expanded loopback forms added to match
+ * the Python and Go SDK classifiers. Previously IPv6 private addresses like
+ * http://[fd00::1]:8080 fell through to "remote" (review finding P3).
  */
 export function classifyEndpoint(url: string | null | undefined): EndpointType {
   if (!url) return 'unknown';
@@ -134,18 +142,17 @@ export function classifyEndpoint(url: string | null | undefined): EndpointType {
     host = host.slice(1, -1);
   }
 
-  // IPv6 addresses in URLs come back from URL().hostname with brackets
-  // stripped, so ::1 and ::1 literal both pass through as "::1".
+  // Hostname aliases + special-case IPv4 shortcuts.
   if (
     host === 'localhost' ||
     host === '127.0.0.1' ||
-    host === '::1' ||
     host === '0.0.0.0' ||
     host.endsWith('.localhost')
   ) {
     return 'localhost';
   }
 
+  // Private/internal hostname suffixes.
   if (
     host.endsWith('.local') ||
     host.endsWith('.internal') ||
@@ -159,16 +166,80 @@ export function classifyEndpoint(url: string | null | undefined): EndpointType {
   const ipv4Match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
   if (ipv4Match) {
     const [a, b] = [parseInt(ipv4Match[1], 10), parseInt(ipv4Match[2], 10)];
+    if (a === 127) return 'localhost'; // 127.0.0.0/8
     if (a === 10) return 'private_network';
     if (a === 192 && b === 168) return 'private_network';
     if (a === 172 && b >= 16 && b <= 31) return 'private_network';
     if (a === 169 && b === 254) return 'private_network'; // link-local
-    if (a === 127) return 'localhost'; // 127.0.0.0/8
+    return 'remote';
+  }
+
+  // IPv6 classification.
+  //
+  // Any host that contains ':' is treated as IPv6 (URL hostname never has
+  // ':' for non-IPv6). We compare against the fully-expanded form for
+  // loopback ('::1' → '0:0:0:0:0:0:0:1') and against high-order hex
+  // prefixes for ULA and link-local.
+  if (host.includes(':')) {
+    // Expanded loopback: any form equivalent to ::1.
+    const expanded = expandIPv6(host);
+    if (expanded === '0000:0000:0000:0000:0000:0000:0000:0001') {
+      return 'localhost';
+    }
+    // Unspecified address :: is commonly used as a "listen-all" marker;
+    // treat it like 0.0.0.0 for symmetry.
+    if (expanded === '0000:0000:0000:0000:0000:0000:0000:0000') {
+      return 'localhost';
+    }
+    // ULA fc00::/7 — first byte has high nibble 0xfc or 0xfd (first 7 bits
+    // are 1111110, so the first hex pair is fc or fd).
+    const firstHextet = expanded.slice(0, 4);
+    if (firstHextet.startsWith('fc') || firstHextet.startsWith('fd')) {
+      return 'private_network';
+    }
+    // Link-local fe80::/10 — first 10 bits are 1111111010, so first hextet
+    // is in [fe80..febf].
+    if (firstHextet >= 'fe80' && firstHextet <= 'febf') {
+      return 'private_network';
+    }
     return 'remote';
   }
 
   // Anything else — a public hostname — is remote.
   return 'remote';
+}
+
+/**
+ * Expand an IPv6 address to its full 8-hextet form with every hextet
+ * zero-padded to 4 hex digits. Returns the original string on parse failure.
+ *
+ * Examples:
+ *   ::1        → 0000:0000:0000:0000:0000:0000:0000:0001
+ *   fd00::1    → fd00:0000:0000:0000:0000:0000:0000:0001
+ *   fe80::a    → fe80:0000:0000:0000:0000:0000:0000:000a
+ *
+ * This is NOT a general-purpose IPv6 parser — it assumes the input came
+ * from URL().hostname after brackets are stripped, which means it's
+ * already a valid compressed or uncompressed form.
+ */
+function expandIPv6(addr: string): string {
+  // Split on the '::' separator (at most one occurrence per RFC 4291).
+  let head: string[] = [];
+  let tail: string[] = [];
+  if (addr.includes('::')) {
+    const parts = addr.split('::');
+    if (parts.length !== 2) return addr;
+    head = parts[0] === '' ? [] : parts[0].split(':');
+    tail = parts[1] === '' ? [] : parts[1].split(':');
+  } else {
+    head = addr.split(':');
+  }
+  const missing = 8 - head.length - tail.length;
+  if (missing < 0) return addr;
+  const zeros = new Array(missing).fill('0');
+  const full = [...head, ...zeros, ...tail];
+  if (full.length !== 8) return addr;
+  return full.map((h) => h.padStart(4, '0')).join(':');
 }
 
 /**
