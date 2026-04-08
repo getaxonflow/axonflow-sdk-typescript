@@ -93,8 +93,82 @@ export interface TelemetryPayload {
   arch: string;
   runtime_version: string;
   deployment_mode: string;
+  /**
+   * Classification of the configured AxonFlow endpoint URL, derived on the
+   * SDK side. One of: "localhost", "private_network", "remote", "unknown".
+   * The raw URL is never sent. See issue #1525.
+   */
+  endpoint_type: EndpointType;
   features: string[];
   instance_id: string;
+}
+
+export type EndpointType = 'localhost' | 'private_network' | 'remote' | 'unknown';
+
+/**
+ * Classify the configured AxonFlow endpoint URL for analytics (#1525).
+ *
+ * Returns one of:
+ *   - "localhost": localhost, 127.0.0.1, ::1, 0.0.0.0, *.localhost
+ *   - "private_network": RFC1918 v4, link-local, *.internal, *.local, *.lan, *.intranet
+ *   - "remote": everything else (public hostnames and IPs)
+ *   - "unknown": on parse failure
+ *
+ * The raw URL is never sent to the checkpoint service — only the classification.
+ */
+export function classifyEndpoint(url: string | null | undefined): EndpointType {
+  if (!url) return 'unknown';
+
+  let host: string;
+  try {
+    const parsed = new URL(url);
+    host = parsed.hostname.toLowerCase();
+  } catch {
+    return 'unknown';
+  }
+  if (!host) return 'unknown';
+
+  // Node's URL parser returns IPv6 hostnames with surrounding brackets,
+  // e.g. "[::1]". Strip them so the comparison below works.
+  if (host.startsWith('[') && host.endsWith(']')) {
+    host = host.slice(1, -1);
+  }
+
+  // IPv6 addresses in URLs come back from URL().hostname with brackets
+  // stripped, so ::1 and ::1 literal both pass through as "::1".
+  if (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '0.0.0.0' ||
+    host.endsWith('.localhost')
+  ) {
+    return 'localhost';
+  }
+
+  if (
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    host.endsWith('.lan') ||
+    host.endsWith('.intranet')
+  ) {
+    return 'private_network';
+  }
+
+  // IPv4 classification.
+  const ipv4Match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (ipv4Match) {
+    const [a, b] = [parseInt(ipv4Match[1], 10), parseInt(ipv4Match[2], 10)];
+    if (a === 10) return 'private_network';
+    if (a === 192 && b === 168) return 'private_network';
+    if (a === 172 && b >= 16 && b <= 31) return 'private_network';
+    if (a === 169 && b === 254) return 'private_network'; // link-local
+    if (a === 127) return 'localhost'; // 127.0.0.0/8
+    return 'remote';
+  }
+
+  // Anything else — a public hostname — is remote.
+  return 'remote';
 }
 
 /**
@@ -137,6 +211,7 @@ export function sendTelemetryPing(options: {
     arch: typeof process !== 'undefined' ? process.arch : 'unknown',
     runtime_version: typeof process !== 'undefined' ? process.version.replace(/^v/, '') : 'unknown',
     deployment_mode: options.mode,
+    endpoint_type: classifyEndpoint(options.endpoint),
     features: [],
     instance_id: generateInstanceId(),
   };
