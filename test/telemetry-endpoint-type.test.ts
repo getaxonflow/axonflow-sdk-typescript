@@ -21,7 +21,9 @@ describe('classifyEndpoint', () => {
       // v5.3.0 fix: alternate loopback forms must match. Python/Go
       // handled these via stdlib; TS used to misclassify as remote.
       expect(classifyEndpoint('http://[0:0:0:0:0:0:0:1]')).toBe('localhost');
-      expect(classifyEndpoint('http://[0000:0000:0000:0000:0000:0000:0000:0001]')).toBe('localhost');
+      expect(classifyEndpoint('http://[0000:0000:0000:0000:0000:0000:0000:0001]')).toBe(
+        'localhost'
+      );
     });
     it('classifies IPv6 unspecified :: as localhost', () => {
       // :: is the IPv6 equivalent of 0.0.0.0 — listen-all marker.

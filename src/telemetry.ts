@@ -239,7 +239,7 @@ function expandIPv6(addr: string): string {
   const zeros = new Array(missing).fill('0');
   const full = [...head, ...zeros, ...tail];
   if (full.length !== 8) return addr;
-  return full.map((h) => h.padStart(4, '0')).join(':');
+  return full.map(h => h.padStart(4, '0')).join(':');
 }
 
 /**
