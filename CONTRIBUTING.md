@@ -75,7 +75,7 @@ npm run build
 
 - Open an issue for bugs or feature requests
 - Join our Discord community
-- Email: dev@getaxonflow.com
+- Email: hello@getaxonflow.com
 
 ## Code of Conduct
 
