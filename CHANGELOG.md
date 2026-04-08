@@ -5,7 +5,25 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.2.0] - 2026-04-09
+## [5.3.0] - Release Pending (2026-04-09)
+
+### Fixed
+
+- **IPv6 endpoint classification.** `classifyEndpoint` now handles IPv6 private ranges and expanded loopback forms that previously fell through to `remote`, matching the Python and Go SDK implementations:
+  - IPv6 ULA (`fc00::/7`, RFC 4193) → `private_network`
+  - IPv6 link-local (`fe80::/10`) → `private_network`
+  - Expanded IPv6 loopback (`0:0:0:0:0:0:0:1`, zero-padded forms) → `localhost`
+  - IPv6 unspecified (`::`) → `localhost` (symmetric with `0.0.0.0`)
+  - Public IPv6 addresses (`2001::/3` space) → `remote`
+- The previous v5.2.0 classifier only recognized IPv4 private ranges and hostname suffixes, leaving self-hosted IPv6 deployments miscounted as remote traffic on the checkpoint dashboard.
+
+### Changed
+
+- **Strengthened payload-leak regression test** — the previous v5.2.0 test was a type-shape check only. It now serializes a payload built from a realistic sensitive URL and asserts that no URL fragment (hostname, domain, port, scheme) leaks into the JSON body.
+
+---
+
+## [5.2.0] - 2026-04-08
 
 ### Added
 

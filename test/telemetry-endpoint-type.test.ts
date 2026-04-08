@@ -17,6 +17,18 @@ describe('classifyEndpoint', () => {
       expect(classifyEndpoint('http://[::1]')).toBe('localhost');
       expect(classifyEndpoint('http://[::1]:8080')).toBe('localhost');
     });
+    it('classifies expanded IPv6 loopback 0:0:0:0:0:0:0:1', () => {
+      // v5.3.0 fix: alternate loopback forms must match. Python/Go
+      // handled these via stdlib; TS used to misclassify as remote.
+      expect(classifyEndpoint('http://[0:0:0:0:0:0:0:1]')).toBe('localhost');
+      expect(classifyEndpoint('http://[0000:0000:0000:0000:0000:0000:0000:0001]')).toBe(
+        'localhost'
+      );
+    });
+    it('classifies IPv6 unspecified :: as localhost', () => {
+      // :: is the IPv6 equivalent of 0.0.0.0 — listen-all marker.
+      expect(classifyEndpoint('http://[::]:8080')).toBe('localhost');
+    });
     it('classifies 0.0.0.0', () => {
       expect(classifyEndpoint('http://0.0.0.0:8080')).toBe('localhost');
     });
@@ -47,6 +59,22 @@ describe('classifyEndpoint', () => {
     it('classifies link-local 169.254', () => {
       expect(classifyEndpoint('http://169.254.169.254')).toBe('private_network');
     });
+    it('classifies IPv6 ULA fc00::/7 as private_network', () => {
+      // v5.3.0 fix (review finding P3): IPv6 ULA addresses used to fall
+      // through to "remote". Python/Go classify them as private via stdlib.
+      expect(classifyEndpoint('http://[fd00::1]:8080')).toBe('private_network');
+      expect(classifyEndpoint('http://[fd12:3456:789a::1]')).toBe('private_network');
+      expect(classifyEndpoint('http://[fc00::1]')).toBe('private_network');
+      expect(classifyEndpoint('http://[fcff:ffff::]')).toBe('private_network');
+    });
+    it('classifies IPv6 link-local fe80::/10 as private_network', () => {
+      expect(classifyEndpoint('http://[fe80::1]')).toBe('private_network');
+      expect(classifyEndpoint('http://[febf::1]')).toBe('private_network');
+    });
+    it('does NOT classify IPv6 fec0::/10 (deprecated site-local) as private', () => {
+      // fec0::/10 is deprecated (RFC 3879) and not part of fe80::/10 or fc00::/7.
+      expect(classifyEndpoint('http://[fec0::1]')).toBe('remote');
+    });
     it('classifies .internal and .local and .lan and .intranet', () => {
       expect(classifyEndpoint('http://agent.internal')).toBe('private_network');
       expect(classifyEndpoint('http://agent.local')).toBe('private_network');
@@ -63,6 +91,10 @@ describe('classifyEndpoint', () => {
     it('classifies public IPv4', () => {
       expect(classifyEndpoint('http://8.8.8.8')).toBe('remote');
       expect(classifyEndpoint('http://1.1.1.1')).toBe('remote');
+    });
+    it('classifies public IPv6 as remote', () => {
+      expect(classifyEndpoint('http://[2001:4860:4860::8888]')).toBe('remote');
+      expect(classifyEndpoint('http://[2606:4700:4700::1111]')).toBe('remote');
     });
   });
 
@@ -92,10 +124,9 @@ describe('classifyEndpoint', () => {
 
 describe('TelemetryPayload shape', () => {
   it('type includes endpoint_type', () => {
-    // Compile-time check via type assertion. No runtime assert needed.
     const p: TelemetryPayload = {
       sdk: 'typescript',
-      sdk_version: '5.2.0',
+      sdk_version: '5.3.0',
       platform_version: null,
       os: 'linux',
       arch: 'x64',
@@ -106,5 +137,37 @@ describe('TelemetryPayload shape', () => {
       instance_id: 'test',
     };
     expect(p.endpoint_type).toBe('localhost');
+  });
+
+  it('serialized payload does not contain the raw URL or fragments of it', () => {
+    // v5.3.0: strengthened test (review M8). Previously the test was a
+    // type-shape check only. Now serialize a payload with a realistic
+    // sensitive URL classification and grep the JSON body for any fragment.
+    const sensitiveUrl = 'https://my-private-cluster.banking-internal.example.com:8443';
+    const endpointType = classifyEndpoint(sensitiveUrl);
+    expect(endpointType).toBe('remote');
+
+    const payload: TelemetryPayload = {
+      sdk: 'typescript',
+      sdk_version: '5.3.0',
+      platform_version: null,
+      os: 'linux',
+      arch: 'x64',
+      runtime_version: '20',
+      deployment_mode: 'production',
+      endpoint_type: endpointType,
+      features: [],
+      instance_id: 'leak-test',
+    };
+    const json = JSON.stringify(payload);
+    for (const fragment of [
+      'my-private-cluster',
+      'banking-internal',
+      'example.com',
+      '8443',
+      'https://',
+    ]) {
+      expect(json).not.toContain(fragment);
+    }
   });
 });
