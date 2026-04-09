@@ -103,7 +103,7 @@ export interface TelemetryPayload {
   instance_id: string;
 }
 
-export type EndpointType = 'localhost' | 'private_network' | 'remote' | 'unknown';
+export type EndpointType = 'localhost' | 'private_network' | 'remote' | 'unknown' | 'community-saas';
 
 /**
  * Classify the configured AxonFlow endpoint URL for analytics (#1525).
@@ -125,6 +125,10 @@ export type EndpointType = 'localhost' | 'private_network' | 'remote' | 'unknown
  * http://[fd00::1]:8080 fell through to "remote" (review finding P3).
  */
 export function classifyEndpoint(url: string | null | undefined): EndpointType {
+  if (process.env.AXONFLOW_TRY === '1') {
+    return 'community-saas';
+  }
+
   if (!url) return 'unknown';
 
   let host: string;

@@ -218,15 +218,14 @@ export class AxonFlow {
       );
     }
 
-    // Demo mode: when AXONFLOW_DEMO=1 is set, override endpoint and require clientId
-    if (process.env['AXONFLOW_DEMO'] === '1') {
+    // Try mode: when AXONFLOW_TRY=1 is set, override endpoint and require clientId
+    if (process.env['AXONFLOW_TRY'] === '1') {
       if (!config.clientId) {
-        throw new ConfigurationError('clientId is required in demo mode (AXONFLOW_DEMO=1)');
+        throw new ConfigurationError('clientId is required in try mode (AXONFLOW_TRY=1)');
       }
       config = {
         ...config,
-        endpoint: 'https://demo.getaxonflow.com',
-        clientId: `${config.clientId}-${Math.random().toString(36).slice(2, 8)}`,
+        endpoint: 'https://try.getaxonflow.com',
       };
     }
 
