@@ -378,6 +378,10 @@ export type {
   DisableKillSwitchRequest,
 } from './types/masfeat';
 
+// Export community SaaS registration helper
+export { registerTry } from './community';
+export type { TryRegistration } from './community';
+
 // Export version
 export { VERSION } from './version';
 

@@ -218,6 +218,17 @@ export class AxonFlow {
       );
     }
 
+    // Try mode: when AXONFLOW_TRY=1 is set, override endpoint and require clientId
+    if (process.env['AXONFLOW_TRY'] === '1') {
+      if (!config.clientId) {
+        throw new ConfigurationError('clientId is required in try mode (AXONFLOW_TRY=1)');
+      }
+      config = {
+        ...config,
+        endpoint: 'https://try.getaxonflow.com',
+      };
+    }
+
     // Set defaults first to determine endpoint
     const endpoint = config.endpoint || 'https://staging-eu.getaxonflow.com';
 
