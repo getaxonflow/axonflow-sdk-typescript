@@ -19,7 +19,7 @@ export interface TryRegistration {
  */
 export async function registerTry(
   label?: string,
-  endpoint: string = TRY_ENDPOINT,
+  endpoint: string = TRY_ENDPOINT
 ): Promise<TryRegistration> {
   const response = await fetch(`${endpoint}/api/v1/register`, {
     method: 'POST',

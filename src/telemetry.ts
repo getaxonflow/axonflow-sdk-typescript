@@ -103,7 +103,12 @@ export interface TelemetryPayload {
   instance_id: string;
 }
 
-export type EndpointType = 'localhost' | 'private_network' | 'remote' | 'unknown' | 'community-saas';
+export type EndpointType =
+  | 'localhost'
+  | 'private_network'
+  | 'remote'
+  | 'unknown'
+  | 'community-saas';
 
 /**
  * Classify the configured AxonFlow endpoint URL for analytics (#1525).
