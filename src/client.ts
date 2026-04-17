@@ -101,6 +101,9 @@ import {
   AbortWorkflowRequest,
   FailWorkflowRequest,
   MarkStepCompletedRequest,
+  // Checkpoint types
+  CheckpointListResponse,
+  ResumeFromCheckpointResponse,
   // WCP Approval types
   ApproveStepResponse,
   RejectStepResponse,
@@ -4927,6 +4930,56 @@ export class AxonFlow {
     }
 
     await this.orchestratorRequest('POST', `/api/v1/workflows/${workflowId}/resume`, {});
+  }
+
+  /**
+   * List all step-gate checkpoints for a workflow.
+   *
+   * Checkpoints are created automatically at each step gate evaluation.
+   * Available in all tiers.
+   *
+   * @example
+   * ```typescript
+   * const { checkpoints } = await client.getCheckpoints('wf_123');
+   * for (const cp of checkpoints) {
+   *   console.log(`${cp.step_id}: ${cp.gate_decision} (resumable=${cp.is_resumable})`);
+   * }
+   * ```
+   */
+  async getCheckpoints(workflowId: string): Promise<CheckpointListResponse> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+
+    return this.orchestratorRequest<CheckpointListResponse>(
+      'GET',
+      `/api/v1/workflows/${workflowId}/checkpoints`
+    );
+  }
+
+  /**
+   * Resume a workflow from a specific checkpoint with fresh policy evaluation.
+   * Enterprise only.
+   *
+   * @example
+   * ```typescript
+   * const result = await client.resumeFromCheckpoint('wf_123', 42);
+   * console.log(`New decision: ${result.new_decision}`);
+   * ```
+   */
+  async resumeFromCheckpoint(
+    workflowId: string,
+    checkpointId: number
+  ): Promise<ResumeFromCheckpointResponse> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+
+    return this.orchestratorRequest<ResumeFromCheckpointResponse>(
+      'POST',
+      `/api/v1/workflows/${workflowId}/checkpoints/${checkpointId}/resume`,
+      {}
+    );
   }
 
   /**

@@ -130,6 +130,51 @@ export interface StepGateResponse {
 }
 
 /**
+ * A governance-aware resume boundary at a step-gate evaluation.
+ */
+export interface Checkpoint {
+  /** Database identifier */
+  id: number;
+  /** Workflow this checkpoint belongs to */
+  workflow_id: string;
+  /** Step this checkpoint was created at */
+  step_id: string;
+  /** Position of the step in the workflow */
+  step_index: number;
+  /** Type of step */
+  step_type?: string;
+  /** Classification: "step_gate" or "approval_boundary" */
+  checkpoint_type: string;
+  /** Decision at this checkpoint */
+  gate_decision: string;
+  /** Reason for the decision */
+  gate_reason?: string;
+  /** Whether the workflow can resume from here */
+  is_resumable: boolean;
+  /** How many times resumed from this checkpoint */
+  resume_count: number;
+  /** When the checkpoint was created */
+  created_at: string;
+}
+
+/** Response from listing checkpoints */
+export interface CheckpointListResponse {
+  checkpoints: Checkpoint[];
+  workflow_id: string;
+}
+
+/** Response after resuming from a checkpoint */
+export interface ResumeFromCheckpointResponse {
+  workflow_id: string;
+  resumed_from_checkpoint: string;
+  resumed_from_index: number;
+  new_decision: string;
+  decision_source: string;
+  resume_count: number;
+  message: string;
+}
+
+/**
  * Information about a workflow step.
  */
 export interface WorkflowStepInfo {
