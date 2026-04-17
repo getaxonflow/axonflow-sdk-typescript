@@ -4958,6 +4958,28 @@ export class AxonFlow {
   }
 
   /**
+   * Resume a workflow from its last resumable checkpoint.
+   * Evaluation+ tier.
+   *
+   * @example
+   * ```typescript
+   * const result = await client.resumeFromLastCheckpoint('wf_123');
+   * console.log(`New decision: ${result.new_decision}`);
+   * ```
+   */
+  async resumeFromLastCheckpoint(workflowId: string): Promise<ResumeFromCheckpointResponse> {
+    if (!workflowId) {
+      throw new ConfigurationError('Workflow ID is required');
+    }
+
+    return this.orchestratorRequest<ResumeFromCheckpointResponse>(
+      'POST',
+      `/api/v1/workflows/${workflowId}/checkpoints/resume`,
+      {}
+    );
+  }
+
+  /**
    * Resume a workflow from a specific checkpoint with fresh policy evaluation.
    * Enterprise only.
    *
