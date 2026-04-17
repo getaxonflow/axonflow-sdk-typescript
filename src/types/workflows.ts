@@ -79,6 +79,13 @@ export interface ToolContext {
 }
 
 /**
+ * Controls how step gate decisions behave on repeated calls for the same (workflow_id, step_id).
+ * - "idempotent": return cached decision if the step was already evaluated (default)
+ * - "reevaluate": force fresh policy evaluation regardless of prior decision
+ */
+export type RetryPolicy = 'idempotent' | 'reevaluate';
+
+/**
  * Request to check if a step is allowed to proceed.
  */
 export interface StepGateRequest {
@@ -94,6 +101,8 @@ export interface StepGateRequest {
   provider?: string;
   /** Tool context for per-tool governance within tool_call steps */
   tool_context?: ToolContext;
+  /** Retry behavior: "idempotent" (default) returns cached decision, "reevaluate" forces fresh evaluation */
+  retry_policy?: RetryPolicy;
 }
 
 /**
@@ -114,6 +123,10 @@ export interface StepGateResponse {
   policiesEvaluated?: PolicyMatch[];
   /** Policies that matched and influenced the decision (Issue #1021) */
   policiesMatched?: PolicyMatch[];
+  /** Whether this response was served from a prior decision rather than a fresh policy evaluation */
+  cached: boolean;
+  /** How the decision was produced: "fresh" or "cached" */
+  decision_source: string;
 }
 
 /**
