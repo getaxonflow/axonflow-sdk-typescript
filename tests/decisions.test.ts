@@ -104,7 +104,7 @@ describe('Decision Explainability (ADR-043)', () => {
           policy_matches: [],
           override_available: false,
           historical_hit_count_session: 0,
-        }),
+        })
       );
       await client.explainDecision('a/b');
       const url = mockFetch.mock.calls[0][0] as string;
@@ -122,7 +122,7 @@ describe('Decision Explainability (ADR-043)', () => {
           override_available: false,
           historical_hit_count_session: 0,
           future_field_unknown: { nested: true },
-        }),
+        })
       );
       const exp = await client.explainDecision('dec-1');
       expect(exp.decisionId).toBe('dec-1');
@@ -138,7 +138,7 @@ describe('Decision Explainability (ADR-043)', () => {
           policy_matches: [],
           override_available: false,
           historical_hit_count_session: 0,
-        }),
+        })
       );
       const exp = await client.explainDecision('dec-1');
       expect(exp.matchedRules).toBeUndefined();

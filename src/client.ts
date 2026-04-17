@@ -2397,7 +2397,7 @@ export class AxonFlow {
     }
     const response = await this.orchestratorRequest<Record<string, unknown>>(
       'GET',
-      `/api/v1/decisions/${encodeURIComponent(decisionId)}/explain`,
+      `/api/v1/decisions/${encodeURIComponent(decisionId)}/explain`
     );
     return this.parseDecisionExplanation(response);
   }
