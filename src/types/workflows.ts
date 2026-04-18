@@ -79,6 +79,13 @@ export interface ToolContext {
 }
 
 /**
+ * Controls how step gate decisions behave on repeated calls for the same (workflow_id, step_id).
+ * - "idempotent": return cached decision if the step was already evaluated (default)
+ * - "reevaluate": force fresh policy evaluation regardless of prior decision
+ */
+export type RetryPolicy = 'idempotent' | 'reevaluate';
+
+/**
  * Request to check if a step is allowed to proceed.
  */
 export interface StepGateRequest {
@@ -94,6 +101,8 @@ export interface StepGateRequest {
   provider?: string;
   /** Tool context for per-tool governance within tool_call steps */
   tool_context?: ToolContext;
+  /** Retry behavior: "idempotent" (default) returns cached decision, "reevaluate" forces fresh evaluation */
+  retry_policy?: RetryPolicy;
 }
 
 /**
@@ -114,6 +123,55 @@ export interface StepGateResponse {
   policiesEvaluated?: PolicyMatch[];
   /** Policies that matched and influenced the decision (Issue #1021) */
   policiesMatched?: PolicyMatch[];
+  /** Whether this response was served from a prior decision rather than a fresh policy evaluation */
+  cached: boolean;
+  /** How the decision was produced: "fresh" or "cached" */
+  decision_source: string;
+}
+
+/**
+ * A governance-aware resume boundary at a step-gate evaluation.
+ */
+export interface Checkpoint {
+  /** Database identifier */
+  id: number;
+  /** Workflow this checkpoint belongs to */
+  workflow_id: string;
+  /** Step this checkpoint was created at */
+  step_id: string;
+  /** Position of the step in the workflow */
+  step_index: number;
+  /** Type of step */
+  step_type?: string;
+  /** Classification: "step_gate" or "approval_boundary" */
+  checkpoint_type: string;
+  /** Decision at this checkpoint */
+  gate_decision: string;
+  /** Reason for the decision */
+  gate_reason?: string;
+  /** Whether the workflow can resume from here */
+  is_resumable: boolean;
+  /** How many times resumed from this checkpoint */
+  resume_count: number;
+  /** When the checkpoint was created */
+  created_at: string;
+}
+
+/** Response from listing checkpoints */
+export interface CheckpointListResponse {
+  checkpoints: Checkpoint[];
+  workflow_id: string;
+}
+
+/** Response after resuming from a checkpoint */
+export interface ResumeFromCheckpointResponse {
+  workflow_id: string;
+  resumed_from_checkpoint: string;
+  resumed_from_index: number;
+  new_decision: string;
+  decision_source: string;
+  resume_count: number;
+  message: string;
 }
 
 /**
