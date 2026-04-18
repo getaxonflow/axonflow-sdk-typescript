@@ -29,6 +29,9 @@ import {
   AuditResult,
   AuditOptions,
   AuditSearchRequest,
+  DecisionExplanation,
+  ExplainPolicy,
+  ExplainRule,
   AuditQueryOptions,
   AuditLogEntry,
   AuditSearchResponse,
@@ -2366,6 +2369,80 @@ export class AxonFlow {
    * }
    * ```
    */
+  /**
+   * Fetch the full explanation for a previously-made policy decision.
+   *
+   * Implements ADR-043. Returns a {@link DecisionExplanation} including
+   * matched policies, risk level, override availability, and a rolling
+   * 24-hour session hit count for the matched rule.
+   *
+   * The caller must either own the decision (user_email match) or belong
+   * to the same tenant as the decision's originator.
+   *
+   * @param decisionId - The global decision identifier returned in the
+   *   original step gate or policy evaluation response.
+   * @throws Error if `decisionId` is empty.
+   *
+   * @example
+   * ```typescript
+   * const exp = await client.explainDecision('dec_wf123_step4');
+   * if (exp.overrideAvailable) {
+   *   // offer the user a governed override action
+   * }
+   * ```
+   */
+  async explainDecision(decisionId: string): Promise<DecisionExplanation> {
+    if (!decisionId) {
+      throw new Error('decisionId is required');
+    }
+    const response = await this.orchestratorRequest<Record<string, unknown>>(
+      'GET',
+      `/api/v1/decisions/${encodeURIComponent(decisionId)}/explain`
+    );
+    return this.parseDecisionExplanation(response);
+  }
+
+  /**
+   * Parses a raw platform response into a DecisionExplanation.
+   * Timestamp is coerced to Date; unknown extra fields are ignored for
+   * forward compatibility per ADR-043.
+   */
+  private parseDecisionExplanation(raw: Record<string, unknown>): DecisionExplanation {
+    const r = raw || {};
+    const rawMatches = (r.policy_matches as Array<Record<string, unknown>>) || [];
+    const policyMatches: ExplainPolicy[] = rawMatches.map(m => ({
+      policyId: (m.policy_id as string) || '',
+      policyName: m.policy_name as string | undefined,
+      action: m.action as string | undefined,
+      riskLevel: m.risk_level as string | undefined,
+      allowOverride: (m.allow_override as boolean) ?? false,
+      policyDescription: m.policy_description as string | undefined,
+    }));
+
+    const rawRules = r.matched_rules as Array<Record<string, unknown>> | undefined;
+    const matchedRules: ExplainRule[] | undefined = rawRules?.map(m => ({
+      policyId: (m.policy_id as string) || '',
+      ruleId: m.rule_id as string | undefined,
+      ruleText: m.rule_text as string | undefined,
+      matchedOn: m.matched_on as string | undefined,
+    }));
+
+    return {
+      decisionId: (r.decision_id as string) || '',
+      timestamp: r.timestamp ? new Date(r.timestamp as string) : new Date(),
+      policyMatches,
+      matchedRules,
+      decision: (r.decision as string) || '',
+      reason: (r.reason as string) || '',
+      riskLevel: r.risk_level as string | undefined,
+      overrideAvailable: (r.override_available as boolean) ?? false,
+      overrideExistingId: r.override_existing_id as string | undefined,
+      historicalHitCountSession: (r.historical_hit_count_session as number) ?? 0,
+      policySourceLink: r.policy_source_link as string | undefined,
+      toolSignature: r.tool_signature as string | undefined,
+    };
+  }
+
   async searchAuditLogs(request?: AuditSearchRequest): Promise<AuditSearchResponse> {
     const limit = Math.min(request?.limit ?? 100, 1000);
     const offset = request?.offset ?? 0;
@@ -2377,6 +2454,9 @@ export class AxonFlow {
     if (request?.startTime) body.start_time = request.startTime.toISOString();
     if (request?.endTime) body.end_time = request.endTime.toISOString();
     if (request?.requestType) body.request_type = request.requestType;
+    if (request?.decisionId) body.decision_id = request.decisionId;
+    if (request?.policyName) body.policy_name = request.policyName;
+    if (request?.overrideId) body.override_id = request.overrideId;
     if (offset > 0) body.offset = offset;
 
     if (this.config.debug) {

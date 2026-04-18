@@ -19,6 +19,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from a specific checkpoint with fresh policy evaluation (Enterprise).
 - **Checkpoint types** — `Checkpoint`, `CheckpointListResponse`, and
   `ResumeFromCheckpointResponse` interfaces.
+- **`AxonFlow.explainDecision(decisionId)`** — fetches the full explanation for a
+  previously-made policy decision via `GET /api/v1/decisions/:id/explain`.
+  Returns a `DecisionExplanation` with matched policies, risk level, reason,
+  override availability, existing override ID (if any), and a rolling-24h
+  session hit count for the matched rule. Shape is frozen; additive-only
+  fields ensure forward compatibility.
+- **`DecisionExplanation`, `ExplainPolicy`, `ExplainRule`** — new TypeScript
+  interfaces exported from `@axonflow/sdk`.
+- **`AuditSearchRequest.decisionId`, `.policyName`, `.overrideId`** — three
+  new optional filter fields on `searchAuditLogs`. Use `decisionId` to gather
+  every record tied to one decision; `policyName` to find everything matched
+  by a specific policy; `overrideId` to reconstruct an override's full
+  lifecycle (`override_created` → `override_used` → `override_expired | override_revoked`).
+
+### Compatibility
+
+Companion to platform v7.1.0. Works against plugin releases (OpenClaw v1.3.0+,
+Claude Code v0.5.0+, Cursor v0.5.0+, Codex v0.4.0+) that surface the
+`DecisionExplanation` shape. Audit filter fields pass through when unset;
+server-side filtering activates on v7.1.0+ platforms.
 
 ## [5.3.0] - 2026-04-09
 

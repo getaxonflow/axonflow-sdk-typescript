@@ -229,6 +229,19 @@ export interface AuditSearchRequest {
   endTime?: Date;
   /** Filter by request type (e.g., "llm_chat", "policy_check") */
   requestType?: string;
+  /**
+   * Filter by decision ID (ADR-043). Gathers every audit record tied to
+   * a single decision — the explain flow's cross-reference pivot.
+   */
+  decisionId?: string;
+  /** Filter by matched policy name (ADR-043). */
+  policyName?: string;
+  /**
+   * Filter by session override ID (ADR-042). Use this to reconstruct the
+   * full lifecycle of one override: override_created → override_used →
+   * override_expired | override_revoked.
+   */
+  overrideId?: string;
   /** Maximum results to return (default: 100, max: 1000) */
   limit?: number;
   /** Pagination offset (default: 0) */
