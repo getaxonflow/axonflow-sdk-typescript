@@ -98,6 +98,7 @@ import {
   CreateWorkflowResponse,
   StepGateRequest,
   StepGateResponse,
+  StepGateOptions,
   WorkflowStatusResponse,
   ListWorkflowsOptions,
   ListWorkflowsResponse,
@@ -174,8 +175,49 @@ import {
   ConnectorError,
   PlanExecutionError,
   VersionConflictError,
+  IdempotencyKeyMismatchError,
 } from './errors';
 import { generateRequestId, debugLog } from './utils/helpers';
+
+/**
+ * Extract a typed IdempotencyKeyMismatchError from an APIError with HTTP 409 and
+ * `error.code === "IDEMPOTENCY_KEY_MISMATCH"` in the response body. Returns null if
+ * the error doesn't match that shape (caller should rethrow the original).
+ */
+function mapIdempotencyKeyMismatch(err: unknown): IdempotencyKeyMismatchError | null {
+  if (!(err instanceof APIError) || err.statusCode !== 409) {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(err.body);
+  } catch {
+    return null;
+  }
+  const envelope = parsed as {
+    error?: {
+      code?: string;
+      message?: string;
+      details?: {
+        workflow_id?: string;
+        step_id?: string;
+        expected_idempotency_key?: string;
+        received_idempotency_key?: string;
+      };
+    };
+  };
+  if (!envelope?.error || envelope.error.code !== 'IDEMPOTENCY_KEY_MISMATCH') {
+    return null;
+  }
+  const details = envelope.error.details ?? {};
+  return new IdempotencyKeyMismatchError(
+    envelope.error.message ?? 'idempotency_key mismatch',
+    details.workflow_id ?? '',
+    details.step_id ?? '',
+    details.expected_idempotency_key ?? '',
+    details.received_idempotency_key ?? ''
+  );
+}
 
 /**
  * Compare two semver version strings numerically.
@@ -4864,6 +4906,11 @@ export class AxonFlow {
    * This is the core governance method. Call this before executing each step
    * in your workflow to check if the step is allowed based on policies.
    *
+   * Pass `options.includePriorOutput: true` to request `retry_context.prior_output`
+   * be populated on the response (sent as `?include_prior_output=true` query param).
+   * Supply `request.idempotency_key` to bind this step to a caller-chosen business key;
+   * mismatched keys on subsequent gate/complete calls throw `IdempotencyKeyMismatchError`.
+   *
    * @example
    * ```typescript
    * const gate = await client.stepGate('wf_123', 'step-generate-code', {
@@ -4871,23 +4918,23 @@ export class AxonFlow {
    *   step_type: 'llm_call',
    *   model: 'gpt-4',
    *   provider: 'openai',
-   *   step_input: { prompt: 'Generate a hello world function' }
-   * });
+   *   step_input: { prompt: 'Generate a hello world function' },
+   *   idempotency_key: 'payment:wire:acct4471:invoice-7721',
+   * }, { includePriorOutput: true });
    *
    * if (gate.decision === 'block') {
    *   throw new Error(`Step blocked: ${gate.reason}`);
    * }
-   * if (gate.decision === 'require_approval') {
-   *   console.log(`Approval required: ${gate.approval_url}`);
-   *   return;
+   * if (gate.retry_context.prior_completion_status === 'completed') {
+   *   // prior result available at gate.retry_context.prior_output
    * }
-   * // Step is allowed, proceed with execution
    * ```
    */
   async stepGate(
     workflowId: string,
     stepId: string,
-    request: StepGateRequest
+    request: StepGateRequest,
+    options?: StepGateOptions
   ): Promise<StepGateResponse> {
     if (!workflowId) {
       throw new ConfigurationError('Workflow ID is required');
@@ -4896,12 +4943,18 @@ export class AxonFlow {
       throw new ConfigurationError('Step ID is required');
     }
 
-    const response = await this.orchestratorRequest<StepGateResponse>(
-      'POST',
-      `/api/v1/workflows/${workflowId}/steps/${stepId}/gate`,
-      request
-    );
-    return response;
+    let path = `/api/v1/workflows/${workflowId}/steps/${stepId}/gate`;
+    if (options?.includePriorOutput) {
+      path += '?include_prior_output=true';
+    }
+
+    try {
+      return await this.orchestratorRequest<StepGateResponse>('POST', path, request);
+    } catch (err) {
+      const idem = mapIdempotencyKeyMismatch(err);
+      if (idem) throw idem;
+      throw err;
+    }
   }
 
   /**
@@ -4986,11 +5039,17 @@ export class AxonFlow {
       throw new ConfigurationError('Step ID is required');
     }
 
-    await this.orchestratorRequest(
-      'POST',
-      `/api/v1/workflows/${workflowId}/steps/${stepId}/complete`,
-      request || {}
-    );
+    try {
+      await this.orchestratorRequest(
+        'POST',
+        `/api/v1/workflows/${workflowId}/steps/${stepId}/complete`,
+        request || {}
+      );
+    } catch (err) {
+      const idem = mapIdempotencyKeyMismatch(err);
+      if (idem) throw idem;
+      throw err;
+    }
   }
 
   /**

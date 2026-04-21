@@ -83,6 +83,7 @@ export {
   AuthenticationError,
   RateLimitError,
   TimeoutError,
+  IdempotencyKeyMismatchError,
   APIError,
 } from './errors';
 
@@ -248,6 +249,9 @@ export type {
   CreateWorkflowResponse,
   StepGateRequest,
   StepGateResponse,
+  StepGateOptions,
+  RetryContext,
+  PriorCompletionStatus,
   WorkflowStepInfo,
   WorkflowStatusResponse,
   ListWorkflowsOptions,

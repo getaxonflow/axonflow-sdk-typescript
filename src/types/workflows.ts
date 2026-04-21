@@ -103,6 +103,70 @@ export interface StepGateRequest {
   tool_context?: ToolContext;
   /** Retry behavior: "idempotent" (default) returns cached decision, "reevaluate" forces fresh evaluation */
   retry_policy?: RetryPolicy;
+  /**
+   * Caller-supplied opaque business-level key (max 255 chars). Once set on the first
+   * gate call for a (workflow_id, step_id), it is immutable — subsequent gate/complete
+   * calls must pass the same key or receive IdempotencyKeyMismatchError. The key is
+   * echoed on retry_context.idempotency_key in every subsequent gate response.
+   */
+  idempotency_key?: string;
+}
+
+/**
+ * Prior completion status for a step: "none" on first gate call, "completed" after
+ * a prior gate + prior /complete both landed, "gated_not_completed" when a prior gate
+ * landed but no /complete has followed.
+ */
+export type PriorCompletionStatus = 'none' | 'completed' | 'gated_not_completed';
+
+/**
+ * Retry context for a step gate — the first-class state signal for (workflow_id, step_id).
+ * Returned on every StepGateResponse, including the first call. Prefer these fields to the
+ * legacy `cached` and `decision_source` fields on StepGateResponse.
+ */
+export interface RetryContext {
+  /** Number of /gate calls for this (workflow_id, step_id), including the current call. Always >= 1. */
+  gate_count: number;
+  /** Number of successful /complete calls for this (workflow_id, step_id). */
+  completion_count: number;
+  /** Whether a prior gate+complete cycle has landed. */
+  prior_completion_status: PriorCompletionStatus;
+  /** True iff `prior_completion_status === "completed"`. */
+  prior_output_available: boolean;
+  /**
+   * Output from the prior /complete call, or null. Non-null only when this gate call set
+   * `include_prior_output=true` AND `prior_completion_status === "completed"`.
+   */
+  prior_output: Record<string, unknown> | null;
+  /** ISO 8601 timestamp of the prior /complete, or null. */
+  prior_completion_at: string | null;
+  /** ISO 8601 timestamp of the first gate call for this (workflow_id, step_id). */
+  first_attempt_at: string;
+  /** ISO 8601 timestamp of the current gate call. */
+  last_attempt_at: string;
+  /** Decision of the immediately prior gate call. On first call, equals the current call's decision. */
+  last_decision: GateDecision;
+  /**
+   * Key the caller set on this step (from the first gate call that supplied one),
+   * or empty string `""` if the caller never supplied one. Always present in the
+   * response — never null, never omitted — per the wire contract. Once set on a
+   * step, the key is immutable for the step's lifetime.
+   */
+  idempotency_key: string;
+}
+
+/**
+ * Options for calling `stepGate` that live outside the request body. Currently carries
+ * `includePriorOutput`, which is sent as the `?include_prior_output=true` query param
+ * and controls whether `retry_context.prior_output` is populated on the response.
+ */
+export interface StepGateOptions {
+  /**
+   * When true, sends `?include_prior_output=true` on the gate call. The response's
+   * `retry_context.prior_output` is populated when a prior /complete exists. Default false
+   * because prior output may be large and/or contain sensitive data.
+   */
+  includePriorOutput?: boolean;
 }
 
 /**
@@ -123,10 +187,21 @@ export interface StepGateResponse {
   policiesEvaluated?: PolicyMatch[];
   /** Policies that matched and influenced the decision (Issue #1021) */
   policiesMatched?: PolicyMatch[];
-  /** Whether this response was served from a prior decision rather than a fresh policy evaluation */
+  /**
+   * Whether this response was served from a prior decision rather than a fresh policy evaluation.
+   * @deprecated Use `retry_context.gate_count > 1` instead. Will be removed in a future major version.
+   */
   cached: boolean;
-  /** How the decision was produced: "fresh" or "cached" */
+  /**
+   * How the decision was produced: "fresh" or "cached".
+   * @deprecated Use `retry_context.prior_completion_status` instead. Will be removed in a future major version.
+   */
   decision_source: string;
+  /**
+   * First-class state signal for (workflow_id, step_id). Always present on every gate response.
+   * See `RetryContext` for field semantics.
+   */
+  retry_context: RetryContext;
 }
 
 /**
@@ -282,6 +357,11 @@ export interface MarkStepCompletedRequest {
   tokens_out?: number;
   /** Estimated cost in USD for this step */
   cost_usd?: number;
+  /**
+   * Must match the key passed on the corresponding gate call, if any. Mismatch
+   * (including missing-vs-set on either side) yields IdempotencyKeyMismatchError.
+   */
+  idempotency_key?: string;
 }
 
 // =============================================================================
