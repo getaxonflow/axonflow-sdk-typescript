@@ -227,6 +227,54 @@ export class VersionConflictError extends AxonFlowError {
 }
 
 /**
+ * Error thrown when an `idempotency_key` on a gate or complete request conflicts with
+ * the key recorded on an earlier gate call for the same (workflow_id, step_id).
+ * Maps to HTTP 409 with `error.code === "IDEMPOTENCY_KEY_MISMATCH"`.
+ *
+ * `expectedIdempotencyKey` is the empty string `""` when the gate call had no key but
+ * complete did; conversely `receivedIdempotencyKey` is `""` when complete omitted a key
+ * that gate had set.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await client.markStepCompleted(workflowId, stepId, { idempotency_key: 'k2' });
+ * } catch (err) {
+ *   if (err instanceof IdempotencyKeyMismatchError) {
+ *     console.log(`expected=${err.expectedIdempotencyKey} received=${err.receivedIdempotencyKey}`);
+ *   }
+ * }
+ * ```
+ */
+export class IdempotencyKeyMismatchError extends AxonFlowError {
+  public readonly workflowId: string;
+  public readonly stepId: string;
+  public readonly expectedIdempotencyKey: string;
+  public readonly receivedIdempotencyKey: string;
+
+  constructor(
+    message: string,
+    workflowId: string,
+    stepId: string,
+    expectedIdempotencyKey: string,
+    receivedIdempotencyKey: string
+  ) {
+    super(message, {
+      workflowId,
+      stepId,
+      expectedIdempotencyKey,
+      receivedIdempotencyKey,
+    });
+    this.name = 'IdempotencyKeyMismatchError';
+    this.workflowId = workflowId;
+    this.stepId = stepId;
+    this.expectedIdempotencyKey = expectedIdempotencyKey;
+    this.receivedIdempotencyKey = receivedIdempotencyKey;
+    Object.setPrototypeOf(this, IdempotencyKeyMismatchError.prototype);
+  }
+}
+
+/**
  * Error thrown for API errors (non-2xx responses).
  * Includes HTTP status code, status text, and response body.
  *

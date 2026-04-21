@@ -5,6 +5,46 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`retry_context` and `idempotency_key` support on the step gate** — `StepGateResponse`
+  now carries a non-nullable `retry_context` object on every gate call with the true
+  `(workflow_id, step_id)` lifecycle: `gate_count`, `completion_count`,
+  `prior_completion_status` (`'none' | 'completed' | 'gated_not_completed'`),
+  `prior_output_available`, `prior_output`, `prior_completion_at`, `first_attempt_at`,
+  `last_attempt_at`, `last_decision`, and `idempotency_key`. Prefer these fields to
+  the legacy `cached` / `decision_source` fields.
+- **`stepGate(..., options)`** — new optional fourth argument
+  `{ includePriorOutput?: boolean }`. When `true`, the SDK sends
+  `?include_prior_output=true` and `retry_context.prior_output` is populated when a
+  prior `/complete` has landed. Existing callers that omit `options` behave unchanged.
+- **`StepGateRequest.idempotency_key`** — caller-supplied opaque business-level key
+  (max 255 chars). Immutable once recorded on the first gate call for a
+  `(workflow_id, step_id)`; subsequent gate/complete calls must pass the same key.
+- **`MarkStepCompletedRequest.idempotency_key`** — must match the key set on the
+  corresponding gate call, if any. Mismatch (including missing-vs-set on either side)
+  surfaces as a typed `IdempotencyKeyMismatchError`.
+- **`IdempotencyKeyMismatchError`** — typed error thrown by `stepGate` and
+  `markStepCompleted` when the platform returns HTTP 409 with
+  `error.code === "IDEMPOTENCY_KEY_MISMATCH"`. Surfaces `workflowId`, `stepId`,
+  `expectedIdempotencyKey`, `receivedIdempotencyKey`, and the human-readable `message`.
+- **`RetryContext`, `PriorCompletionStatus`, `StepGateOptions`** — exported TypeScript
+  types.
+
+### Deprecated
+
+- **`StepGateResponse.cached`** and **`StepGateResponse.decision_source`** — still
+  populated but deprecated in favor of `retry_context.gate_count > 1` and
+  `retry_context.prior_completion_status`. Planned for removal in a future major version.
+
+### Compatibility
+
+Companion to the platform change that introduces `retry_context` on
+`POST /api/v1/workflows/{workflow_id}/steps/{step_id}/gate`. Additive only — existing
+callers that never set `idempotency_key` or `includePriorOutput` see no behavior change.
+
 ## [5.4.0] - 2026-04-18
 
 ### Added
