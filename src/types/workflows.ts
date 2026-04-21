@@ -147,10 +147,12 @@ export interface RetryContext {
   /** Decision of the immediately prior gate call. On first call, equals the current call's decision. */
   last_decision: GateDecision;
   /**
-   * Key the caller set on this step (from the first gate call that supplied one), or
-   * `null` if the caller never supplied one. Once set, immutable.
+   * Key the caller set on this step (from the first gate call that supplied one),
+   * or empty string `""` if the caller never supplied one. Always present in the
+   * response — never null, never omitted — per the wire contract. Once set on a
+   * step, the key is immutable for the step's lifetime.
    */
-  idempotency_key: string | null;
+  idempotency_key: string;
 }
 
 /**
