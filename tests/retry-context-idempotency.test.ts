@@ -249,6 +249,30 @@ describe('retry_context + idempotency_key (#1673)', () => {
     }
   });
 
+  it('retry_context accepts null idempotency_key (contract §3: "string or null")', async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockResponse({
+        decision: 'allow',
+        step_id: 'step_1',
+        retry_context: {
+          gate_count: 1,
+          completion_count: 0,
+          prior_completion_status: 'none',
+          prior_output_available: false,
+          prior_output: null,
+          prior_completion_at: null,
+          first_attempt_at: '2026-04-21T15:30:00.000Z',
+          last_attempt_at: '2026-04-21T15:30:00.000Z',
+          last_decision: 'allow',
+          idempotency_key: null,
+        },
+      })
+    );
+
+    const gate = await client.stepGate('wf_1', 'step_1', { step_type: 'llm_call' });
+    expect(gate.retry_context.idempotency_key).toBeNull();
+  });
+
   it('stepGate: 409 IDEMPOTENCY_KEY_MISMATCH also surfaces as typed error', async () => {
     mockFetch.mockResolvedValueOnce(
       mockResponse(

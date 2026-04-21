@@ -148,9 +148,9 @@ export interface RetryContext {
   last_decision: GateDecision;
   /**
    * Key the caller set on this step (from the first gate call that supplied one), or
-   * empty string if the caller never supplied one. Once set, immutable.
+   * `null` if the caller never supplied one. Once set, immutable.
    */
-  idempotency_key: string;
+  idempotency_key: string | null;
 }
 
 /**
