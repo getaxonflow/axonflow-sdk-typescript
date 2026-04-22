@@ -268,7 +268,10 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
     it('should surface server errors (e.g. 403 tier gate)', async () => {
       mockFetch.mockResolvedValueOnce(
         mockResponse(
-          { error: 'Listing plan-scoped pending approvals requires Evaluation or Enterprise license' },
+          {
+            error:
+              'Listing plan-scoped pending approvals requires Evaluation or Enterprise license',
+          },
           403
         )
       );
