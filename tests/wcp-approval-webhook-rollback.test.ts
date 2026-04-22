@@ -59,7 +59,7 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
       expect(result.step_id).toBe('step_456');
       expect(result.status).toBe('approved');
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/v1/workflow-control/wf_123/steps/step_456/approve',
+        'http://localhost:8080/api/v1/workflows/wf_123/steps/step_456/approve',
         expect.objectContaining({ method: 'POST' })
       );
     });
@@ -97,7 +97,7 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
       expect(result.step_id).toBe('step_456');
       expect(result.status).toBe('rejected');
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/v1/workflow-control/wf_123/steps/step_456/reject',
+        'http://localhost:8080/api/v1/workflows/wf_123/steps/step_456/reject',
         expect.objectContaining({ method: 'POST' })
       );
     });
@@ -149,51 +149,131 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
   describe('getPendingApprovals', () => {
     it('should list pending approvals without options', async () => {
       const pendingResponse = {
-        approvals: [
+        pending_approvals: [
           {
             workflow_id: 'wf_123',
             workflow_name: 'customer-support',
             step_id: 'step_456',
+            step_index: 1,
             step_name: 'Send Email',
             step_type: 'tool_call',
+            decision: 'require_approval',
             created_at: '2026-02-07T12:00:00Z',
           },
         ],
-        total: 1,
+        count: 1,
       };
 
       mockFetch.mockResolvedValueOnce(mockResponse(pendingResponse));
 
       const result = await client.getPendingApprovals();
 
-      expect(result.total).toBe(1);
-      expect(result.approvals).toHaveLength(1);
-      expect(result.approvals[0].workflow_id).toBe('wf_123');
-      expect(result.approvals[0].step_name).toBe('Send Email');
+      expect(result.count).toBe(1);
+      expect(result.pending_approvals).toHaveLength(1);
+      expect(result.pending_approvals[0].workflow_id).toBe('wf_123');
+      expect(result.pending_approvals[0].step_name).toBe('Send Email');
+      // WCP entries must not carry plan_id
+      expect(result.pending_approvals[0].plan_id).toBeUndefined();
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/v1/workflow-control/pending-approvals',
+        'http://localhost:8080/api/v1/workflows/approvals/pending',
         expect.objectContaining({ method: 'GET' })
       );
     });
 
     it('should list pending approvals with limit', async () => {
-      mockFetch.mockResolvedValueOnce(mockResponse({ approvals: [], total: 0 }));
+      mockFetch.mockResolvedValueOnce(mockResponse({ pending_approvals: [], count: 0 }));
 
       await client.getPendingApprovals({ limit: 5 });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/v1/workflow-control/pending-approvals?limit=5',
+        'http://localhost:8080/api/v1/workflows/approvals/pending?limit=5',
         expect.objectContaining({ method: 'GET' })
       );
     });
 
     it('should return empty list when no pending approvals', async () => {
-      mockFetch.mockResolvedValueOnce(mockResponse({ approvals: [], total: 0 }));
+      mockFetch.mockResolvedValueOnce(mockResponse({ pending_approvals: [], count: 0 }));
 
       const result = await client.getPendingApprovals();
 
-      expect(result.total).toBe(0);
-      expect(result.approvals).toHaveLength(0);
+      expect(result.count).toBe(0);
+      expect(result.pending_approvals).toHaveLength(0);
+    });
+  });
+
+  describe('getPendingPlanApprovals', () => {
+    it('should list MAP-plane pending approvals and populate plan_id', async () => {
+      const pendingResponse = {
+        pending_approvals: [
+          {
+            workflow_id: 'wf_map_abc',
+            workflow_name: 'map-confirm-plan-abc',
+            plan_id: 'plan-abc',
+            step_id: 'step_0_analyze',
+            step_index: 0,
+            step_name: 'Analyze transaction',
+            step_type: 'tool_call',
+            decision: 'require_approval',
+            created_at: '2026-04-22T10:00:00Z',
+          },
+        ],
+        count: 1,
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(pendingResponse));
+
+      const result = await client.getPendingPlanApprovals();
+
+      expect(result.count).toBe(1);
+      expect(result.pending_approvals).toHaveLength(1);
+      expect(result.pending_approvals[0].plan_id).toBe('plan-abc');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v1/plans/approvals/pending',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should propagate plan_id filter to the query string', async () => {
+      mockFetch.mockResolvedValueOnce(mockResponse({ pending_approvals: [], count: 0 }));
+
+      await client.getPendingPlanApprovals({ plan_id: 'plan-abc' });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v1/plans/approvals/pending?plan_id=plan-abc',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should propagate both limit and plan_id', async () => {
+      mockFetch.mockResolvedValueOnce(mockResponse({ pending_approvals: [], count: 0 }));
+
+      await client.getPendingPlanApprovals({ limit: 3, plan_id: 'plan-x' });
+
+      // URLSearchParams encodes in insertion order — limit first, then plan_id
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v1/plans/approvals/pending?limit=3&plan_id=plan-x',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    it('should return empty list when no MAP-plane approvals exist', async () => {
+      mockFetch.mockResolvedValueOnce(mockResponse({ pending_approvals: [], count: 0 }));
+
+      const result = await client.getPendingPlanApprovals();
+
+      expect(result.count).toBe(0);
+      expect(result.pending_approvals).toHaveLength(0);
+    });
+
+    it('should surface server errors (e.g. 403 tier gate)', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse(
+          { error: 'Listing plan-scoped pending approvals requires Evaluation or Enterprise license' },
+          403
+        )
+      );
+
+      await expect(client.getPendingPlanApprovals()).rejects.toThrow();
     });
   });
 

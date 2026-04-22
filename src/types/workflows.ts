@@ -446,30 +446,50 @@ export interface RejectStepResponse {
 
 /**
  * A pending approval for a workflow step.
+ *
+ * Populated by both `getPendingApprovals` (WCP plane) and
+ * `getPendingPlanApprovals` (MAP plane). `plan_id` is the intentional
+ * asymmetry between the two planes — populated on MAP-plane entries,
+ * omitted on WCP-plane entries. Mirrors ADR-046 parity rule.
  */
 export interface PendingApproval {
   /** Workflow ID */
   workflow_id: string;
   /** Workflow name */
   workflow_name: string;
+  /** MAP plan id — populated on MAP-plane entries, absent on WCP-plane entries. */
+  plan_id?: string;
   /** Step ID awaiting approval */
   step_id: string;
+  /** Zero-based step index within the workflow. */
+  step_index: number;
   /** Step name */
-  step_name: string;
+  step_name?: string;
   /** Step type */
-  step_type: string;
+  step_type?: string;
+  /** Gate decision that paused the step — always `require_approval` for listed entries. */
+  decision: string;
+  /** Reason the policy engine paused the step. */
+  decision_reason?: string;
+  /** Policies that triggered the approval requirement. */
+  policies_matched?: Array<Record<string, unknown>>;
+  /** Step input payload (may be redacted by PII rules). */
+  step_input?: Record<string, unknown>;
+  /** Current approval state — "pending" for listed entries. */
+  approval_status?: string;
   /** When the approval was created */
   created_at: string;
 }
 
 /**
- * Response from listing pending approvals.
+ * Response from listing pending approvals. Shape matches the server wire
+ * contract: `pending_approvals` array + `count`.
  */
 export interface PendingApprovalsResponse {
   /** List of pending approvals */
-  approvals: PendingApproval[];
-  /** Total count */
-  total: number;
+  pending_approvals: PendingApproval[];
+  /** Total count of pending approvals matching the request scope. */
+  count: number;
 }
 
 /**
@@ -478,6 +498,11 @@ export interface PendingApprovalsResponse {
 export interface PendingApprovalsOptions {
   /** Maximum number of results to return */
   limit?: number;
+  /**
+   * Scope the MAP-plane listing to a single plan_id (ignored by
+   * `getPendingApprovals`, honored by `getPendingPlanApprovals`).
+   */
+  plan_id?: string;
 }
 
 // =============================================================================

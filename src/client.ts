@@ -5211,7 +5211,7 @@ export class AxonFlow {
 
     return this.orchestratorRequest<ApproveStepResponse>(
       'POST',
-      `/api/v1/workflow-control/${workflowId}/steps/${stepId}/approve`,
+      `/api/v1/workflows/${workflowId}/steps/${stepId}/approve`,
       {}
     );
   }
@@ -5251,24 +5251,29 @@ export class AxonFlow {
 
     return this.orchestratorRequest<RejectStepResponse>(
       'POST',
-      `/api/v1/workflow-control/${workflowId}/steps/${stepId}/reject`,
+      `/api/v1/workflows/${workflowId}/steps/${stepId}/reject`,
       body
     );
   }
 
   /**
-   * Get pending approvals for workflow steps.
+   * Get pending approvals for workflow steps — the WCP-plane listing.
    *
-   * Lists all steps that are waiting for human approval across all workflows.
+   * Lists steps that are waiting for human approval across all planes for
+   * the caller's tenant. Use {@link getPendingPlanApprovals} for the
+   * MAP-plane listing (scopes to MAP-backed workflows and populates
+   * `plan_id` on every entry).
+   *
+   * Available on Evaluation+ licenses.
    *
    * @param options - Optional filtering options
-   * @returns List of pending approvals with total count
+   * @returns List of pending approvals with count
    *
    * @example
    * ```typescript
    * const pending = await client.getPendingApprovals({ limit: 10 });
-   * console.log(`${pending.total} approvals pending`);
-   * for (const approval of pending.approvals) {
+   * console.log(`${pending.count} approvals pending`);
+   * for (const approval of pending.pending_approvals) {
    *   console.log(`${approval.workflow_name} / ${approval.step_name}`);
    * }
    * ```
@@ -5282,8 +5287,50 @@ export class AxonFlow {
 
     const queryString = params.toString();
     const path = queryString
-      ? `/api/v1/workflow-control/pending-approvals?${queryString}`
-      : '/api/v1/workflow-control/pending-approvals';
+      ? `/api/v1/workflows/approvals/pending?${queryString}`
+      : '/api/v1/workflows/approvals/pending';
+
+    return this.orchestratorRequest<PendingApprovalsResponse>('GET', path);
+  }
+
+  /**
+   * List pending approvals for MAP-backed workflows — the MAP-plane
+   * counterpart of {@link getPendingApprovals}. Every entry has `plan_id`
+   * populated. Pass `options.plan_id` to scope the listing to a single plan.
+   *
+   * Requires an Evaluation or Enterprise license (same tier gate as the
+   * MAP step approve/reject endpoints).
+   *
+   * @param options - Optional filtering options (`limit`, `plan_id`)
+   * @returns List of MAP-plane pending approvals with count
+   *
+   * @example
+   * ```typescript
+   * const pending = await client.getPendingPlanApprovals({
+   *   plan_id: 'plan-abc123',
+   *   limit: 10,
+   * });
+   * for (const approval of pending.pending_approvals) {
+   *   console.log(`Plan ${approval.plan_id} step ${approval.step_id} awaiting approval`);
+   * }
+   * ```
+   */
+  async getPendingPlanApprovals(
+    options?: PendingApprovalsOptions
+  ): Promise<PendingApprovalsResponse> {
+    const params = new URLSearchParams();
+
+    if (options?.limit !== undefined) {
+      params.set('limit', options.limit.toString());
+    }
+    if (options?.plan_id) {
+      params.set('plan_id', options.plan_id);
+    }
+
+    const queryString = params.toString();
+    const path = queryString
+      ? `/api/v1/plans/approvals/pending?${queryString}`
+      : '/api/v1/plans/approvals/pending';
 
     return this.orchestratorRequest<PendingApprovalsResponse>('GET', path);
   }
