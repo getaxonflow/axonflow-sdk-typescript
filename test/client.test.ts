@@ -1424,11 +1424,13 @@ describe('AxonFlow Client Unit Tests', () => {
     });
 
     it('should allow tenant without clientId in community mode', () => {
-      // Scope out the inherited DO_NOT_TRACK=1 env var so the telemetry
-      // deprecation warning (landed alongside v7.4.0) doesn't shadow this
-      // test's credential-warning assertion.
-      const origDoNotTrack = process.env.DO_NOT_TRACK;
-      delete process.env.DO_NOT_TRACK;
+      // Set AXONFLOW_TELEMETRY=off alongside CI's DO_NOT_TRACK=1 so the
+      // telemetry deprecation warning (v5.6.0+) stays silent and doesn't
+      // shadow this test's credential-warning assertion. This also prevents
+      // the client constructor's fire-and-forget ping from hitting the real
+      // checkpoint endpoint — fetch is not mocked in this file.
+      const origAxonflowTelemetry = process.env.AXONFLOW_TELEMETRY;
+      process.env.AXONFLOW_TELEMETRY = 'off';
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       new AxonFlow({
@@ -1440,12 +1442,16 @@ describe('AxonFlow Client Unit Tests', () => {
       // No credential-shape warnings — tenant alone is valid for community mode.
       expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
-      if (origDoNotTrack !== undefined) process.env.DO_NOT_TRACK = origDoNotTrack;
+      if (origAxonflowTelemetry !== undefined) {
+        process.env.AXONFLOW_TELEMETRY = origAxonflowTelemetry;
+      } else {
+        delete process.env.AXONFLOW_TELEMETRY;
+      }
     });
 
     it('should NOT warn when using endpoint only (pure community mode)', () => {
-      const origDoNotTrack = process.env.DO_NOT_TRACK;
-      delete process.env.DO_NOT_TRACK;
+      const origAxonflowTelemetry = process.env.AXONFLOW_TELEMETRY;
+      process.env.AXONFLOW_TELEMETRY = 'off';
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       new AxonFlow({
@@ -1456,7 +1462,11 @@ describe('AxonFlow Client Unit Tests', () => {
       // No credential-shape warnings expected for pure community mode.
       expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
-      if (origDoNotTrack !== undefined) process.env.DO_NOT_TRACK = origDoNotTrack;
+      if (origAxonflowTelemetry !== undefined) {
+        process.env.AXONFLOW_TELEMETRY = origAxonflowTelemetry;
+      } else {
+        delete process.env.AXONFLOW_TELEMETRY;
+      }
     });
 
     it('should work with any endpoint without credentials', () => {
