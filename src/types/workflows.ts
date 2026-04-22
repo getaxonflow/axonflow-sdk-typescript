@@ -370,54 +370,126 @@ export interface MarkStepCompletedRequest {
 
 /**
  * Response from approving a workflow step.
+ *
+ * Starting with v5.6.0 the server returns the rich step-gate shape on approve:
+ * `decision` resolves to `"allow"` once approved, `retry_context` mirrors the
+ * gate response retry state, `approved_by` / `approved_at` carry the reviewer
+ * identity, `approval_id` is the deterministic HITL queue entry UUID, and
+ * `policies_matched` reconstructs the governance trail. Legacy fields
+ * (`workflow_id`, `step_id`, `status`) remain for back-compat.
+ *
+ * See ADR-046 (HITL response parity) — the same shape is returned by both the
+ * WCP endpoint and the MAP plan-scoped equivalent.
  */
 export interface ApproveStepResponse {
   /** Workflow ID */
   workflow_id: string;
+  /** MAP plan ID — present on responses from `/api/v1/plans/{id}/steps/{step_id}/approve`. */
+  plan_id?: string;
   /** Step ID that was approved */
   step_id: string;
-  /** Status after approval */
-  status: string;
+  /** Legacy status field — mirrors `approval_status`. Retained for v5.x back-compat. */
+  status?: string;
+  /** Post-approval decision: `allow` once approved; `require_approval` if still pending. */
+  decision?: GateDecision;
+  /** Decision reason text (prefixed with "Approved: " on the approve path). */
+  reason?: string;
+  /** Terminal approval status (pending / approved / rejected). */
+  approval_status?: ApprovalStatus;
+  /** HITL queue entry UUID (deterministic UUID v5 over `(workflow_id, step_id)`). */
+  approval_id?: string;
+  /** Identity (X-User-ID) that approved the step. */
+  approved_by?: string;
+  /** ISO 8601 timestamp when the approval was persisted. */
+  approved_at?: string;
+  /** Policies that triggered the original require_approval decision. */
+  policies_matched?: PolicyMatch[];
+  /** Retry / idempotency state — mirrors the gate response retry_context. */
+  retry_context: RetryContext;
+  /** Human-readable status summary. */
+  message?: string;
 }
 
 /**
- * Response from rejecting a workflow step.
+ * Response from rejecting a workflow step. Symmetric with ApproveStepResponse —
+ * `decision` resolves to `"block"`, `rejected_by` / `rejected_at` populate
+ * instead of approved_*. See ADR-046.
  */
 export interface RejectStepResponse {
   /** Workflow ID */
   workflow_id: string;
+  /** MAP plan ID — present on MAP plane responses. */
+  plan_id?: string;
   /** Step ID that was rejected */
   step_id: string;
-  /** Status after rejection */
-  status: string;
+  /** Legacy status field — mirrors `approval_status`. Retained for back-compat. */
+  status?: string;
+  /** Post-rejection decision: `block`. */
+  decision?: GateDecision;
+  /** Decision reason text (prefixed with "Rejected: " on the reject path). */
+  reason?: string;
+  /** Terminal approval status. */
+  approval_status?: ApprovalStatus;
+  /** HITL queue entry UUID. */
+  approval_id?: string;
+  /** Identity that rejected the step. */
+  rejected_by?: string;
+  /** ISO 8601 timestamp when the rejection was persisted. */
+  rejected_at?: string;
+  /** Policies that triggered the original require_approval decision. */
+  policies_matched?: PolicyMatch[];
+  /** Retry / idempotency state — mirrors the gate response retry_context. */
+  retry_context: RetryContext;
+  /** Human-readable status summary. */
+  message?: string;
 }
 
 /**
  * A pending approval for a workflow step.
+ *
+ * Populated by both `getPendingApprovals` (WCP plane) and
+ * `getPendingPlanApprovals` (MAP plane). `plan_id` is the intentional
+ * asymmetry between the two planes — populated on MAP-plane entries,
+ * omitted on WCP-plane entries. Mirrors ADR-046 parity rule.
  */
 export interface PendingApproval {
   /** Workflow ID */
   workflow_id: string;
   /** Workflow name */
   workflow_name: string;
+  /** MAP plan id — populated on MAP-plane entries, absent on WCP-plane entries. */
+  plan_id?: string;
   /** Step ID awaiting approval */
   step_id: string;
+  /** Zero-based step index within the workflow. */
+  step_index: number;
   /** Step name */
-  step_name: string;
+  step_name?: string;
   /** Step type */
-  step_type: string;
+  step_type?: string;
+  /** Gate decision that paused the step — always `require_approval` for listed entries. */
+  decision: string;
+  /** Reason the policy engine paused the step. */
+  decision_reason?: string;
+  /** Policies that triggered the approval requirement. */
+  policies_matched?: Array<Record<string, unknown>>;
+  /** Step input payload (may be redacted by PII rules). */
+  step_input?: Record<string, unknown>;
+  /** Current approval state — "pending" for listed entries. */
+  approval_status?: string;
   /** When the approval was created */
   created_at: string;
 }
 
 /**
- * Response from listing pending approvals.
+ * Response from listing pending approvals. Shape matches the server wire
+ * contract: `pending_approvals` array + `count`.
  */
 export interface PendingApprovalsResponse {
   /** List of pending approvals */
-  approvals: PendingApproval[];
-  /** Total count */
-  total: number;
+  pending_approvals: PendingApproval[];
+  /** Total count of pending approvals matching the request scope. */
+  count: number;
 }
 
 /**
@@ -426,6 +498,11 @@ export interface PendingApprovalsResponse {
 export interface PendingApprovalsOptions {
   /** Maximum number of results to return */
   limit?: number;
+  /**
+   * Scope the MAP-plane listing to a single plan_id (ignored by
+   * `getPendingApprovals`, honored by `getPendingPlanApprovals`).
+   */
+  plan_id?: string;
 }
 
 // =============================================================================
