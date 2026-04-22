@@ -1424,6 +1424,11 @@ describe('AxonFlow Client Unit Tests', () => {
     });
 
     it('should allow tenant without clientId in community mode', () => {
+      // Scope out the inherited DO_NOT_TRACK=1 env var so the telemetry
+      // deprecation warning (landed alongside v7.4.0) doesn't shadow this
+      // test's credential-warning assertion.
+      const origDoNotTrack = process.env.DO_NOT_TRACK;
+      delete process.env.DO_NOT_TRACK;
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       new AxonFlow({
@@ -1432,12 +1437,15 @@ describe('AxonFlow Client Unit Tests', () => {
         debug: true,
       });
 
-      // No deprecation warnings - tenant alone is valid for community mode
+      // No credential-shape warnings — tenant alone is valid for community mode.
       expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
+      if (origDoNotTrack !== undefined) process.env.DO_NOT_TRACK = origDoNotTrack;
     });
 
     it('should NOT warn when using endpoint only (pure community mode)', () => {
+      const origDoNotTrack = process.env.DO_NOT_TRACK;
+      delete process.env.DO_NOT_TRACK;
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
       new AxonFlow({
@@ -1445,9 +1453,10 @@ describe('AxonFlow Client Unit Tests', () => {
         debug: true,
       });
 
-      // No warnings expected - just endpoint in community mode
+      // No credential-shape warnings expected for pure community mode.
       expect(warnSpy).not.toHaveBeenCalled();
       warnSpy.mockRestore();
+      if (origDoNotTrack !== undefined) process.env.DO_NOT_TRACK = origDoNotTrack;
     });
 
     it('should work with any endpoint without credentials', () => {
