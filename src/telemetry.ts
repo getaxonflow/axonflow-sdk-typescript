@@ -37,14 +37,25 @@ function generateInstanceId(): string {
 /**
  * Check whether telemetry is opted-out via environment variables.
  *
- * Respects the standard DO_NOT_TRACK convention and the AxonFlow-specific
- * AXONFLOW_TELEMETRY variable.
+ * `AXONFLOW_TELEMETRY=off` is the canonical AxonFlow-specific opt-out.
+ * `DO_NOT_TRACK=1` is **deprecated** as an AxonFlow opt-out and will be
+ * removed after 2026-05-05 in the next major release — when it's the only
+ * thing disabling telemetry, a one-line warning is emitted so operators can
+ * migrate to `AXONFLOW_TELEMETRY=off`. If both are set, the caller has already
+ * migrated and no warning fires.
  */
 function isOptedOut(): boolean {
   if (typeof process === 'undefined' || !process.env) {
     return false;
   }
   if (process.env.DO_NOT_TRACK?.trim() === '1') {
+    // Only warn when DO_NOT_TRACK is the active control.
+    if (process.env.AXONFLOW_TELEMETRY?.trim().toLowerCase() !== 'off') {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[AxonFlow] DO_NOT_TRACK=1 is deprecated as an AxonFlow telemetry opt-out and will be removed after 2026-05-05 in the next major release. Set AXONFLOW_TELEMETRY=off to opt out going forward. See https://docs.getaxonflow.com/docs/telemetry for details.',
+      );
+    }
     return true;
   }
   if (process.env.AXONFLOW_TELEMETRY?.trim().toLowerCase() === 'off') {
