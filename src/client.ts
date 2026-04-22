@@ -5189,19 +5189,30 @@ export class AxonFlow {
   /**
    * Approve a workflow step that requires human approval.
    *
-   * Call this to approve a step that was gated with a 'require_approval' decision.
+   * The server requires `comment` with a minimum of 10 characters — it's the
+   * audit-trail justification that every approval carries into the workflow
+   * history. Callers should always supply a meaningful comment.
    *
    * @param workflowId - ID of the workflow
    * @param stepId - ID of the step to approve
+   * @param comment - Audit justification for the approval (min 10 chars)
    * @returns Approval response with status
    *
    * @example
    * ```typescript
-   * const result = await client.approveStep('wf_123', 'step_456');
+   * const result = await client.approveStep(
+   *   'wf_123',
+   *   'step_456',
+   *   'Approved after full audit review'
+   * );
    * console.log(`Step ${result.step_id} status: ${result.status}`);
    * ```
    */
-  async approveStep(workflowId: string, stepId: string): Promise<ApproveStepResponse> {
+  async approveStep(
+    workflowId: string,
+    stepId: string,
+    comment?: string
+  ): Promise<ApproveStepResponse> {
     if (!workflowId) {
       throw new ConfigurationError('Workflow ID is required');
     }
@@ -5209,10 +5220,15 @@ export class AxonFlow {
       throw new ConfigurationError('Step ID is required');
     }
 
+    const body: Record<string, unknown> = {};
+    if (comment) {
+      body.comment = comment;
+    }
+
     return this.orchestratorRequest<ApproveStepResponse>(
       'POST',
       `/api/v1/workflows/${workflowId}/steps/${stepId}/approve`,
-      {}
+      body
     );
   }
 
