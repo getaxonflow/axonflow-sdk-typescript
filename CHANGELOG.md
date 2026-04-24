@@ -5,6 +5,12 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Telemetry path is bounded at `TELEMETRY_TIMEOUT_MS` (3s) total; the `/health` probe and checkpoint POST share a single monotonic deadline instead of stacking independent timeouts. Aligns with python/go/java SDKs.
+
 ## [5.6.0] - 2026-04-22
 
 ### Added
