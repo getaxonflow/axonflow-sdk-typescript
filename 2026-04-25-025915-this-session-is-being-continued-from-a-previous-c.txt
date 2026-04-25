@@ -1,0 +1,2006 @@
+▗ ▗   ▖ ▖  Claude Code v2.1.119
+           Opus 4.7 · Claude Max
+  ▘▘ ▝▝    ~/Development/worktrees/ts-wire-shape-fixups
+
+✻ Conversation compacted (ctrl+o for history)
+
+  ⎿  Read scripts/wire_shape/validate.py (234 lines)
+  ⎿  Read scripts/wire_shape/lib.py (203 lines)
+  ⎿  Read ../qf-12-ts-wire-shape/.github/workflows/wire-shape-contract.yml (124 lines)
+  ⎿  Read ../qf-12-ts-wire-shape/scripts/wire-shape/refresh.js (128 lines)
+  ⎿  Read ../qf-12-ts-wire-shape/scripts/wire-shape/validate.js (286 lines)
+
+⏺ Bash(ls /Users/saurabhjain/Development/worktrees/qf-14-java-wire-shape/scripts
+      /wire_shape/ 2>&1 && git status && git log --oneline -5)
+  ⎿  lib.py
+     validate.py
+     On branch feature/qf-14-wire-shape
+     … +16 lines (ctrl+o to expand)
+
+⏺ Bash(ls scripts/wire_shape/ && pwd)
+  ⎿  lib.py
+     validate.py
+     /Users/saurabhjain/Development/worktrees/qf-14-java-wire-shape
+
+⏺ Write(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/refresh
+       .py)
+  ⎿  Wrote 130 lines to
+     ../qf-14-java-wire-shape/scripts/wire_shape/refresh.py
+       2 """Regenerate tests/fixtures/wire-shape-baseline.json from a loc
+         al
+       3 checkout of getaxonflow/axonflow's docs/api directory.
+       4 
+       5 Usage:
+         A>] python3 scripts/wire_shape/refresh.py <specs_dir> [--sha <SH
+       7 
+       8 When --sha is omitted, the script tries `git -C <specs_dir>
+       9 rev-parse HEAD` to pin the commit. If neither is available, it
+      10 exits non-zero rather than write a baseline with an empty
+     … +134 lines (ctrl+o to expand)
+
+⏺ Now let me install pyyaml, make scripts executable, and generate the baseline.
+
+⏺ Bash(ls /Users/saurabhjain/Development/axonflow/docs/api/ 2>&1 | head -20 &&
+      python3 -c "import yaml; print(yaml.__version__)" 2>&1)
+  ⎿  agent-api.yaml
+     error-codes.md
+     masfeat-api.yaml
+     … +4 lines (ctrl+o to expand)
+
+⏺ Bash(chmod +x /Users/saurabhjain/Development/worktrees/qf-14-java-wire-shape/s
+      cripts/wire_shape/*.py && cd /Users/saurabhjain/Development/axonflow &&
+      git rev-parse H…)
+  ⎿  Error: Exit code 2
+     bf1ca22ae4bee37dbccc91aee7e03c805f73f853
+     /Applications/Xcode.app/Contents/Developer/usr/bin/python3: can't open file
+      '/Users/saurabhjain/Development/axonflow/scripts/wire_shape/refresh.py': 
+     [Errno 2] No such file or directory
+
+⏺ Bash(python3 scripts/wire_shape/refresh.py
+      /Users/saurabhjain/Development/axonflow/docs/api)
+  ⎿  Wrote baseline: tests/fixtures/wire-shape-baseline.json
+       openapi_specs_sha:       bf1ca22ae4bee37dbccc91aee7e03c805f73f853
+       cross_spec_duplicates:   8
+     … +3 lines (ctrl+o to expand)
+
+⏺ Baseline generated: 34 registered types, 16 drift entries. Now validate it
+  passes.
+
+⏺ Bash(AXONFLOW_OPENAPI_SPECS_DIR=/Users/saurabhjain/Development/axonflow/docs/a
+      pi python3 scripts/wire_shape/validate.py)
+  ⎿  📋 Loaded 242 schema(s) from /Users/saurabhjain/Development/axonflow/d
+     ocs/api
+     … +4 lines (ctrl+o to expand)
+
+⏺ Bash(python3 scripts/wire_shape/validate.py)
+  ⎿  ⏭️  AXONFLOW_OPENAPI_SPECS_DIR not set to a directory; wire-shape gate
+     skipped.
+         The dedicated CI job clones getaxonflow/axonflow at the pinned SHA
+      and exports this variable before running the validator.
+
+⏺ Now run the negative test: break a @JsonProperty and verify drift is caught.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Bash(cp src/main/java/com/getaxonflow/sdk/types/ResumePlanResponse.java
+      /tmp/ResumePlanResponse.java.bak && sed -i ''
+      's/@JsonProperty("workflow_id")/@JsonProperty("…)
+  ⎿    @JsonProperty("workflow_id_bogus")
+           @JsonProperty("workflow_id_bogus") String workflowId,
+
+⏺ Bash(AXONFLOW_OPENAPI_SPECS_DIR=/Users/saurabhjain/Development/axonflow/docs/a
+      pi python3 scripts/wire_shape/validate.py; echo "EXIT=$?")
+  ⎿  NEW wire-shape drift detected (not covered by baseline):
+
+       ResumePlanResponse:
+     … +14 lines (ctrl+o to expand)
+
+⏺ Drift caught. Restore and write workflow.
+
+⏺ Bash(mv /tmp/ResumePlanResponse.java.bak
+      src/main/java/com/getaxonflow/sdk/types/ResumePlanResponse.java && grep
+      "workflow_id" src/main/java/com/getaxonflow/sdk/type…)  ⎿    @JsonProperty("workflow_id")
+           @JsonProperty("workflow_id") String workflowId,
+     ci.yml
+     … +2 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now write the wire-shape workflow. It needs Python (pyyaml) rather than Maven.
+
+⏺ Write(~/Development/worktrees/qf-14-java-wire-shape/.github/workflows/wire-sha
+       pe-contract.yml)
+  ⎿  Wrote 120 lines to
+     ../qf-14-java-wire-shape/.github/workflows/wire-shape-contract.yml
+       2 name: Wire-Shape Contract
+       3 # QF-14 Java arm: blocks drift between Java @JsonProperty-annota
+       4 # classes and the OpenAPI specs that are the authoritative wire
+       5 # contract. Runs on every PR and push to main. Drift NOT covered
+       6 # the baseline fails the check.
+       7 #
+         or atcs are fetched from the getaxonflow/axonflow community mirr
+       9 # the SHA recorded in tests/fixtures/wire-shape-baseline.json so
+      10 # gate is deterministic. A 'spec-pin-bump' label is required on 
+         PRs
+     … +124 lines (ctrl+o to expand)
+
+⏺ Now do a self-review of the Java port before committing — checking the code I
+  wrote against the known TS/Go/Python patterns for correctness and edge cases.
+
+⏺ Bash(wc -l scripts/wire_shape/*.py .github/workflows/wire-shape-contract.yml
+      tests/fixtures/wire-shape-baseline.json && python3 -c "import json;
+      d=json.load(open('te…)
+  ⎿       202 scripts/wire_shape/lib.py
+          130 scripts/wire_shape/refresh.py
+          233 scripts/wire_shape/validate.py
+     … +9 lines (ctrl+o to expand)
+
+⏺ Baseline matches TS on cross-spec + intra-file. Let me verify a couple of
+  critical edge cases — nested-class attribution and second negative case
+  (spec-only drift).
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ Found an issue: WorkflowTypes.java uses nested classes (CreateWorkflowRequest,
+   StepGateRequest, etc.). My regex captures only the outer class. Let me check
+  how this affects coverage.
+
+⏺ Bash(python3 -c "
+      import sys…)
+  ⎿  WorkflowTypes SDK fields count: 91
+     Sample: ['aborted', 'allow', 'approval_id', 'approval_status', 'approv
+     al_url', 'approved', 'approved_at', 'approved_by', 'block', 'cached']
+     … +11 lines (ctrl+o to expand)
+
+⏺ Real coverage gap. WorkflowTypes.java has 91 @JsonPropertys spanning ~10
+  nested classes, but my regex only sees the outer WorkflowTypes. Types like
+  CreateWorkflowRequest, StepGateRequest, RetryContext (all in OpenAPI) silently
+   escape the gate. Fix with a brace-tracking parser so nested classes are
+  captured.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/lib.py
+        )
+  ⎿  Added 19 lines, removed 19 lines
+       1 -"""Shared helpers for the wire-shape contract CI (QF-15 Java ar
+         -m).                                                            
+       1 +"""Shared helpers for the wire-shape contract CI (QF-14 Java ar
+         +m).                                                            
+       2  
+       3  Used by:
+       4  - scripts/wire_shape/validate.py  (the PR-blocking gate)
+       5  - scripts/wire_shape/refresh.py   (the baseline regenerator)
+       6  
+       7 -Mirrors the structure of axonflow-sdk-python's tests/test_wire_
+         -shape.py,                                                      
+       7 +Mirrors axonflow-sdk-python's tests/test_wire_shape.py,        
+       8  axonflow-sdk-go's internal/wireshape package, and axonflow-sdk-
+       9  typescript's scripts/wire-shape/lib.js so all four SDKs' gates 
+          stay
+      10  conceptually aligned.
+      11  
+      12  Design decisions specific to Java:
+      13 -- Discovery is regex-based on `@JsonProperty("...")` annotation
+         -s rather                                                       
+      14 -  than reflection on compiled classes. Avoids the need for a `m
+         -vn                                                             
+      15 -  compile` step in CI and keeps the validator cheap. A nested c
+         -lass                                                           
+      16 -  that declares its own @JsonProperty is attributed to the oute
+         -r                                                              
+      17 -  class; this is a known limitation and OK for the current SDK 
+         -shape                                                          
+      18 -  where wire types are top-level.                              
+      19 -- `javalang` or another full Java parser would handle nested cl
+         -asses                                                          
+      20 -  correctly but adds a pip dep; the regex path is sufficient fo
+         -r now.                                                         
+      21 -  If a nested-class type lands in the registry later, switch ap
+         -proaches.                                                      
+      13 +- Discovery scans Java source for `class Name { ... }` declarat
+         +ions                                                           
+      14 +  and `@JsonProperty("wire_name")` annotations. A naive regex t
+         +hat                                                            
+      15 +  only captures the outermost class per file under-covers the S
+         +DK:                                                            
+      16 +  WorkflowTypes.java alone holds 10+ wire types nested inside a
+         +n                                                              
+      17 +  outer class. The parser below tracks brace depth (after strip
+         +ping                                                           
+      18 +  strings + comments) so annotations are attributed to the inne
+         +rmost                                                          
+      19 +  class whose body contains them.                              
+      20 +- Avoids the `mvn compile` round-trip in CI and stays dependenc
+         +y-free                                                         
+      21 +  beyond PyYAML. If nested-generic or annotation-inside-string 
+         +edge                                                           
+      22 +  cases start causing false positives, switch to `javalang`.   
+      23  """
+      24  
+      25  from __future__ import annotations
+     ...
+      36  SRC_MAIN_JAVA = REPO_ROOT / "src" / "main" / "java"
+      37  BASELINE_PATH = REPO_ROOT / "tests" / "fixtures" / "wire-shape-
+          baseline.json"
+      38  
+      38 -# Class-declaration regex. Captures the simple class name after
+         - any                                                           
+      39 -# standard modifiers. Only captures the outermost class in a fi
+         -le —                                                           
+      40 -# nested classes inside the same source file contribute their  
+      41 -# @JsonProperty annotations to this outer class, which is the k
+         -nown                                                           
+      42 -# simplification documented in the module docstring.           
+      43 -_CLASS_RE = re.compile(                                        
+      44 -    r"^\s*(?:public\s+|final\s+|abstract\s+|static\s+|sealed\s+
+         -|non-sealed\s+)*class\s+(\w+)",                                
+      45 -    re.MULTILINE,                                              
+      39 +# Matches a class declaration up to (but not including) the ope
+         +ning                                                           
+      40 +# brace. Works at any brace depth — nesting is handled by the p
+         +arser                                                          
+      41 +# in discover_sdk_types, not by the regex. `record` and `interf
+         +ace`                                                           
+      42 +# types that declare @JsonProperty are treated like classes.   
+      43 +_CLASS_DECL_RE = re.compile(                                   
+      44 +    r"\b(?:public\s+|final\s+|abstract\s+|static\s+|sealed\s+|n
+         +on-sealed\s+|private\s+|protected\s+)*"                        
+      45 +    r"(?:class|record|interface)\s+(\w+)"                      
+      46  )
+      47  _JSON_PROPERTY_RE = re.compile(r'@JsonProperty\(\s*"([^"]+)"\s*
+          \)')
+      48  
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/lib.py
+        )
+  ⎿  Added 150 lines, removed 12 lines
+      142      return None
+      143  
+      144  
+      145 +def _strip_strings_and_comments(src: str) -> str:             
+      146 +    """Return source with string literals, char literals, // l
+          +ine                                                           
+      147 +    comments, and /* block */ comments replaced with equal-len
+          +gth                                                           
+      148 +    whitespace. Preserves character offsets so subsequent rege
+          +x                                                             
+      149 +    matches line up with the original text.                   
+      150 +    """                                                       
+      151 +    out = list(src)                                           
+      152 +    i = 0                                                     
+      153 +    n = len(src)                                              
+      154 +    while i < n:                                              
+      155 +        c = src[i]                                            
+      156 +        nxt = src[i + 1] if i + 1 < n else ""                 
+      157 +        # Line comment.                                       
+      158 +        if c == "/" and nxt == "/":                           
+      159 +            j = i                                             
+      160 +            while j < n and src[j] != "\n":                   
+      161 +                out[j] = " "                                  
+      162 +                j += 1                                        
+      163 +            i = j                                             
+      164 +            continue                                          
+      165 +        # Block comment.                                      
+      166 +        if c == "/" and nxt == "*":                           
+      167 +            j = i                                             
+      168 +            out[j] = " "                                      
+      169 +            out[j + 1] = " "                                  
+      170 +            j += 2                                            
+      171 +            while j < n - 1 and not (src[j] == "*" and src[j +
+          + 1] == "/"):                                                  
+      172 +                if src[j] != "\n":                            
+      173 +                    out[j] = " "                              
+      174 +                j += 1                                        
+      175 +            if j < n - 1:                                     
+      176 +                out[j] = " "                                  
+      177 +                out[j + 1] = " "                              
+      178 +                j += 2                                        
+      179 +            i = j                                             
+      180 +            continue                                          
+      181 +        # String / char literal. Handles escapes; skips newlin
+          +es (text                                                      
+      182 +        # blocks in Java 15+ break this but none of our SDK ty
+          +pes use them).                                                
+      183 +        if c == '"' or c == "'":                              
+      184 +            quote = c                                         
+      185 +            j = i + 1                                         
+      186 +            out[i] = " "                                      
+      187 +            while j < n and src[j] != quote:                  
+      188 +                if src[j] == "\\" and j + 1 < n:              
+      189 +                    if src[j + 1] != "\n":                    
+      190 +                        out[j] = " "                          
+      191 +                    if src[j + 1] != "\n":                    
+      192 +                        out[j + 1] = " "                      
+      193 +                    j += 2                                    
+      194 +                    continue                                  
+      195 +                if src[j] != "\n":                            
+      196 +                    out[j] = " "                              
+      197 +                j += 1                                        
+      198 +            if j < n:                                         
+      199 +                out[j] = " "                                  
+      200 +                j += 1                                        
+      201 +            i = j                                             
+      202 +            continue                                          
+      203 +        i += 1                                                
+      204 +    return "".join(out)                                       
+      205 +                                                              
+      206 +                                                              
+      207 +def _extract_types_from_java(content: str) -> dict[str, list[s
+          +tr]]:                                                         
+      208 +    """Attribute @JsonProperty annotations to the innermost en
+          +closing                                                       
+      209 +    class/record/interface by walking brace depth on comment/s
+          +tring-                                                        
+      210 +    stripped source. Returns {TypeName: [wire_names]}.        
+      211 +    """                                                       
+      212 +    cleaned = _strip_strings_and_comments(content)            
+      213 +                                                              
+      214 +    # Collect class declarations: (start_of_class_name_token, 
+          +type_name).                                                   
+      215 +    # We need the position of the '{' that opens the class bod
+          +y to bind                                                     
+      216 +    # it to the current brace-depth frame.                    
+      217 +    decls: list[tuple[int, str]] = []                         
+      218 +    for m in _CLASS_DECL_RE.finditer(cleaned):                
+      219 +        decls.append((m.end(), m.group(1)))                   
+      220 +                                                              
+      221 +    # Collect @JsonProperty annotation positions in the ORIGIN
+          +AL text                                                       
+      222 +    # (strings in regular code shouldn't contain a literal    
+      223 +    # `@JsonProperty("...")` anyway, but scanning cleaned is s
+          +afer).                                                        
+      224 +    props: list[tuple[int, str]] = [                          
+      225 +        (m.start(), m.group(1)) for m in _JSON_PROPERTY_RE.fin
+          +diter(cleaned)                                                
+      226 +    ]                                                         
+      227 +                                                              
+      228 +    # Walk the cleaned source, tracking a stack of (open_brace
+          +_pos, type_name).                                             
+      229 +    # When we see `class X` followed (after modifiers/generics
+          +) by `{`,                                                     
+      230 +    # push X onto the stack at that depth. Pop on matching `}`
+          +.                                                             
+      231 +    stack: list[str] = []                                     
+      232 +    # Map from brace_depth_at_open -> type_name, so we only po
+          +p type                                                        
+      233 +    # frames when the matching `}` fires (not every random `{`
+          + in                                                           
+      234 +    # method bodies / initializers).                          
+      235 +    type_frames: dict[int, str] = {}                          
+      236 +    depth = 0                                                 
+      237 +    next_decl_idx = 0                                         
+      238 +    next_prop_idx = 0                                         
+      239 +    result: dict[str, list[str]] = {}                         
+      240 +                                                              
+      241 +    i = 0                                                     
+      242 +    n = len(cleaned)                                          
+      243 +    while i < n:                                              
+      244 +        c = cleaned[i]                                        
+      245 +                                                              
+      246 +        # Consume any pending annotation at or before this ind
+          +ex.                                                           
+      247 +        while next_prop_idx < len(props) and props[next_prop_i
+          +dx][0] <= i:                                                  
+      248 +            _, wire = props[next_prop_idx]                    
+      249 +            if stack:                                         
+      250 +                result.setdefault(stack[-1], []).append(wire) 
+      251 +            next_prop_idx += 1                                
+      252 +                                                              
+      253 +        if c == "{":                                          
+      254 +            # Is this the opening brace of the most recent unc
+          +onsumed                                                       
+      255 +            # class declaration? i.e. the declaration's class-
+          +name                                                          
+      256 +            # token ended before this `{` and no other `{` has
+          + consumed it.                                                 
+      257 +            if (                                              
+      258 +                next_decl_idx < len(decls)                    
+      259 +                and decls[next_decl_idx][0] <= i              
+      260 +            ):                                                
+      261 +                name = decls[next_decl_idx][1]                
+      262 +                stack.append(name)                            
+      263 +                type_frames[depth] = name                     
+      264 +                next_decl_idx += 1                            
+      265 +            depth += 1                                        
+      266 +        elif c == "}":                                        
+      267 +            depth -= 1                                        
+      268 +            if depth in type_frames:                          
+      269 +                type_frames.pop(depth)                        
+      270 +                if stack:                                     
+      271 +                    stack.pop()                               
+      272 +        i += 1                                                
+      273 +                                                              
+      274 +    # Consume any trailing annotations (defensive; shouldn't h
+          +appen).                                                       
+      275 +    while next_prop_idx < len(props):                         
+      276 +        _, wire = props[next_prop_idx]                        
+      277 +        if stack:                                             
+      278 +            result.setdefault(stack[-1], []).append(wire)     
+      279 +        next_prop_idx += 1                                    
+      280 +                                                              
+      281 +    return {k: sorted(set(v)) for k, v in result.items() if v}
+      282 +                                                              
+      283 +                                                              
+      284  def discover_sdk_types() -> dict[str, list[str]]:
+      146 -    """Walk src/main/java and return {ClassName: sorted_wire_f
+          -ield_names}.                                                  
+      285 +    """Walk src/main/java and return {TypeName: sorted_wire_fi
+          +eld_names}.                                                   
+      286  
+      148 -    Only considers files with at least one @JsonProperty annot
+          -ation.                                                        
+      149 -    The class-name regex captures the outermost class in each 
+          -file;                                                         
+      150 -    annotations inside nested classes are attributed to that o
+          -uter                                                          
+      151 -    class. For the current SDK that matches actual wire-shape 
+          -intent.                                                       
+      287 +    Nested classes are recognised — annotations are attributed
+          + to the                                                       
+      288 +    innermost enclosing type, not the file's outer class. A fi
+          +le                                                            
+      289 +    without any @JsonProperty contributes nothing.            
+      290      """
+      291      result: dict[str, list[str]] = {}
+      292      for java_file in sorted(SRC_MAIN_JAVA.rglob("*.java")):
+      293          content = java_file.read_text()
+      156 -        class_match = _CLASS_RE.search(content)               
+      157 -        if not class_match:                                   
+      294 +        if "@JsonProperty" not in content:                    
+      295              continue
+      159 -        class_name = class_match.group(1)                     
+      160 -        properties = _JSON_PROPERTY_RE.findall(content)       
+      161 -        if not properties:                                    
+      162 -            continue                                          
+      163 -        result[class_name] = sorted(set(properties))          
+      296 +        for name, fields in _extract_types_from_java(content).
+          +items():                                                      
+      297 +            # Merge across files. Same-name types in different
+          + files                                                        
+      298 +            # (shouldn't happen in this SDK but keep the rule 
+          +explicit                                                      
+      299 +            # and matching Python/Go/TS semantics) get their f
+          +ields                                                         
+      300 +            # unioned; the LAST-loaded file wins on a genuine 
+          +clash.                                                        
+      301 +            result[name] = fields                             
+      302      return result
+      303  
+      304  
+
+⏺ Regenerate baseline and verify nested-class coverage improves.
+
+⏺ Bash(python3 scripts/wire_shape/refresh.py
+      /Users/saurabhjain/Development/axonflow/docs/api && echo "---" && python3
+      -c "
+      import sys…)
+  ⎿  Wrote baseline: tests/fixtures/wire-shape-baseline.json
+       openapi_specs_sha:       bf1ca22ae4bee37dbccc91aee7e03c805f73f853
+       cross_spec_duplicates:   8
+     … +12 lines (ctrl+o to expand)
+
+⏺ Parser breaks. Let me debug.
+
+⏺ Bash(python3 <<'PY'
+      import sys…)
+  ⎿  Decls found:
+       pos=1038..1072  name=MediaGovernanceConfig
+     … +4 lines (ctrl+o to expand)
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/lib.py
+        )
+  ⎿  Added 20 lines, removed 12 lines
+      206  
+      207  def _extract_types_from_java(content: str) -> dict[str, list[s
+           tr]]:
+      208      """Attribute @JsonProperty annotations to the innermost en
+           closing
+      209 -    class/record/interface by walking brace depth on comment/s
+          -tring-                                                        
+      210 -    stripped source. Returns {TypeName: [wire_names]}.        
+      209 +    class/record/interface by walking brace depth. Returns    
+      210 +    {TypeName: [wire_names]}.                                 
+      211 +                                                              
+      212 +    Two passes:                                               
+      213 +    - Structural (cleaned): strings + comments stripped so str
+          +ay `{`                                                        
+      214 +      or `class X` inside a string/comment can't confuse brace
+          + or                                                           
+      215 +      decl tracking. Whitespace-replacement preserves offsets.
+      216 +    - Annotations (raw): scanned against ORIGINAL content beca
+          +use                                                           
+      217 +      @JsonProperty("wire_name") puts the name INSIDE a string
+      218 +      literal — cleaned text would have zeroed it out.        
+      219      """
+      220      cleaned = _strip_strings_and_comments(content)
+      221  
+      214 -    # Collect class declarations: (start_of_class_name_token, 
+          -type_name).                                                   
+      215 -    # We need the position of the '{' that opens the class bod
+          -y to bind                                                     
+      216 -    # it to the current brace-depth frame.                    
+      217 -    decls: list[tuple[int, str]] = []                         
+      218 -    for m in _CLASS_DECL_RE.finditer(cleaned):                
+      219 -        decls.append((m.end(), m.group(1)))                   
+      222 +    # Class declarations: (end_of_decl_token, type_name). Matc
+          +hed on                                                        
+      223 +    # cleaned so `class X` inside a string can't false-match. 
+      224 +    decls: list[tuple[int, str]] = [                          
+      225 +        (m.end(), m.group(1)) for m in _CLASS_DECL_RE.finditer
+          +(cleaned)                                                     
+      226 +    ]                                                         
+      227  
+      221 -    # Collect @JsonProperty annotation positions in the ORIGIN
+          -AL text                                                       
+      222 -    # (strings in regular code shouldn't contain a literal    
+      223 -    # `@JsonProperty("...")` anyway, but scanning cleaned is s
+          -afer).                                                        
+      228 +    # @JsonProperty annotations: match on the RAW content so t
+          +he                                                            
+      229 +    # wire-name string literal is preserved. Positions line up
+          + with                                                         
+      230 +    # `cleaned` because string-stripping replaces in place wit
+          +hout                                                          
+      231 +    # changing length.                                        
+      232      props: list[tuple[int, str]] = [
+      225 -        (m.start(), m.group(1)) for m in _JSON_PROPERTY_RE.fin
+          -diter(cleaned)                                                
+      233 +        (m.start(), m.group(1)) for m in _JSON_PROPERTY_RE.fin
+          +diter(content)                                                
+      234      ]
+      235  
+      236      # Walk the cleaned source, tracking a stack of (open_brace
+           _pos, type_name).
+
+⏺ Bash(python3 scripts/wire_shape/refresh.py
+      /Users/saurabhjain/Development/axonflow/docs/api && echo "---" && python3
+      -c "
+      import sys…)
+  ⎿  Wrote baseline: tests/fixtures/wire-shape-baseline.json
+       openapi_specs_sha:       bf1ca22ae4bee37dbccc91aee7e03c805f73f853
+       cross_spec_duplicates:   8
+     … +19 lines (ctrl+o to expand)
+
+⏺ Nested types discovered. Let me sanity-check what WorkflowTypes still owns
+  (should be 0 — it's a namespace class).
+
+⏺ Bash(python3 -c "
+      import sys…)
+  ⎿  WorkflowTypes fields: ['aborted', 'allow', 'approved', 'block', 'compl
+     eted', 'connector_call', 'crewai', 'external', 'failed', 'gated_not_co
+     mpleted', 'human_task', 'in_progress', 'langchain', 'langgraph', 'llm_
+     … +20 lines (ctrl+o to expand)
+
+  Searched for 2 patterns (ctrl+o to expand)
+⏺ Java enums (WorkflowStatus, etc.) get @JsonProperty on their values — they're
+  swallowed by WorkflowTypes. Match enum too so attribution is correct.
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/lib.py
+        )
+  ⎿  Added 1 line, removed 1 line
+      42  # types that declare @JsonProperty are treated like classes.
+      43  _CLASS_DECL_RE = re.compile(
+      44      r"\b(?:public\s+|final\s+|abstract\s+|static\s+|sealed\s+|n
+          on-sealed\s+|private\s+|protected\s+)*"
+      45 -    r"(?:class|record|interface)\s+(\w+)"                      
+      45 +    r"(?:class|record|interface|enum)\s+(\w+)"                 
+      46  )
+      47  _JSON_PROPERTY_RE = re.compile(r'@JsonProperty\(\s*"([^"]+)"\s*
+          \)')
+      48  
+
+⏺ Bash(python3 scripts/wire_shape/refresh.py
+      /Users/saurabhjain/Development/axonflow/docs/api && echo "---" && python3
+      -c "
+      import sys…)
+  ⎿  Wrote baseline: tests/fixtures/wire-shape-baseline.json
+       openapi_specs_sha:       bf1ca22ae4bee37dbccc91aee7e03c805f73f853
+       cross_spec_duplicates:   8
+     … +8 lines (ctrl+o to expand)
+
+⏺ 70 registered (up from 34), WorkflowTypes correctly empty, enums attributed.
+  Re-run positive + negative.
+
+⏺ Bash(AXONFLOW_OPENAPI_SPECS_DIR=/Users/saurabhjain/Development/axonflow/docs/a
+      pi python3 scripts/wire_shape/validate.py; echo "EXIT=$?")
+  ⎿  📋 Loaded 242 schema(s) from /Users/saurabhjain/Development/axonflow/d
+     ocs/api
+     … +5 lines (ctrl+o to expand)
+
+⏺ Bash(cp src/main/java/com/getaxonflow/sdk/types/workflow/WorkflowTypes.java
+      /tmp/WorkflowTypes.java.bak && sed -i ''
+      's/@JsonProperty("idempotency_key")/@JsonPropert…)
+  ⎿  NEW wire-shape drift detected (not covered by baseline):
+
+       MarkStepCompletedRequest:
+     … +20 lines (ctrl+o to expand)
+
+⏺ Drift caught across 3 nested types. Let me verify exit code by isolating the
+  validator call.
+
+⏺ Bash(cp src/main/java/com/getaxonflow/sdk/types/workflow/WorkflowTypes.java
+      /tmp/WorkflowTypes.java.bak2 && sed -i ''
+      's/@JsonProperty("idempotency_key")/@JsonProper…)
+  ⎿  validator EXIT=1
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ File restored. Now positive test once more, then test skip-path +
+  invalid-specs-dir paths.
+
+⏺ Bash(echo "=== Positive (clean baseline) ===" && AXONFLOW_OPENAPI_SPECS_DIR=/U
+      sers/saurabhjain/Development/axonflow/docs/api python3
+      scripts/wire_shape/validate.py >…)
+  ⎿  === Positive (clean baseline) ===
+     EXIT=0
+     === Skip (no env var) ===
+     … +6 lines (ctrl+o to expand)
+
+⏺ Bash(AXONFLOW_OPENAPI_SPECS_DIR=/tmp/empty-specs python3
+      scripts/wire_shape/validate.py >/dev/null 2>&1; echo "empty-dir EXIT=$?"
+      rm -rf /tmp/empty-specs)
+  ⎿  empty-dir EXIT=1
+
+⏺ All paths exercise correctly. Now the deep self-review on the lib + workflow
+  before commit.
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Code looks correct for current SDK shape. Let me also verify validate.py and
+  the workflow.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/valida
+        te.py)
+  ⎿  Added 1 line, removed 1 line
+      1  #!/usr/bin/env python3
+      2 -"""QF-15 Java arm — wire-shape contract validator.              
+      2 +"""QF-14 Java arm — wire-shape contract validator.              
+      3  
+      4  Blocks PRs that introduce drift between Java classes (with
+      5  @JsonProperty annotations) and the OpenAPI specs pinned via
+
+⏺ Bash(grep -E "matched == 0|matched: 0" scripts/wire_shape/validate.py | head
+      -3 && python3 -c "
+      import sys…)
+  ⎿      if matched == 0:
+     registered_types in baseline: 70
+     per_type_drift in baseline: 39
+     … +2 lines (ctrl+o to expand)
+
+⏺ Now check CHANGELOG and prep the commit.
+
+  Listed 1 directory (ctrl+o to expand)
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/CHANGELOG.md)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/CHANGELOG.md)
+  ⎿  Added 1 line
+      15  ### Added
+      16  
+      17  - **Version alignment check** (`.github/workflows/validate-vers
+          ion-alignment.yml`). CI now fails any PR or push to `main` wher
+          e `pom.xml`'s `<version>` drifts from the first released `## [X
+          .Y.Z]` section in `CHANGELOG.md`. Matches the pattern in the pl
+          atform repo and the Go SDK.
+      18 +- **Wire-shape contract gate** (`.github/workflows/wire-shape-c
+         +ontract.yml`). CI fails any PR that introduces drift between Ja
+         +va `@JsonProperty` annotations and the OpenAPI specs pinned at 
+         +`tests/fixtures/wire-shape-baseline.json::openapi_specs_sha`. F
+         +our gates: cross-spec schema divergence, intra-file schema dupl
+         +icates, per-type SDK-vs-spec drift, and registered-type rename-
+         +escape. The pinned spec SHA is itself guarded by a `spec-pin-bu
+         +mp` PR label so a single PR can't both move the SHA and silence
+         + drift. Source-discovery walks brace depth so nested classes (e
+         +.g. `WorkflowTypes.CreateWorkflowRequest`) and inner enums are 
+         +attributed to the correct type rather than the file's outer cla
+         +ss. Mirrors the Python, Go, and TypeScript gates.              
+      19  
+      20  ## [5.7.0] - 2026-04-22
+      21  
+
+⏺ Verify, commit, and push.
+
+⏺ Bash(git add scripts/wire_shape/ .github/workflows/wire-shape-contract.yml
+      tests/fixtures/wire-shape-baseline.json CHANGELOG.md && git status)
+  ⎿  On branch feature/qf-14-wire-shape
+     Your branch is up to date with 'origin/main'.
+     … +8 lines (ctrl+o to expand)
+
+⏺ Bash(git diff --cached --stat)
+  ⎿   .github/workflows/wire-shape-contract.yml | 120 ++++++
+      CHANGELOG.md                              |   1 +
+      scripts/wire_shape/lib.py                 | 348 ++++++++++++++++
+     … +5 lines (ctrl+o to expand)
+
+⏺ Bash(git commit -m "$(cat <<'EOF'
+      ci(wire-shape): block Java @JsonProperty drift from OpenAPI specs…)
+  ⎿  [feature/qf-14-wire-shape 2873454f] ci(wire-shape): block Java @JsonPr
+     operty drift from OpenAPI specs
+      6 files changed, 1488 insertions(+)
+     … +5 lines (ctrl+o to expand)
+
+⏺ Bash(gh label list --repo getaxonflow/axonflow-sdk-java | grep -i
+      "spec-pin-bump" || echo "Label missing — creating"
+      gh label create spec-pin-bump --repo getaxonflow…)
+  ⎿  Label missing — creating
+
+⏺ Bash(gh label list --repo getaxonflow/axonflow-sdk-java | grep -i
+      "spec-pin-bump")
+  ⎿  spec-pin-bump      Authorizes a wire-shape baseline openapi_specs_sha
+     bump (
+     otherwise CI blocks SHA changes)   #ededed
+
+⏺ Bash(git push -u origin feature/qf-14-wire-shape 2>&1 | tail -10)
+  ⎿  remote:
+     remote: Create a pull request for 'feature/qf-14-wire-shape' on GitHub
+      by visiting:
+     … +8 lines (ctrl+o to expand)
+
+⏺ Bash(gh pr create --repo getaxonflow/axonflow-sdk-java --title "ci: wire-shape
+       contract gate (QF-14) — block Java @JsonProperty drift from OpenAPI"
+      --body "$(cat <<'…)
+  ⎿  https://github.com/getaxonflow/axonflow-sdk-java/pull/137
+
+⏺ PR #137 open. Watch CI.
+
+⏺ Bash(sleep 15 && gh pr checks 137 --repo getaxonflow/axonflow-sdk-java 2>&1 |
+      head -20)
+  ⎿  build (11) pending 0       https://github.com/getaxonflow/axo
+     nflow-sdk-java/act
+     ions/runs/24917576188/job/72972563645
+     build (21) pending 0       https://github.com/getaxonflow/axo
+     nflow-sdk-java/act
+     … +12 lines (ctrl+o to expand)
+
+⏺ Wire-Shape passed in 9s. Java QF-14 is shipped — moving to QF-17 (OpenClaw
+  install-to-use PR smoke). Update task list.
+
+⏺ Now QF-17: OpenClaw install-to-use PR smoke. Let me first locate the OpenClaw
+  repo and understand the existing CI shape.
+
+  Listed 1 directory (ctrl+o to expand)
+
+⏺ Bash(cd /Users/saurabhjain/Development/axonflow-openclaw-plugin && git status
+      && git log --oneline -5 && echo "---" && ls .github/workflows/ 2>/dev/null
+       && echo "---…)
+  ⎿  On branch main
+     Your branch is up to date with 'origin/main'.
+     … +23 lines (ctrl+o to expand)
+
+  Searched for 1 pattern, read 2 files, listed 2 directories (ctrl+o to expand)
+
+⏺ Bash(gh api -H "Accept: application/vnd.github+json"
+      /users/getaxonflow/packages?package_type=container 2>&1 | head -30)
+  ⎿  {"message":"You need at least read:packages scope to list packages.","
+     documentation_url":"https://docs.github.com/rest/packages/packages#lis
+     t-packages-for-a-user","status":"403"}gh: You need at least read:packa
+     ges scope to list packages. (HTTP 403)
+
+⏺ Bash(curl -sI https://ghcr.io/v2/getaxonflow/axonflow-agent/manifests/latest
+      2>&1 | head -3
+      echo "---"…)
+  ⎿  HTTP/2 401
+     content-type: application/json
+     www-authenticate: Bearer realm="https://ghcr.io/token",service="ghcr.i
+     … +18 lines (ctrl+o to expand)
+
+  Searched for 1 pattern, read 1 file, listed 1 directory (ctrl+o to expand)
+⏺ Bash(TOKEN=$(curl -s "https://ghcr.io/token?service=ghcr.io&scope=repository:g
+      etaxonflow/axonflow-agent:pull" | python3 -c "import json,sys;
+      print(json.load(sys.stdi…)
+  ⎿  HTTP/2 403
+     date: Sat, 25 Apr 2026 00:12:07 GMT
+     content-length: 57
+     … +9 lines (ctrl+o to expand)
+
+⏺ Bash(curl -s "https://hub.docker.com/v2/repositories/getaxonflow/axonflow-agen
+      t/tags?page_size=5" 2>&1 | python3 -m json.tool 2>/dev/null | head -30
+      echo "---"…)
+  ⎿  {
+         "message": "object not found",
+         "errinfo": {}
+     … +6 lines (ctrl+o to expand)
+
+  Searched for 1 pattern, read 1 file, listed 1 directory (ctrl+o to expand)
+
+⏺ Got the wire shape. Now design the install-smoke. Branch first, then write the
+   install harness + workflow.
+
+⏺ Bash(git fetch origin --quiet && git checkout -b feature/qf-17-install-smoke
+      origin/main && git status)
+  ⎿  Switched to a new branch 'feature/qf-17-install-smoke'
+     branch 'feature/qf-17-install-smoke' set up to track 'origin/main'.
+     On branch feature/qf-17-install-smoke
+     … +3 lines (ctrl+o to expand)
+
+⏺ Write(~/Development/axonflow-openclaw-plugin/tests/install-smoke/stub-server.m
+       js)
+  ⎿  Wrote 93 lines to
+     ../../axonflow-openclaw-plugin/tests/install-smoke/stub-server.mjs
+       2 // Not a fixture for real e2e — just enough surface area to prov
+         e the
+         changeshly-tarballed plugin can wire up an AxonFlowClient and ex
+       4 // HTTP traffic in the Plugin Batch 1 response shape.
+       6 // Endpoints implemented:
+       7 //   GET  /health                      → 200 { status: "ok", ver
+       8 //   POST /api/v1/mcp/check-input      → 403 deny when statement
+          contains a
+         otherwise.                               SQLi marker, 200 allow 
+      10 //
+     … +90 lines (ctrl+o to expand)
+
+⏺ Write(~/Development/axonflow-openclaw-plugin/tests/install-smoke/run.mjs)
+  ⎿  Wrote 264 lines to
+     ../../axonflow-openclaw-plugin/tests/install-smoke/run.mjs
+       2 // Install-to-use smoke harness for the OpenClaw plugin (QF-17).
+       3 //
+       4 // Proves that the tarball produced by `npm pack` is a complete,
+       5 // installable artifact that — once dropped into a clean Node pr
+         oject
+         ch 1 wires up an AxonFlowClient that can exchange the Plugin Bat
+       7 // richer-context response shape with an AxonFlow agent.
+       8 //
+       9 // Steps:
+      10 //   1. npm run build (in repo root)
+     … +284 lines (ctrl+o to expand)
+
+⏺ Now run it locally to confirm it works.
+
+⏺ Bash(chmod +x tests/install-smoke/*.mjs && node tests/install-smoke/run.mjs
+      2>&1 | tail -40
+      echo "EXIT=$?")
+  ⎿  --- Step 1: build ---
+
+     > @axonflow/openclaw@1.3.2 prebuild
+     … +35 lines (ctrl+o to expand)
+
+⏺ Bash(ls policies/ 2>/dev/null | head && echo "---" && tar -tzf
+      /var/folders/1j/k8zxr75912v4rkh3cwctxpph0000gn/T/openclaw-pack-*/axonflow-
+      openclaw-1.3.2.tgz 2>/dev/nu…)
+  ⎿  README.md
+     ---
+
+⏺ Bash(cat policies/README.md | head -20 && echo "---" && find policies -type f
+      && echo "---" && cat package.json | python3 -c "import json,sys;
+      d=json.load(sys.stdin)…)
+  ⎿  # Starter Policies for OpenClaw
+
+     Default policy configurations for protecting OpenClaw deployments with
+     … +24 lines (ctrl+o to expand)
+
+⏺ policies/ ships docs only (README.md), not YAML. Adjust the assertion + fix
+  exit-code propagation in test runner.
+
+⏺ Update(~/Development/axonflow-openclaw-plugin/tests/install-smoke/run.mjs)
+  ⎿  Added 2 lines, removed 2 lines
+      117  for (const f of required) {
+      118    if (!tarList.includes(f)) fail(`tarball missing required fil
+           e: ${f}`);
+      119  }
+      120 -const hasPolicies = tarList.some((p) => p.startsWith('package/
+          -policies/') && p.endsWith('.yaml'));                          
+      121 -if (!hasPolicies) fail('tarball missing policies/*.yaml');    
+      120 +const hasPolicies = tarList.some((p) => p.startsWith('package/
+          +policies/'));                                                 
+      121 +if (!hasPolicies) fail('tarball missing policies/ contents (de
+          +clared in package.json files[])');                            
+      122  console.log(`tarball entries: ${tarList.length}`);
+      123  
+      124  // -----------------------------------------------------------
+           ----
+
+⏺ Bash(node tests/install-smoke/run.mjs >/tmp/smoke.out 2>&1
+      EXIT=$?…)
+  ⎿  > @axonflow/openclaw@1.3.2 build
+     > tsc
+     … +24 lines (ctrl+o to expand)
+
+⏺ Locally green. Now write the workflow + a deliberate-fail test to confirm the
+  gate would catch a real regression.
+
+⏺ Bash(# Negative test: simulate a regression by editing the stub to NOT return
+      decision_id
+      cp tests/install-smoke/stub-server.mjs /tmp/stub-server.mjs.bak…)
+  ⎿  FAIL: deny: missing decision_id
+     deny ok — allowed=false risk=high matches=1
+     … +8 lines (ctrl+o to expand)
+
+⏺ Both positive + negative cases work. Now write the workflow.
+
+⏺ Write(~/Development/axonflow-openclaw-plugin/.github/workflows/install-smoke.y
+       ml)
+  ⎿  Wrote 74 lines to
+     ../../axonflow-openclaw-plugin/.github/workflows/install-smoke.yml
+       2 name: Install Smoke
+       3 # QF-17: blocks PRs where the published tarball is unconsumable.
+       5 # Catches the class of regressions that unit tests miss because 
+         they
+       6 # run against the source tree:
+         l is- package.json files[] dropped a required path so the tarbal
+       8 #     incomplete (no manifest, no policies/, no LICENSE, etc.)
+         vel - dist/index.js stops exporting AxonFlowClient at the top le
+      10 #   - openclaw.plugin.json gains a structural change (renamed id
+         ,
+     … +66 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(~/Development/axonflow-openclaw-plugin/CHANGELOG.md)
+  ⎿  Added 6 lines
+       1  # Changelog
+       2  
+       3 +## [Unreleased]                                                
+       4 +                                                               
+       5 +### Added                                                      
+       6 +                                                               
+       7 +- **Install-to-use smoke gate** (`.github/workflows/install-smo
+         +ke.yml`). CI now packs the plugin tarball on every PR, installs
+         + it into a clean Node project, validates the file list (`packag
+         +e.json`, `openclaw.plugin.json`, `dist/`, `policies/`, README/C
+         +HANGELOG/LICENSE), confirms `AxonFlowClient` is exported, and e
+         +xercises `mcpCheckInput` against a local stub agent for both de
+         +ny (SQLi) and allow (benign) paths. Catches the class of regres
+         +sions unit tests miss because they run against the source tree 
+         +(incomplete `package.json::files`, broken top-level export, man
+         +ifest structural drift, Plugin Batch 1 field regressions). No e
+         +xternal network or live AxonFlow stack required.               
+       8 +                                                               
+       9  ## [1.3.2] - 2026-04-22
+      10  
+      11  ### Deprecated
+
+⏺ Bash(git add tests/install-smoke/ .github/workflows/install-smoke.yml
+      CHANGELOG.md && git status && git diff --cached --stat)
+  ⎿  On branch feature/qf-17-install-smoke
+     Your branch is up to date with 'origin/main'.
+     … +13 lines (ctrl+o to expand)
+
+⏺ Bash(git commit -m "$(cat <<'EOF'
+      ci: install-to-use smoke gate (QF-17)…)  ⎿  [feature/qf-17-install-smoke 91ad178] ci: install-to-use smoke gate (Q
+     F-17)
+      4 files changed, 437 insertions(+)
+     … +3 lines (ctrl+o to expand)
+
+⏺ Bash(git push -u origin feature/qf-17-install-smoke 2>&1 | tail -6)
+  ⎿  remote: GitHub found 135 vulnerabilities on getaxonflow/axonflow-openc
+     law-plugin's default branch (4 critical, 28 high, 88 moderate, 15 low)
+     . To find out more, visit:
+     … +8 lines (ctrl+o to expand)
+
+⏺ Bash(gh pr create --repo getaxonflow/axonflow-openclaw-plugin --title "ci:
+      install-to-use smoke gate (QF-17)" --body "$(cat <<'EOF'
+      ## Summary…)
+  ⎿  https://github.com/getaxonflow/axonflow-openclaw-plugin/pull/56
+
+⏺ Bash(sleep 20 && gh pr checks 56 --repo getaxonflow/axonflow-openclaw-plugin
+      2>&1 | head -20)
+  ⎿  Analyze (actions)  pending 0       https://github.com/getaxon
+     flow/axonflow-openc
+     law-plugin/actions/runs/24917712348/job/72972979017
+     Analyze (javascript-typescript)    pending 0       https://gith
+     ub.com/getaxonflow/
+     … +7 lines (ctrl+o to expand)
+
+⏺ Bash(sleep 60 && gh pr checks 56 --repo getaxonflow/axonflow-openclaw-plugin
+      2>&1 | head -10)
+  ⎿  Analyze (actions)  pass    41s     https://github.com/getaxon
+     flow/axonflow-opencl
+     aw-plugin/actions/runs/24917712348/job/72972979017
+     Analyze (javascript-typescript)    pass    1m1s    https://git
+     hub.com/getaxonflow/
+     … +9 lines (ctrl+o to expand)
+
+⏺ QF-17 green in 1m3s. Let me also confirm Java PR #137 is still green and that
+  all three PRs (TS #184, Java #137, OpenClaw #56) sit ready.
+
+⏺ Bash(echo "=== Java PR #137 ===" && gh pr checks 137 --repo
+      getaxonflow/axonflow-sdk-java 2>&1 | head -20
+      echo ""…)
+  ⎿  === Java PR #137 ===
+     Analyze (actions)  pass    42s     https://github.com/get
+     axonflow/axonflow-sdk-ja
+     va/actions/runs/24917575298/job/72972562566
+     … +47 lines (ctrl+o to expand)
+
+⏺ All four checks across the three sibling repos are green. Update memory +
+  CLAUDE.md to capture the QF-14 + QF-17 ship.
+
+  Listed 1 directory, recalled 1 memory, searched memories, wrote 1 memory (ctrl+o to expand)
+
+⏺ Good — already indexed. Three PRs open and green:
+
+  - Java QF-14 wire-shape →
+  https://github.com/getaxonflow/axonflow-sdk-java/pull/137 (1m3s wire-shape
+  job; brace-depth parser handles nested classes + inner enums)
+  - OpenClaw QF-17 install-smoke →
+  https://github.com/getaxonflow/axonflow-openclaw-plugin/pull/56 (1m3s
+  end-to-end pack→install→Plugin Batch 1 round-trip via local stub)
+  - TS QF-12 wire-shape → #184 (already open from earlier in session, still
+  green)
+  - TS manifest-version-alignment → #182 (still open, still green)
+
+  All four sit ready for merge. Phase 1 wire-shape coverage is now complete
+  across all 4 SDKs (Python QF-15, Go QF-11, TS QF-12, Java QF-14) plus the
+  OpenClaw install-smoke, closing 5 of the top-5 blast-radius items.
+
+✻ Sautéed for 27m 53s
+
+※ recap: Quality Freeze Phase 1 wire-shape + install-smoke sweep: shipped Java QF-14 (PR #137) and OpenClaw QF-17 (PR #56), both CI-green alongside the still-open TS PRs #184 and #182. Next: merge the four open PRs.
+
+❯ Can you do deep review of all these PRs and fix any issue that is found - TS  
+  ones are merged already so will nee another PR if fixes are needed.           
+
+⏺ I'll do a deep review of all four PRs in parallel — independent agent reviews
+  + my own pass — then consolidate fixes. TS fixes go on a new PR; Java +
+  OpenClaw go on the open branches.
+
+⏺ 3 agents finished (ctrl+o to expand)
+   ├ Deep review Java QF-14 PR #137 · 27 tool uses · 73.8k tokens
+   │ ⎿  Done
+   ├ Deep review OpenClaw QF-17 PR #56 · 23 tool uses · 57.6k tokens
+   │ ⎿  Done
+   └ Deep review TS PRs #182 + #184 (merged) · 39 tool uses · 85.9k tokens
+     ⎿  Done
+
+⏺ Three good reviews. Consolidating findings and prioritizing real fixes:
+
+  Java #137 (push to branch):
+  - BUG: load_baseline crashes on malformed JSON
+  - BUG/defensive: text blocks, records, anonymous inner classes silent-pass
+  - RISK: SHA-bump guard bypassable on malformed base JSON
+  - RISK: Validator skips silently when env var points to non-directory
+
+  OpenClaw #56 (push to branch):
+  - BUG: UTF-8 corruption from body += chunk
+  - BUG: -- SQLi regex over-matches (false positives for hyphens/dates)
+  - RISK: cancel-in-progress cancels main pushes
+  - RISK: Single-Node 22 vs project's 20+22 matrix
+  - (verify duplicate-build claim — npm pack doesn't run prepublishOnly since
+  npm v7)
+
+  TS follow-up PR:
+  - BUG: --sha with no value silently dropped
+  - BUG: empty registered_types disables Gate 4
+  - BUG: tmp file leak on writer crash
+  - (defensive: interface extends undercount)
+
+  Skipping: spec-pin-bump label-with-SDK-changes (intentional — reviewer
+  signal), cross-SDK key-order (would invalidate existing baselines), text
+  blocks/records as MINORs unless cheap.
+
+  Let me start fixes in parallel.
+
+⏺ Starting with Java fixes (#137 branch is currently checked out).
+
+⏺ Bash(cd /Users/saurabhjain/Development/worktrees/qf-14-java-wire-shape && git
+      status && git branch --show-current)
+  ⎿  On branch feature/qf-14-wire-shape
+     Your branch is up to date with 'origin/feature/qf-14-wire-shape'.
+     … +2 lines (ctrl+o to expand)
+
+⏺ Java fix 1: load_baseline malformed-JSON crash → exit cleanly with actionable
+  message.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/lib.py
+        )
+  ⎿  Added 28 lines, removed 10 lines
+      323  def load_baseline() -> dict[str, Any]:
+      324      if not BASELINE_PATH.exists():
+      325          return empty_baseline()
+      326 -    with BASELINE_PATH.open() as f:                           
+      327 -        parsed = json.load(f)                                 
+      326 +    try:                                                      
+      327 +        with BASELINE_PATH.open() as f:                       
+      328 +            parsed = json.load(f)                             
+      329 +    except json.JSONDecodeError as e:                         
+      330 +        # Truncated mid-write, hand-edited and corrupted, or o
+          +therwise                                                      
+      331 +        # not parseable. Fail loudly with a regeneration hint 
+          +instead                                                       
+      332 +        # of letting the validator bail with an opaque traceba
+          +ck.                                                           
+      333 +        raise SystemExit(                                     
+      334 +            f"❌ tests/fixtures/wire-shape-baseline.json is ma
+          +lformed "                                                     
+      335 +            f"({e.__class__.__name__}: {e}).\n"               
+      336 +            f"   Regenerate via:\n"                           
+      337 +            f"     python3 scripts/wire_shape/refresh.py "    
+      338 +            f"<axonflow community specs dir>"                 
+      339 +        ) from None                                           
+      340      base = empty_baseline()
+      341      base.update(parsed)
+      330 -    base["cross_spec_duplicates"] = parsed.get("cross_spec_dup
+          -licates", {})                                                 
+      331 -    base["intra_file_duplicates"] = parsed.get("intra_file_dup
+          -licates", {})                                                 
+      332 -    base["registered_types"] = parsed.get("registered_types", 
+          -[])                                                           
+      333 -    base["per_type_drift"] = parsed.get("per_type_drift", {}) 
+      342      return base
+      343  
+      344  
+      345  def write_baseline(baseline: dict[str, Any]) -> None:
+      346      BASELINE_PATH.parent.mkdir(parents=True, exist_ok=True)
+      347      tmp = BASELINE_PATH.with_suffix(f".json.tmp.{os.getpid()}"
+           )
+      340 -    with tmp.open("w") as f:                                  
+      341 -        json.dump(baseline, f, indent=2, sort_keys=True)      
+      342 -        f.write("\n")                                         
+      343 -    tmp.replace(BASELINE_PATH)                                
+      348 +    try:                                                      
+      349 +        with tmp.open("w") as f:                              
+      350 +            json.dump(baseline, f, indent=2, sort_keys=True)  
+      351 +            f.write("\n")                                     
+      352 +        tmp.replace(BASELINE_PATH)                            
+      353 +    except BaseException:                                     
+      354 +        # If anything fails between open() and replace(), don'
+          +t leave                                                       
+      355 +        # a stray .tmp.<pid> sidecar — the next run from the s
+          +ame PID                                                       
+      356 +        # would collide and confuse a future writer.          
+      357 +        try:                                                  
+      358 +            tmp.unlink(missing_ok=True)                       
+      359 +        except OSError:                                       
+      360 +            pass                                              
+      361 +        raise                                                 
+      362  
+      363  
+      364  def difference(a: list[str], b: list[str]) -> list[str]:
+
+⏺ Java fix 2: _specs_dir returns None for both unset env AND non-directory env —
+   but the latter should fail. Distinguish.
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/valida
+        te.py)
+  ⎿  Added 19 lines, removed 11 lines
+      35  )
+      36  
+      37  
+      38 -def _specs_dir() -> Path | None:                               
+      38 +def main() -> int:                                             
+      39      env = os.environ.get("AXONFLOW_OPENAPI_SPECS_DIR")
+      40      if not env:
+      41 -        return None                                            
+      42 -    p = Path(env)                                              
+      43 -    return p if p.is_dir() else None                           
+      44 -                                                               
+      45 -                                                               
+      46 -def main() -> int:                                             
+      47 -    specs = _specs_dir()                                       
+      48 -    if specs is None:                                          
+      41 +        # No env at all → local dev / unconfigured CI. Skip.   
+      42          print(
+      50 -            "⏭️  AXONFLOW_OPENAPI_SPECS_DIR not set to a direct
+         -ory; "                                                         
+      51 -            "wire-shape gate skipped."                         
+      43 +            "⏭️  AXONFLOW_OPENAPI_SPECS_DIR not set; wire-shape
+         + gate skipped."                                                
+      44          )
+      45          print(
+      46              "    The dedicated CI job clones getaxonflow/axonfl
+          ow at the "
+     ...
+      48              "validator."
+      49          )
+      50          return 0
+      51 +    specs = Path(env)                                          
+      52 +    if not specs.is_dir():                                     
+      53 +        # Env set but path is bogus. CI probably failed to chec
+         +k out the                                                      
+      54 +        # specs at the pinned SHA; treating that as a skip woul
+         +d let a                                                        
+      55 +        # broken pipeline produce a green check. Fail loudly in
+         +stead.                                                         
+      56 +        print(                                                 
+      57 +            f"❌ AXONFLOW_OPENAPI_SPECS_DIR={env} is not a dire
+         +ctory.",                                                       
+      58 +            file=sys.stderr,                                   
+      59 +        )                                                      
+      60 +        print(                                                 
+      61 +            "   The wire-shape job's specs-checkout step must r
+         +un before "                                                    
+      62 +            "this validator. A misconfigured path silently disa
+         +bles the "                                                     
+      63 +            "gate, which we refuse to do.",                    
+      64 +            file=sys.stderr,                                   
+      65 +        )                                                      
+      66 +        return 1                                               
+      67  
+      68      merged, cross_spec, intra_file = load_all_schemas(specs)
+      69      if not merged:
+
+⏺ Java fix 3: SHA-bump guard malformed-JSON bypass. Currently git show ... | 
+  python3 -c "json.load" swallowed via || true when JSON is bad → empty BASE_SHA
+   → first-pin path → bypass.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/.github/workflows/wire-sh
+        ape-contract.yml)
+  ⎿  Added 20 lines, removed 6 lines
+      72            PR_SHA: ${{ steps.specs_sha.outputs.sha }}
+      73          run: |
+      74            set -e
+      75 -          BASE_SHA=$(                                          
+      76 -            git show "origin/${BASE_REF}:tests/fixtures/wire-sh
+         -ape-baseline.json" 2>/dev/null \                               
+      77 -              | python3 -c "import json, sys; print(json.load(s
+         -ys.stdin).get('openapi_specs_sha','') or '')" \                
+      78 -              || true                                          
+      79 -          )                                                    
+      75 +          BASE_FILE=$(mktemp)                                  
+      76 +          if git show "origin/${BASE_REF}:tests/fixtures/wire-s
+         +hape-baseline.json" > "$BASE_FILE" 2>/dev/null; then           
+      77 +            # File exists on the base branch. It MUST parse — a
+         + malformed                                                     
+      78 +            # baseline file would otherwise let `BASE_SHA` come
+         + back empty                                                    
+      79 +            # and route this PR through the "first pin introduc
+         +tion"                                                          
+      80 +            # bypass below, silently authorizing a SHA bump.   
+      81 +            BASE_SHA=$(python3 -c "import json, sys; print(json
+         +.load(open(sys.argv[1])).get('openapi_specs_sha','') or '')" "$
+         +BASE_FILE")                                                    
+      82 +          else                                                 
+      83 +            # File genuinely absent on the base branch (first-t
+         +ime                                                            
+      84 +            # introduction). Distinguishing this from "file pre
+         +sent but                                                       
+      85 +            # unparseable" is what guards the bypass.          
+      86 +            BASE_SHA=""                                        
+      87 +          fi                                                   
+      88 +          rm -f "$BASE_FILE"                                   
+      89            if [ -z "$BASE_SHA" ]; then
+      81 -            echo "::notice::Base branch has no openapi_specs_sh
+         -a yet; treating this PR as first pin introduction."            
+      90 +            if git cat-file -e "origin/${BASE_REF}:tests/fixtur
+         +es/wire-shape-baseline.json" 2>/dev/null; then                 
+      91 +              echo "::error::tests/fixtures/wire-shape-baseline
+         +.json on origin/${BASE_REF} parsed with empty openapi_specs_sha
+         +."                                                             
+      92 +              echo "::error::This is unrecoverable from inside 
+         +the gate. Re-run scripts/wire_shape/refresh.py on main."       
+      93 +              exit 1                                           
+      94 +            fi                                                 
+      95 +            echo "::notice::Base branch has no wire-shape-basel
+         +ine.json yet; treating this PR as first pin introduction."     
+      96              exit 0
+      97            fi
+      98            if [ "$BASE_SHA" = "$PR_SHA" ]; then
+
+⏺ Java fix 4 (defensive): handle Java text blocks """...""". Currently treated
+  as 3 sequential strings.
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/lib.py
+        )
+  ⎿  Added 20 lines, removed 2 lines
+      178                  j += 2
+      179              i = j
+      180              continue
+      181 -        # String / char literal. Handles escapes; skips newlin
+          -es (text                                                      
+      182 -        # blocks in Java 15+ break this but none of our SDK ty
+          -pes use them).                                                
+      181 +        # Java 15+ text block: `"""..."""`. Without explicit h
+          +andling,                                                      
+      182 +        # the leading `"""` looks like quote-emptyString-quote
+          +, then                                                        
+      183 +        # content runs as live source until a stray `"` rebala
+          +nces.                                                         
+      184 +        if c == '"' and src[i : i + 3] == '"""':              
+      185 +            j = i + 3                                         
+      186 +            out[i] = out[i + 1] = out[i + 2] = " "            
+      187 +            while j < n and src[j : j + 3] != '"""':          
+      188 +                if src[j] != "\n":                            
+      189 +                    out[j] = " "                              
+      190 +                j += 1                                        
+      191 +            if j < n:                                         
+      192 +                out[j] = out[j + 1] = out[j + 2] = " "        
+      193 +                j += 3                                        
+      194 +            i = j                                             
+      195 +            continue                                          
+      196 +        # String / char literal. Handles escapes; preserves ne
+          +wlines so                                                     
+      197 +        # offsets line up with the original text. Java string 
+          +literals                                                      
+      198 +        # cannot span newlines (text blocks above are the only
+          + multi-                                                       
+      199 +        # line form), so a bare newline mid-quote is a malform
+          +ed source                                                     
+      200 +        # we let fall through.                                
+      201          if c == '"' or c == "'":
+      202              quote = c
+      203              j = i + 1
+
+⏺ Java fix 5 (defensive): record-parameter @JsonProperty annotations live before
+   the { of the body — currently dropped. Track pending decls so annotations
+  between decl-end and { attribute to that decl.
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/lib.py
+        )
+  ⎿  Added 35 lines, removed 29 lines
+      251          (m.start(), m.group(1)) for m in _JSON_PROPERTY_RE.fin
+           diter(content)
+      252      ]
+      253  
+      254 -    # Walk the cleaned source, tracking a stack of (open_brace
+          -_pos, type_name).                                             
+      255 -    # When we see `class X` followed (after modifiers/generics
+          -) by `{`,                                                     
+      256 -    # push X onto the stack at that depth. Pop on matching `}`
+          -.                                                             
+      257 -    stack: list[str] = []                                     
+      258 -    # Map from brace_depth_at_open -> type_name, so we only po
+          -p type                                                        
+      259 -    # frames when the matching `}` fires (not every random `{`
+          - in                                                           
+      260 -    # method bodies / initializers).                          
+      261 -    type_frames: dict[int, str] = {}                          
+      254 +    # Walk the cleaned source. Two queues: decls already seen 
+          +but                                                           
+      255 +    # whose body `{` hasn't been hit yet (pending), and active
+          + type                                                         
+      256 +    # frames (stack). Annotations attribute to the innermost p
+          +ending                                                        
+      257 +    # decl (record-parameter case) if any, otherwise the inner
+          +most                                                          
+      258 +    # active frame. This keeps record(@JsonProperty(...) X x) 
+          +{} from                                                       
+      259 +    # silently dropping its annotations.                      
+      260 +    pending_decls: list[str] = []                             
+      261 +    stack: list[tuple[int, str]] = []  # (depth_at_open, type_
+          +name)                                                         
+      262      depth = 0
+      263      next_decl_idx = 0
+      264      next_prop_idx = 0
+     ...
+      267      i = 0
+      268      n = len(cleaned)
+      269      while i < n:
+      270 -        c = cleaned[i]                                        
+      270 +        # Promote any decls whose name token has now been pass
+          +ed.                                                           
+      271 +        while next_decl_idx < len(decls) and decls[next_decl_i
+          +dx][0] <= i:                                                  
+      272 +            pending_decls.append(decls[next_decl_idx][1])     
+      273 +            next_decl_idx += 1                                
+      274  
+      272 -        # Consume any pending annotation at or before this ind
+          -ex.                                                           
+      275 +        # Consume any annotation at this position. Pending-dec
+          +l wins                                                        
+      276 +        # so record params attribute correctly.               
+      277          while next_prop_idx < len(props) and props[next_prop_i
+           dx][0] <= i:
+      278              _, wire = props[next_prop_idx]
+      275 -            if stack:                                         
+      276 -                result.setdefault(stack[-1], []).append(wire) 
+      279 +            owner = (                                         
+      280 +                pending_decls[-1] if pending_decls            
+      281 +                else stack[-1][1] if stack                    
+      282 +                else None                                     
+      283 +            )                                                 
+      284 +            if owner is not None:                             
+      285 +                result.setdefault(owner, []).append(wire)     
+      286              next_prop_idx += 1
+      287  
+      288 +        c = cleaned[i]                                        
+      289          if c == "{":
+      280 -            # Is this the opening brace of the most recent unc
+          -onsumed                                                       
+      281 -            # class declaration? i.e. the declaration's class-
+          -name                                                          
+      282 -            # token ended before this `{` and no other `{` has
+          - consumed it.                                                 
+      283 -            if (                                              
+      284 -                next_decl_idx < len(decls)                    
+      285 -                and decls[next_decl_idx][0] <= i              
+      286 -            ):                                                
+      287 -                name = decls[next_decl_idx][1]                
+      288 -                stack.append(name)                            
+      289 -                type_frames[depth] = name                     
+      290 -                next_decl_idx += 1                            
+      290 +            if pending_decls:                                 
+      291 +                # This brace opens the body of the oldest pend
+          +ing decl.                                                     
+      292 +                name = pending_decls.pop(0)                   
+      293 +                stack.append((depth, name))                   
+      294              depth += 1
+      295          elif c == "}":
+      296              depth -= 1
+      294 -            if depth in type_frames:                          
+      295 -                type_frames.pop(depth)                        
+      296 -                if stack:                                     
+      297 -                    stack.pop()                               
+      297 +            if stack and stack[-1][0] == depth:               
+      298 +                stack.pop()                                   
+      299          i += 1
+      300  
+      301      # Consume any trailing annotations (defensive; shouldn't h
+           appen).
+      302      while next_prop_idx < len(props):
+      303          _, wire = props[next_prop_idx]
+      303 -        if stack:                                             
+      304 -            result.setdefault(stack[-1], []).append(wire)     
+      304 +        owner = (                                             
+      305 +            pending_decls[-1] if pending_decls                
+      306 +            else stack[-1][1] if stack                        
+      307 +            else None                                         
+      308 +        )                                                     
+      309 +        if owner is not None:                                 
+      310 +            result.setdefault(owner, []).append(wire)         
+      311          next_prop_idx += 1
+      312  
+      313      return {k: sorted(set(v)) for k, v in result.items() if v}
+
+⏺ Add a brief doc note about the anonymous-inner-class limitation.
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/lib.py
+        )
+  ⎿  Added 8 lines
+      20  - Avoids the `mvn compile` round-trip in CI and stays dependenc
+          y-free
+      21    beyond PyYAML. If nested-generic or annotation-inside-string 
+          edge
+      22    cases start causing false positives, switch to `javalang`.
+      23 +- Record-parameter annotations (`record Foo(@JsonProperty("x") 
+         +int x)`)                                                       
+      24 +  are attributed to the record because the parser tracks pendin
+         +g                                                              
+      25 +  decls between their token and their body `{`.                
+      26 +- Anonymous inner classes (`new Foo() { @JsonProperty("x") ... 
+         +}`) do                                                         
+      27 +  NOT have a `class` keyword, so their annotations leak to the 
+      28 +  enclosing type. This SDK does not put `@JsonProperty` inside 
+      29 +  anonymous inners; if that ever lands, the `<anon>` sentinel p
+         +attern                                                         
+      30 +  is the place to add coverage.                                
+      31  """
+      32  
+      33  from __future__ import annotations
+
+⏺ Now regenerate baseline + run positive + negative + record + text-block tests.
+
+⏺ Bash(python3 scripts/wire_shape/refresh.py
+      /Users/saurabhjain/Development/axonflow/docs/api && echo "--- positive
+      ---" && AXONFLOW_OPENAPI_SPECS_DIR=/Users/saurabhja…)
+  ⎿  Wrote baseline: tests/fixtures/wire-shape-baseline.json
+       openapi_specs_sha:       bf1ca22ae4bee37dbccc91aee7e03c805f73f853
+       cross_spec_duplicates:   8
+     … +5 lines (ctrl+o to expand)
+
+⏺ Baseline unchanged (parser fixes are forward-defensive). Test record +
+  text-block synthetic fixtures:
+
+⏺ Bash(python3 - <<'PY'
+      import sys…)
+  ⎿  Error: Exit code 1
+     RECORD: {'CreateThingRequest': ['metadata', 'source']}
+     TEXTBLOCK: {'D': ['FAKE', 'real']}
+     Traceback (most recent call last):
+       File "<stdin>", line 29, in <module>
+     AssertionError: text block leaked: {'D': ['FAKE', 'real']}
+
+⏺ Text block scanning works but annotation regex runs on RAW content — needs
+  cross-check against cleaned content. Filter out annotations whose cleaned
+  position is whitespace.
+
+⏺ Update(~/Development/worktrees/qf-14-java-wire-shape/scripts/wire_shape/lib.py
+        )
+  ⎿  Added 7 lines, removed 2 lines
+      254      # @JsonProperty annotations: match on the RAW content so t
+           he
+      255      # wire-name string literal is preserved. Positions line up
+            with
+      256      # `cleaned` because string-stripping replaces in place wit
+           hout
+      257 -    # changing length.                                        
+      257 +    # changing length. Filter out matches whose `@` falls insi
+          +de a                                                          
+      258 +    # blanked range (string literal, comment, text block) — th
+          +e                                                             
+      259 +    # cleaner replaces those with whitespace, so cleaned[m.sta
+          +rt()]                                                         
+      260 +    # is a space rather than the original `@`.                
+      261      props: list[tuple[int, str]] = [
+      259 -        (m.start(), m.group(1)) for m in _JSON_PROPERTY_RE.fin
+          -diter(content)                                                
+      262 +        (m.start(), m.group(1))                               
+      263 +        for m in _JSON_PROPERTY_RE.finditer(content)          
+      264 +        if m.start() < len(cleaned) and cleaned[m.start()] == 
+          +"@"                                                           
+      265      ]
+      266  
+      267      # Walk the cleaned source. Two queues: decls already seen 
+           but
+
+⏺ Bash(python3 - <<'PY'
+      import sys…)
+  ⎿  RECORD: {'CreateThingRequest': ['metadata', 'source']}
+     TEXTBLOCK: {'D': ['real']}
+     NESTED: {'Inner': ['a'], 'Outer': ['b']}
+     … +5 lines (ctrl+o to expand)
+
+⏺ All synthetic cases pass. Verify real baseline still matches.
+
+⏺ Bash(python3 scripts/wire_shape/refresh.py
+      /Users/saurabhjain/Development/axonflow/docs/api &&
+      AXONFLOW_OPENAPI_SPECS_DIR=/Users/saurabhjain/Development/axonflow/doc…)
+  ⎿  Wrote baseline: tests/fixtures/wire-shape-baseline.json
+       openapi_specs_sha:       bf1ca22ae4bee37dbccc91aee7e03c805f73f853
+       cross_spec_duplicates:   8
+     … +11 lines (ctrl+o to expand)
+
+⏺ All new error paths work. Commit Java fixes.
+
+⏺ Bash(git diff --stat
+      echo "---"…)
+  ⎿   .github/workflows/wire-shape-contract.yml |  26 ++++--
+      scripts/wire_shape/lib.py                 | 141 +++++++++++++++++++++
+     ---------
+     … +3 lines (ctrl+o to expand)
+
+⏺ Bash(git add -A && git commit -m "$(cat <<'EOF'
+      fix(wire-shape): close 4 review-surfaced gaps…)
+  ⎿  [feature/qf-14-wire-shape e2654433] fix(wire-shape): close 4 review-su
+     rfaced gaps
+      3 files changed, 137 insertions(+), 60 deletions(-)
+
+⏺ Bash(git push 2>&1 | tail -3)  ⎿  To github.com:getaxonflow/axonflow-sdk-java.git
+        2873454f..e2654433  feature/qf-14-wire-shape -> feature/qf-14-wire-
+     shape
+
+⏺ Now OpenClaw fixes.
+
+⏺ Bash(cd /Users/saurabhjain/Development/axonflow-openclaw-plugin && git status
+      && git branch --show-current
+      echo "---"…)
+  ⎿  On branch feature/qf-17-install-smoke
+     Your branch is up to date with 'origin/feature/qf-17-install-smoke'.
+     … +4 lines (ctrl+o to expand)
+
+⏺ Bash(cd /tmp && rm -rf pack-test && mkdir pack-test && cd pack-test && cat >
+      package.json <<'EOF'
+      {…)
+  ⎿  After npm pack:
+     PREPACK_RAN
+     PREPARE_RAN
+  ⎿  Shell cwd was reset to /Users/saurabhjain/Development
+
+⏺ prepublishOnly doesn't run on npm pack — that finding was wrong. Skipping it.
+  Real fixes: UTF-8 buffer, regex, concurrency, Node matrix.
+
+⏺ Update(~/Development/axonflow-openclaw-plugin/tests/install-smoke/stub-server.
+        mjs)
+  ⎿  Added 5 lines, removed 2 lines
+      16  const PORT = Number(process.env.STUB_PORT || 0);
+      17  
+      18  const server = createServer((req, res) => {
+      19 -  let body = '';                                               
+      19 +  // Buffer-concat (not string-concat) so multi-byte UTF-8 sequ
+         +ences                                                          
+      20 +  // split across chunks don't decode to U+FFFD replacements.  
+      21 +  const chunks = [];                                           
+      22    req.on('data', (chunk) => {
+      21 -    body += chunk;                                             
+      23 +    chunks.push(chunk);                                        
+      24    });
+      25    req.on('end', () => {
+      26 +    const body = Buffer.concat(chunks).toString('utf8');       
+      27      const url = req.url || '';
+      28  
+      29      if (req.method === 'GET' && url === '/health') {
+
+⏺ Update(~/Development/axonflow-openclaw-plugin/tests/install-smoke/stub-server.
+        mjs)
+  ⎿  Added 4 lines, removed 1 line
+      42          return;
+      43        }
+      44        const stmt = String(parsed.statement || '');
+      45 -      const sqli = /OR\s+1=1|--|;\s*DROP\s+TABLE/i.test(stmt); 
+      45 +      // Two unambiguous SQLi signals. The bare `--` line-comme
+         +nt                                                             
+      46 +      // marker is intentionally NOT included here — it false-f
+         +ires                                                           
+      47 +      // on any benign hyphenated identifier or ISO date string
+         +.                                                              
+      48 +      const sqli = /\bOR\s+'?1'?\s*=\s*'?1'?\b|;\s*DROP\s+TABLE
+         +\b/i.test(stmt);                                               
+      49        if (sqli) {
+      50          res.writeHead(403, { 'Content-Type': 'application/json'
+           });
+      51          res.end(
+
+⏺ Now workflow fixes: PR-only concurrency + Node 20+22 matrix.
+
+⏺ Update(~/Development/axonflow-openclaw-plugin/.github/workflows/install-smoke.
+        yml)
+  ⎿  Added 15 lines, removed 5 lines
+      47    contents: read
+      48  
+      49  concurrency:
+      50 -  group: install-smoke-${{ github.ref }}                       
+      51 -  cancel-in-progress: true                                     
+      50 +  # PR-scoped cancel-in-progress only. Pushes to main keep thei
+         +r full                                                         
+      51 +  # run so the per-commit smoke artifact isn't truncated by a f
+         +ast                                                            
+      52 +  # follow-up commit.                                          
+      53 +  group: install-smoke-${{ github.event.pull_request.number || 
+         +github.sha }}                                                  
+      54 +  cancel-in-progress: ${{ github.event_name == 'pull_request' }
+         +}                                                              
+      55  
+      56  jobs:
+      57    install-smoke:
+      55 -    name: Pack, Install, Smoke                                 
+      58 +    name: Pack, Install, Smoke (Node ${{ matrix.node-version }}
+         +)                                                              
+      59      runs-on: ubuntu-latest
+      60      timeout-minutes: 6
+      61 +    strategy:                                                  
+      62 +      fail-fast: false                                         
+      63 +      matrix:                                                  
+      64 +        # Mirror ci.yml's matrix so a tarball that installs on 
+         +22 but                                                         
+      65 +        # breaks on 20 (the lower bound the plugin supports) ca
+         +n't slip                                                       
+      66 +        # through.                                             
+      67 +        node-version: [20, 22]                                 
+      68      env:
+      69        DO_NOT_TRACK: '1'
+      70  
+      71      steps:
+      72        - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f54
+          47ce83dd # v6.0.2
+      73  
+      64 -      - name: Setup Node.js                                    
+      74 +      - name: Setup Node.js ${{ matrix.node-version }}         
+      75          uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362
+          e8dae4041e # v6.4.0
+      76          with:
+      67 -          node-version: 22                                     
+      77 +          node-version: ${{ matrix.node-version }}             
+      78            cache: npm
+      79  
+      80        - name: Install build deps
+
+⏺ Re-run locally.
+
+⏺ Bash(node tests/install-smoke/run.mjs >/tmp/smoke.out 2>&1
+      EXIT=$?…)
+  ⎿  Error: Cannot find module '/Users/saurabhjain/Development/tests/instal
+     l-smoke/run.mjs'
+         at Module._resolveFilename (node:internal/modules/cjs/loader:1420:
+     … +16 lines (ctrl+o to expand)
+
+⏺ Bash(cd /Users/saurabhjain/Development/axonflow-openclaw-plugin && node
+      tests/install-smoke/run.mjs >/tmp/smoke.out 2>&1
+      EXIT=$?…)
+  ⎿  --- Step 2: npm pack ---
+     packed: /var/folders/1j/k8zxr75912v4rkh3cwctxpph0000gn/T/openclaw-pack
+     -HgQpXd/axonflow-openclaw-1.3.2.tgz
+     … +20 lines (ctrl+o to expand)
+
+⏺ Verify regex catches SQLi without false-positives on hyphenated input.
+
+⏺ Bash(node -e "
+      const re = /\bOR\s+'?1'?\s*=\s*'?1'?\b|;\s*DROP\s+TABLE\b/i;…)
+  ⎿  OK DENY - classic OR 1=1 with --
+     OK DENY - OR '1'='1'
+     OK DENY - stacked DROP TABLE
+     … +4 lines (ctrl+o to expand)
+
+⏺ Commit and push OpenClaw fixes.
+
+⏺ Bash(git diff --stat
+      echo "---"…)
+  ⎿   .github/workflows/install-smoke.yml | 20 +++++++++++++++-----
+      tests/install-smoke/stub-server.mjs | 12 +++++++++---
+      2 files changed, 24 insertions(+), 8 deletions(-)
+     … +4 lines (ctrl+o to expand)
+
+⏺ Bash(git push 2>&1 | tail -3)
+  ⎿  remote:
+     To github.com:getaxonflow/axonflow-openclaw-plugin.git
+        91ad178..12ee9a9  feature/qf-17-install-smoke -> feature/qf-17-inst
+     all-smoke
+
+⏺ Now TS follow-up PR. Need a TS worktree.
+
+⏺ Bash(ls /Users/saurabhjain/Development/worktrees/qf-12-ts-wire-shape 2>&1 |
+      head -5
+      echo "---"…)  ⎿  CHANGELOG.md
+     CODE_OF_CONDUCT.md
+     CONTRIBUTING.md
+     … +12 lines (ctrl+o to expand)
+
+⏺ Bash(find /Users/saurabhjain/Development -maxdepth 2 -name
+      "axonflow-sdk-typescript" 2>/dev/null | head -5
+      echo "---"…)
+  ⎿  /Users/saurabhjain/Development/axonflow-sdk-typescript
+     ---
+     acp-e2e-pointer
+     … +23 lines (ctrl+o to expand)
+
+⏺ Bash(git -C /Users/saurabhjain/Development/axonflow-sdk-typescript fetch
+      origin --quiet
+      git -C /Users/saurabhjain/Development/axonflow-sdk-typescript log
+      origin/main…)
+  ⎿  d2274b7 ci: add wire-shape contract CI (QF-12, TS arm) (#184)
+     92ca3b7 ci+chore: version-alignment gate + resync package-lock to 5.6.
+     0 (#182)
+     … +11 lines (ctrl+o to expand)
+
+⏺ Bash(cd /Users/saurabhjain/Development/worktrees/ts-wire-shape-fixups && ls
+      scripts/wire-shape/ && echo "---" && ls .github/scripts/
+      .github/workflows/ 2>/dev/null)
+  ⎿  lib.js
+     refresh.js
+     validate.js
+     … +10 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ TS fix 1: --sha with no value silently dropped.
+
+⏺ Update(scripts/wire-shape/refresh.js)
+  ⎿  Added 8 lines, removed 1 line
+      44    let specsDir = null;
+      45    let explicitSha = null;
+      46    for (let i = 0; i < args.length; i += 1) {
+      47 -    if (args[i] === '--sha' && i + 1 < args.length) {          
+      47 +    if (args[i] === '--sha') {                                 
+      48 +      if (i + 1 >= args.length) {                              
+      49 +        // `--sha` as the last token used to be silently consum
+         +ed as                                                          
+      50 +        // a positional `specsDir`, masking the missing value. 
+         +Fail                                                           
+      51 +        // loudly instead.                                     
+      52 +        console.error('error: --sha requires a value (e.g. --sh
+         +a bf1ca22…)');                                                 
+      53 +        process.exit(2);                                       
+      54 +      }                                                        
+      55        explicitSha = args[i + 1];
+      56        i += 1;
+      57      } else if (!specsDir) {
+
+⏺ TS fix 2: validate.js empty registered_types silently disables Gate 4.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(scripts/wire-shape/validate.js)
+  ⎿  Added 23 lines, removed 1 line
+      223    }
+      224  
+      225    // Gate 4: registered-type coverage.
+      226 -  if (baseline.registered_types.length > 0) {                 
+      226 +  // After the first introduction, the baseline always has reg
+          +istered                                                       
+      227 +  // types — emptying the list would silently disable the rena
+          +me-                                                           
+      228 +  // escape guard. Fail loudly on an empty list unless the bas
+          +eline                                                         
+      229 +  // is itself empty (genuine first-pin / fresh-repo case wher
+          +e every                                                       
+      230 +  // baseline section is empty).                              
+      231 +  const baselineIsFresh =                                     
+      232 +    baseline.registered_types.length === 0 &&                 
+      233 +    Object.keys(baseline.per_type_drift).length === 0 &&      
+      234 +    Object.keys(baseline.cross_spec_duplicates).length === 0 &
+          +&                                                             
+      235 +    Object.keys(baseline.intra_file_duplicates).length === 0; 
+      236 +  if (baseline.registered_types.length === 0 && !baselineIsFre
+          +sh) {                                                         
+      237 +    console.error(                                            
+      238 +      'baseline.registered_types is empty but other baseline s
+          +ections are not.',                                            
+      239 +    );                                                        
+      240 +    console.error(                                            
+      241 +      'This combination silently disables the rename-escape ga
+          +te. Regenerate',                                              
+      242 +    );                                                        
+      243 +    console.error(                                            
+      244 +      'tests/fixtures/wire-shape-baseline.json via scripts/wir
+          +e-shape/refresh.js,',                                         
+      245 +    );                                                        
+      246 +    console.error('or remove the file entirely if introducing 
+          +a fresh baseline.');                                          
+      247 +    errors += 1;                                              
+      248 +  } else if (baseline.registered_types.length > 0) {          
+      249      const missingSDK = [];
+      250      const missingSpec = [];
+      251      for (const name of baseline.registered_types) {
+
+⏺ TS fix 3: tmp-file leak on writer crash.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(scripts/wire-shape/lib.js)
+  ⎿  Added 13 lines, removed 2 lines
+      290      fs.mkdirSync(dir, { recursive: true });
+      291    }
+      292    const tmp = `${BASELINE_PATH}.tmp.${process.pid}`;
+      293 -  fs.writeFileSync(tmp, JSON.stringify(baseline, null, 2) + '\
+          -n');                                                          
+      294 -  fs.renameSync(tmp, BASELINE_PATH);                          
+      293 +  try {                                                       
+      294 +    fs.writeFileSync(tmp, JSON.stringify(baseline, null, 2) + 
+          +'\n');                                                        
+      295 +    fs.renameSync(tmp, BASELINE_PATH);                        
+      296 +  } catch (e) {                                               
+      297 +    // Don't leave a `.tmp.<pid>` sidecar behind — the next ru
+          +n from                                                        
+      298 +    // the same PID would collide and confuse a future writer.
+      299 +    try {                                                     
+      300 +      fs.unlinkSync(tmp);                                     
+      301 +    } catch {                                                 
+      302 +      /* tmp may not exist yet; ignore */                     
+      303 +    }                                                         
+      304 +    throw e;                                                  
+      305 +  }                                                           
+      306  }
+      307  
+      308  function difference(a, b) {
+
+⏺ TS fix 4: interface extends undercount — currently silent. At minimum, warn so
+   it can't slip in unnoticed.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(scripts/wire-shape/lib.js)
+  ⎿  Added 25 lines
+      220  }
+      221  
+      222  function extractInterfaceProps(iface) {
+      223 +  // A `heritageClauses` (e.g. `interface Foo extends Bar`) me
+          +ans the                                                       
+      224 +  // interface inherits members from its parents that we won't
+          + see by                                                       
+      225 +  // walking iface.members alone. The wire-shape gate would th
+          +en                                                            
+      226 +  // under-report fields and silently miss drift on inherited 
+      227 +  // properties. The TS SDK has no such interfaces today; flag
+          + it                                                           
+      228 +  // loudly the first time one appears so coverage gets resolv
+          +ed                                                            
+      229 +  // before it ships, instead of slipping past as invisible   
+      230 +  // under-counting.                                          
+      231 +  if (iface.heritageClauses && iface.heritageClauses.length > 
+          +0) {                                                          
+      232 +    const parents = [];                                       
+      233 +    for (const clause of iface.heritageClauses) {             
+      234 +      for (const t of clause.types || []) {                   
+      235 +        const expr = t.expression;                            
+      236 +        if (expr && ts.isIdentifier(expr)) {                  
+      237 +          parents.push(expr.text);                            
+      238 +        }                                                     
+      239 +      }                                                       
+      240 +    }                                                         
+      241 +    console.warn(                                             
+      242 +      `wire-shape: interface ${iface.name.text} extends [${par
+          +ents.join(', ')}]; ` +                                        
+      243 +        'inherited fields are NOT walked. Add explicit field f
+          +lattening to ' +                                              
+      244 +        'scripts/wire-shape/lib.js::extractInterfaceProps befo
+          +re merging an ' +                                             
+      245 +        'extending wire interface, or wire-shape coverage will
+          + be incomplete.',                                             
+      246 +    );                                                        
+      247 +  }                                                           
+      248    const names = [];
+      249    for (const member of iface.members) {
+      250      const name = propertyName(member);
+
+⏺ Verify the validator + refresher still work and baseline is unchanged.
+
+⏺ Bash(node scripts/wire-shape/refresh.js
+      /Users/saurabhjain/Development/axonflow/docs/api 2>&1 | tail -8
+      echo "--- validate ---"…)
+  ⎿    code: 'MODULE_NOT_FOUND',
+       requireStack: [
+         '/Users/saurabhjain/Development/worktrees/ts-wire-shape-fixups/scr
+     … +15 lines (ctrl+o to expand)
+
+⏺ Bash(ls node_modules/typescript/package.json 2>&1 | head -1
+      echo "---"…)
+  ⎿  ls: node_modules/typescript/package.json: No such file or directory
+     ---
+     ---
+     … +6 lines (ctrl+o to expand)
+
+⏺ Bash(echo "--- validate ---"
+      AXONFLOW_OPENAPI_SPECS_DIR=/Users/saurabhjain/Development/axonflow/docs/ap
+      i node scripts/wire-shape/validate.js >/dev/null 2>&1; echo "E…)
+  ⎿  --- validate ---
+     EXIT=0
+     --- baseline diff ---
+     … +15 lines (ctrl+o to expand)
+
+⏺ Bash(cp tests/fixtures/wire-shape-baseline.json /tmp/baseline-good.json
+      python3 -c "…)
+  ⎿  EXIT=1 (expect 1)
+
+⏺ All TS fixes verified. Update CHANGELOG and commit.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Per repo convention (CI-internal changes don't get CHANGELOG entries — the
+  wire-shape gate itself didn't get one on PR #184), skip CHANGELOG. Commit +
+  push + open PR.
+
+⏺ Bash(git status && echo "---" && git diff --stat)  ⎿  On branch fix/wire-shape-review-followups
+     Your branch is up to date with 'origin/main'.
+     … +15 lines (ctrl+o to expand)
+
+⏺ Bash(git add -A && git commit -m "$(cat <<'EOF'
+      fix(wire-shape): close 4 review gaps from #182 + #184 follow-up…)
+  ⎿  [fix/wire-shape-review-followups e095a35] fix(wire-shape): close 4 rev
+     iew gaps from #182 + #184 follow-up
+      3 files changed, 69 insertions(+), 4 deletions(-)
+
+⏺ Bash(git push -u origin fix/wire-shape-review-followups 2>&1 | tail -5)
+  ⎿  remote:      https://github.com/getaxonflow/axonflow-sdk-typescript/se
+     curity/dependabot/30
+     remote:
+     … +5 lines (ctrl+o to expand)
+
+⏺ Bash(gh pr create --repo getaxonflow/axonflow-sdk-typescript --title
+      "fix(wire-shape): close 4 review-surfaced gaps from #182 + #184" --body
+      "$(cat <<'EOF'
+      ## Summar…)
+  ⎿  https://github.com/getaxonflow/axonflow-sdk-typescript/pull/185
+
+⏺ Bash(sleep 25
+      echo "=== Java PR #137 (after fixes) ==="…)
+  ⎿  === Java PR #137 (after fixes) ===
+     Analyze (actions)  pass    45s     https://github.com/get
+     axonflow/axonflow-sdk-ja
+     va/actions/runs/24918533793/job/72975415266
+     … +42 lines (ctrl+o to expand)
+
+⏺ Bash(sleep 60 && gh pr checks 185 --repo getaxonflow/axonflow-sdk-typescript
+      2>&1 | head -12)
+  ⎿  Analyze (actions)  pass    46s     https://github.com/getaxo
+     nflow/axonflow-sdk-ty
+     pescript/actions/runs/24918631033/job/72975713903
+     Analyze (javascript-typescript)    pass    59s     https://git
+     hub.com/getaxonflow/a
+     … +13 lines (ctrl+o to expand)
+
+⏺ All three PRs green after fixes:
+
+  Java #137 — Validate Wire Shape 9s + 11 other checks all green. Fixes:
+  malformed-baseline crash → SystemExit with regen hint; SHA-bump guard now
+  distinguishes file-missing from file-malformed; validator exits 1 (not 0) on
+  bogus env-var path; parser handles Java text blocks, record-parameter
+  annotations, comment/string-blanked positions; tmp-file cleanup on writer
+  crash; anonymous-inner-class limitation documented.
+
+  OpenClaw #56 — Pack, Install, Smoke matrix Node 20 (56s) + Node 22 (1m1s) both
+   green. Fixes: Buffer.concat for UTF-8 safety; SQLi regex tightened to OR 1=1
+  + ; DROP TABLE (dropped the over-broad -- branch); concurrency-cancel only on
+  PRs; node 20+22 matrix mirroring ci.yml. Verified the duplicate-build claim
+  was wrong (npm pack doesn't run prepublishOnly).
+
+  TS #185 (new follow-up) →
+  https://github.com/getaxonflow/axonflow-sdk-typescript/pull/185 — Wire Shape
+  17s + 8 other checks all green. Fixes: --sha bare-arg now exits 2; empty
+  registered_types with non-empty other sections now fails Gate 4 (genuinely
+  fresh baseline still allowed); tmp-file cleanup; interface ... extends warns
+  loudly to prevent silent under-reporting.
+
+  Skipped from the agent reports as designed-not-bug: spec-pin-bump label
+  simultaneously authorising SDK changes (intentional reviewer signal),
+  cross-SDK key-order alignment (would invalidate already-shipped baselines),
+  YAML merge keys (not used by any spec).
+
+✻ Sautéed for 17m 30s

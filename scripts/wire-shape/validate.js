@@ -104,6 +104,19 @@ function main() {
       crossProblems.push(lines.join('\n'));
     }
   }
+  // Reverse pass: a baselined cross-spec divergence that is no longer
+  // observed must be removed from the baseline. Otherwise the stale
+  // fingerprint shields a future reintroduction of the same old
+  // incompatible shape from the gate. (Mirrors Gate 2's reverse pass
+  // for intra_file_duplicates.)
+  for (const name of Object.keys(baselinedCross)) {
+    if (!crossSpecDuplicates[name]) {
+      crossProblems.push(
+        `  ${name}: baselined cross-spec divergence no longer observed — remove from ` +
+          `baseline.cross_spec_duplicates.${name} so a future reintroduction of the same shape is caught as new.`,
+      );
+    }
+  }
   if (crossProblems.length > 0) {
     console.error('Cross-spec schema divergence gate failed:\n');
     for (const p of crossProblems) {
