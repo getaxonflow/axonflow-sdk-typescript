@@ -343,10 +343,7 @@ export function sendTelemetryPing(options: {
         // Health probe gets up to HEALTH_BUDGET_CAP_MS of the remaining budget
         // so the POST always has room, even when /health hits a slow or
         // blackholed endpoint and consumes the full probe budget.
-        const healthBudget = Math.min(
-          HEALTH_BUDGET_CAP_MS,
-          Math.max(0, deadline - Date.now()),
-        );
+        const healthBudget = Math.min(HEALTH_BUDGET_CAP_MS, Math.max(0, deadline - Date.now()));
         if (options.endpoint && healthBudget > MIN_BUDGET_MS) {
           payload.platform_version = await detectPlatformVersion(options.endpoint, healthBudget);
         }

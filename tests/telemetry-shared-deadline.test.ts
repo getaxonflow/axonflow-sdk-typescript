@@ -51,36 +51,38 @@ describe('telemetry — shared deadline (regression for #1707)', () => {
     //   shared-deadline fix:   elapsed ~1000-1200ms
     //   stacked-timeout bug:   elapsed ~2000-2200ms
 
-    const fetchMock = jest.fn().mockImplementation((url: string, init?: { signal?: AbortSignal; method?: string }) => {
-      if (url.endsWith('/health')) {
-        // Simulate a slow /health by returning a Promise that only rejects when
-        // the caller's AbortController fires. This mirrors real fetch() semantics:
-        // when the signal aborts, the pending fetch rejects with an AbortError.
-        return new Promise((_resolve, reject) => {
-          // Safety-net teardown: if the caller never aborts (e.g. under a
-          // regression where the AbortController timeout is disabled), let the
-          // Promise reject after a bounded window so the worker exits cleanly.
-          const teardown = setTimeout(() => {
-            reject(new Error('mock teardown — no abort fired'));
-          }, 10_000);
-          teardown.unref?.();
-          if (init?.signal) {
-            init.signal.addEventListener('abort', () => {
-              clearTimeout(teardown);
-              const err = new Error('aborted') as Error & { name: string };
-              err.name = 'AbortError';
-              reject(err);
-            });
-          }
+    const fetchMock = jest
+      .fn()
+      .mockImplementation((url: string, init?: { signal?: AbortSignal; method?: string }) => {
+        if (url.endsWith('/health')) {
+          // Simulate a slow /health by returning a Promise that only rejects when
+          // the caller's AbortController fires. This mirrors real fetch() semantics:
+          // when the signal aborts, the pending fetch rejects with an AbortError.
+          return new Promise((_resolve, reject) => {
+            // Safety-net teardown: if the caller never aborts (e.g. under a
+            // regression where the AbortController timeout is disabled), let the
+            // Promise reject after a bounded window so the worker exits cleanly.
+            const teardown = setTimeout(() => {
+              reject(new Error('mock teardown — no abort fired'));
+            }, 10_000);
+            teardown.unref?.();
+            if (init?.signal) {
+              init.signal.addEventListener('abort', () => {
+                clearTimeout(teardown);
+                const err = new Error('aborted') as Error & { name: string };
+                err.name = 'AbortError';
+                reject(err);
+              });
+            }
+          });
+        }
+        // POST: respond instantly with 200
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ latest_version: '99.99.99' }),
         });
-      }
-      // POST: respond instantly with 200
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ latest_version: '99.99.99' }),
       });
-    });
     global.fetch = fetchMock as unknown as typeof global.fetch;
 
     const start = Date.now();
@@ -100,15 +102,13 @@ describe('telemetry — shared deadline (regression for #1707)', () => {
     const pollStart = Date.now();
     while (Date.now() - pollStart < upperBound) {
       const sawHealth = fetchMock.mock.calls.some(
-        (c) => typeof c[0] === 'string' && c[0].endsWith('/health'),
+        c => typeof c[0] === 'string' && c[0].endsWith('/health')
       );
       const sawPost = fetchMock.mock.calls.some(
-        (c) =>
-          typeof c[0] === 'string' &&
-          c[1]?.method === 'POST',
+        c => typeof c[0] === 'string' && c[1]?.method === 'POST'
       );
       if (sawHealth && sawPost) break;
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise(r => setTimeout(r, 50));
     }
     const elapsed = Date.now() - start;
 
@@ -119,7 +119,7 @@ describe('telemetry — shared deadline (regression for #1707)', () => {
 
     // And the POST must have actually fired (not skipped due to budget exhaustion).
     const sawPost = fetchMock.mock.calls.some(
-      (c) => typeof c[0] === 'string' && c[1]?.method === 'POST',
+      c => typeof c[0] === 'string' && c[1]?.method === 'POST'
     );
     expect(sawPost).toBe(true);
   });
