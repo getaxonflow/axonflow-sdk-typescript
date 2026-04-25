@@ -1651,6 +1651,11 @@ export class AxonFlow {
     return {
       planId: data.plan_id ?? planId,
       status: data.status,
+      // `success` is the canonical wire boolean. The deprecated
+      // `message` slot is also kept populated for back-compat
+      // readers; on a current server it will always be undefined
+      // because the wire never emits it.
+      success: data.success,
       message: data.message,
     };
   }
