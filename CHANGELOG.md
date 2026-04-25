@@ -23,7 +23,7 @@ Coordinated cycle: Python v6.8.0 / Go v5.8.0 / Java v6.1.0 ship same day with th
   - `override_existing_id?: string` — already-active override consumed by this decision (if any)
 - **`MCPCheckOutputResponse`** gains 3 optional fields:
   - `decision_id?: string`
-  - `policy_matches?: ExplainPolicy[]`
+  - `policy_matches?: MCPExplainPolicy[]`
   - `redacted_message?: string` — text-redaction counterpart to `redacted_data` (used when the connector returned a string message rather than tabular rows; e.g. execute-style responses)
 - **`MCPExplainPolicy`** — new exported interface for the per-policy explainability record on MCP responses (snake_case wire shape, frozen per ADR-043). Fields: `policy_id`, `policy_name?`, `action?`, `risk_level?`, `allow_override?`, `policy_description?`. Distinct from the existing camelCase `ExplainPolicy` (in `src/types/decisions.ts`), which is the hand-decoded view returned by `client.explainDecision()`. Both describe the same logical record; the dual-name distinction follows the SDK's existing wire-vs-decoded convention. A future release may consolidate.
 
