@@ -44,7 +44,14 @@ function main() {
   let specsDir = null;
   let explicitSha = null;
   for (let i = 0; i < args.length; i += 1) {
-    if (args[i] === '--sha' && i + 1 < args.length) {
+    if (args[i] === '--sha') {
+      if (i + 1 >= args.length) {
+        // `--sha` as the last token used to be silently consumed as
+        // a positional `specsDir`, masking the missing value. Fail
+        // loudly instead.
+        console.error('error: --sha requires a value (e.g. --sha bf1ca22…)');
+        process.exit(2);
+      }
       explicitSha = args[i + 1];
       i += 1;
     } else if (!specsDir) {

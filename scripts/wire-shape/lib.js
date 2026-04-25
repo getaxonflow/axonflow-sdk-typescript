@@ -220,6 +220,31 @@ function hasExportModifier(node) {
 }
 
 function extractInterfaceProps(iface) {
+  // A `heritageClauses` (e.g. `interface Foo extends Bar`) means the
+  // interface inherits members from its parents that we won't see by
+  // walking iface.members alone. The wire-shape gate would then
+  // under-report fields and silently miss drift on inherited
+  // properties. The TS SDK has no such interfaces today; flag it
+  // loudly the first time one appears so coverage gets resolved
+  // before it ships, instead of slipping past as invisible
+  // under-counting.
+  if (iface.heritageClauses && iface.heritageClauses.length > 0) {
+    const parents = [];
+    for (const clause of iface.heritageClauses) {
+      for (const t of clause.types || []) {
+        const expr = t.expression;
+        if (expr && ts.isIdentifier(expr)) {
+          parents.push(expr.text);
+        }
+      }
+    }
+    console.warn(
+      `wire-shape: interface ${iface.name.text} extends [${parents.join(', ')}]; ` +
+        'inherited fields are NOT walked. Add explicit field flattening to ' +
+        'scripts/wire-shape/lib.js::extractInterfaceProps before merging an ' +
+        'extending wire interface, or wire-shape coverage will be incomplete.',
+    );
+  }
   const names = [];
   for (const member of iface.members) {
     const name = propertyName(member);
@@ -290,8 +315,19 @@ function writeBaseline(baseline) {
     fs.mkdirSync(dir, { recursive: true });
   }
   const tmp = `${BASELINE_PATH}.tmp.${process.pid}`;
-  fs.writeFileSync(tmp, JSON.stringify(baseline, null, 2) + '\n');
-  fs.renameSync(tmp, BASELINE_PATH);
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(baseline, null, 2) + '\n');
+    fs.renameSync(tmp, BASELINE_PATH);
+  } catch (e) {
+    // Don't leave a `.tmp.<pid>` sidecar behind — the next run from
+    // the same PID would collide and confuse a future writer.
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      /* tmp may not exist yet; ignore */
+    }
+    throw e;
+  }
 }
 
 function difference(a, b) {
