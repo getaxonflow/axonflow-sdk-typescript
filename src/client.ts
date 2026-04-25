@@ -368,7 +368,7 @@ export class AxonFlow {
     // Intentional || (not ??): an empty-string clientId/tenant is treated as
     // "missing" by the SDK contract — see tests/smart-defaults.test.ts.
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    return this.config.clientId || this.config.tenant || "community";
+    return this.config.clientId || this.config.tenant || 'community';
   }
 
   /**
@@ -589,8 +589,8 @@ export class AxonFlow {
    */
   private isAxonFlowError(error: any): boolean {
     const msg = error?.message;
-    if (typeof msg !== "string") return false;
-    return msg.includes("AxonFlow") || msg.includes("governance") || msg.includes("fetch");
+    if (typeof msg !== 'string') return false;
+    return msg.includes('AxonFlow') || msg.includes('governance') || msg.includes('fetch');
   }
 
   /**
@@ -978,7 +978,7 @@ export class AxonFlow {
     }>('GET', '/api/v1/connectors');
 
     // Handle wrapped response
-    const connectors = Array.isArray(response) ? response : response.connectors ?? [];
+    const connectors = Array.isArray(response) ? response : (response.connectors ?? []);
 
     if (this.config.debug) {
       debugLog('Listed connectors', { count: connectors.length });
@@ -3088,7 +3088,7 @@ export class AxonFlow {
       { policies: DynamicPolicy[] } | DynamicPolicy[]
     >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
-    return Array.isArray(response) ? response : response.policies ?? [];
+    return Array.isArray(response) ? response : (response.policies ?? []);
   }
 
   /**
@@ -3258,7 +3258,7 @@ export class AxonFlow {
       { policies: DynamicPolicy[] } | DynamicPolicy[]
     >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
-    return Array.isArray(response) ? response : response.policies ?? [];
+    return Array.isArray(response) ? response : (response.policies ?? []);
   }
 
   // ============================================================================
@@ -6225,7 +6225,7 @@ export class AxonFlow {
       // Build eventData from additional fields if not present
       eventData:
         e.event_data ??
-        (e.previous_status ?? e.new_status ?? e.reason
+        ((e.previous_status ?? e.new_status ?? e.reason)
           ? { previousStatus: e.previous_status, newStatus: e.new_status, reason: e.reason }
           : undefined),
       // Handle both API formats: created_by vs performed_by
