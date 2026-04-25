@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BREAKING — `PolicyInfo` reassignment (v6.0.0)
+
+`PolicyInfo` and `MCPPolicyInfo` referred to two different concepts in v5.x:
+
+- `PolicyInfo` (in `src/types/proxy.ts`) was the proxy-mode shape returned by `/api/request` — fields like `policiesEvaluated`, `staticChecks`, `processingTime`, `tenantId`, `codeArtifact`.
+- `MCPPolicyInfo` (in `src/types/connector.ts`) was the MCP shape returned by `/api/v1/mcp/check-input` and friends — fields like `policies_evaluated`, `blocked`, `block_reason`, `processing_time_ms`, `matched_policies`. **This is what the OpenAPI spec calls `PolicyInfo`.**
+
+The naming has been swapped to align with the OpenAPI spec:
+
+| In v5.x | In v6.0.0 |
+|--|--|
+| `PolicyInfo` (proxy shape) | **`ProxyPolicyInfo`** (renamed) |
+| `MCPPolicyInfo` (MCP shape) | **`PolicyInfo`** (renamed; matches OpenAPI spec) |
+
+Migration:
+
+- If you imported `PolicyInfo` to read proxy-mode `/api/request` responses, change to `ProxyPolicyInfo` (or use the `PolicyInfoLegacyProxyShape` type alias as a one-major-version shim).
+- If you imported `MCPPolicyInfo` for MCP responses, change to `PolicyInfo`. The `MCPPolicyInfo` name is kept as a `type` alias for one major-version migration window and will be removed in v7.0.0.
+
+This was previously hidden by the naming collision — code reading `response.policyInfo` on `ExecuteQueryResponse` continues to work because the property type is now `ProxyPolicyInfo` with the same fields. The break only affects code that imported the type names by hand.
+
 ### Added
 
 - **`WebhookSubscription.secret`** — HMAC-SHA256 signing key now exposed on the response from `createWebhook`. Required to verify the `X-AxonFlow-Signature` header on inbound webhook deliveries; without it, callers couldn't validate payload authenticity. Also adds `org_id` and `tenant_id` (ownership scoping).

@@ -55,9 +55,16 @@ export interface CodeArtifact {
 }
 
 /**
- * Policy evaluation information from the agent
+ * Proxy-mode policy evaluation summary returned by `/api/request`.
+ *
+ * Renamed from `PolicyInfo` in v6.0.0 — the original name collided
+ * with the OpenAPI `PolicyInfo` schema served by the MCP path
+ * (`/api/v1/mcp/check-input` etc.), which the SDK exposes as
+ * `MCPPolicyInfo`. This type is the proxy-mode shape; the v6
+ * top-level `PolicyInfo` export now refers to the MCP shape (matching
+ * the OpenAPI spec).
  */
-export interface PolicyInfo {
+export interface ProxyPolicyInfo {
   /** List of policies that were evaluated */
   policiesEvaluated: string[];
   /** Static checks that were applied */
@@ -69,6 +76,18 @@ export interface PolicyInfo {
   /** Code artifact metadata if code was detected in the response */
   codeArtifact?: CodeArtifact;
 }
+
+/**
+ * @deprecated Renamed to `ProxyPolicyInfo` in v6.0.0 to resolve a
+ * name collision with the OpenAPI `PolicyInfo` schema (the MCP
+ * shape). For new code, use `ProxyPolicyInfo` from `@axonflow/sdk`
+ * for the proxy-mode shape, or `PolicyInfo` for the MCP shape (the
+ * latter is what was previously exported as `MCPPolicyInfo`).
+ *
+ * This alias keeps existing code compiling for one major version.
+ * Removed in v7.0.0.
+ */
+export type PolicyInfoLegacyProxyShape = ProxyPolicyInfo;
 
 /**
  * Budget enforcement status information (Issue #1082).
@@ -116,8 +135,8 @@ export interface ExecuteQueryResponse {
   blocked: boolean;
   /** Reason for blocking (if blocked) */
   blockReason?: string;
-  /** Policy evaluation info */
-  policyInfo?: PolicyInfo;
+  /** Policy evaluation info (proxy-mode shape) */
+  policyInfo?: ProxyPolicyInfo;
   /** Budget status (Issue #1082) */
   budgetInfo?: BudgetInfo;
   /** Media analysis results (present when media was submitted) */

@@ -38,9 +38,15 @@ export interface PolicyMatchInfo {
 
 /**
  * Policy evaluation information included in MCP responses
- * Provides transparency into policy enforcement decisions
+ * (canonical OpenAPI `PolicyInfo` schema). Provides transparency
+ * into policy enforcement decisions returned by `/api/v1/mcp/*`
+ * endpoints.
+ *
+ * Renamed from `MCPPolicyInfo` in v6.0.0 to match the OpenAPI
+ * spec name. The previous proxy-mode `PolicyInfo` (in `proxy.ts`)
+ * is now `ProxyPolicyInfo` so the names align with the spec.
  */
-export interface MCPPolicyInfo {
+export interface PolicyInfo {
   policies_evaluated: number;
   blocked: boolean;
   block_reason?: string;
@@ -52,6 +58,14 @@ export interface MCPPolicyInfo {
   /** Dynamic policy evaluation results (Issue #968) */
   dynamic_policy_info?: DynamicPolicyInfo;
 }
+
+/**
+ * @deprecated Renamed to `PolicyInfo` in v6.0.0 to match the OpenAPI
+ * spec. The previous SDK `PolicyInfo` (proxy-mode shape) is now
+ * `ProxyPolicyInfo`. This alias keeps existing code compiling for
+ * one major version. Removed in v7.0.0.
+ */
+export type MCPPolicyInfo = PolicyInfo;
 
 /**
  * Information about exfiltration limit checks (Issue #966)
