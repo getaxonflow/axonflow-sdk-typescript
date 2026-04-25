@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### BREAKING — `PolicyInfo` reassignment (v6.0.0)
+## [6.0.0] - 2026-04-25 — Major: PolicyInfo / MCPPolicyInfo rename + wire-shape canonicalization
+
+This is a major release. Coordinated with the Java SDK v6.0.0 release as a v6 alignment cycle for the SDKs that needed breaking changes; Python (v6.7.0) and Go (v5.7.0) ship as minor on the same day because their changes are purely additive.
+
+### BREAKING — `PolicyInfo` reassignment
 
 `PolicyInfo` and `MCPPolicyInfo` referred to two different concepts in v5.x:
 
