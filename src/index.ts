@@ -74,6 +74,11 @@ export type {
   MCPCheckInputResponse,
   MCPCheckOutputOptions,
   MCPCheckOutputResponse,
+  // v6.1.0: per-policy explainability record on MCP responses
+  // (snake_case wire shape). Distinct from the camelCase ExplainPolicy
+  // in `./types/decisions` which is the hand-decoded view returned by
+  // client.explainDecision().
+  MCPExplainPolicy,
 } from './types/connector';
 
 // Export error classes for proper error handling
