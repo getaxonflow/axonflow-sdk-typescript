@@ -11,6 +11,21 @@ const DEFAULT_CHECKPOINT_URL = 'https://checkpoint.getaxonflow.com/v1/ping';
 const TELEMETRY_TIMEOUT_MS = 3000;
 
 /**
+ * Minimum remaining HTTP budget (milliseconds). Below this, skip the operation
+ * rather than issue a request that is almost guaranteed to time out before any
+ * useful work completes. Keeps the telemetry path from making "essentially zero
+ * budget" calls when the shared deadline is nearly spent.
+ */
+const MIN_BUDGET_MS = 100;
+
+/**
+ * Health-probe budget ceiling. The /health probe should never consume more
+ * than 1s of the total TELEMETRY_TIMEOUT_MS budget, so the checkpoint POST
+ * always has enough room even when the probe hits a slow / blackholed endpoint.
+ */
+const HEALTH_BUDGET_CAP_MS = 1000;
+
+/**
  * Generate a random UUID v4-style identifier.
  *
  * Uses crypto.randomUUID() when available (Node 19+), otherwise falls back
@@ -311,12 +326,27 @@ export function sendTelemetryPing(options: {
     instance_id: generateInstanceId(),
   };
 
-  // Fire-and-forget: detect platform version then send ping
+  // Fire-and-forget: detect platform version then send ping.
+  //
+  // Both network operations share a single monotonic deadline so the total
+  // time bounded at TELEMETRY_TIMEOUT_MS covers the WHOLE telemetry path
+  // (/health probe + checkpoint POST). Previously the two had independent
+  // timeouts that stacked to ~5s on unreachable endpoints — defeating the
+  // "bounded at TELEMETRY_TIMEOUT_MS" invariant this function's docstring
+  // and the surrounding sync-expectations assume. Matches the pattern
+  // already shipped for python/go/java SDKs. See enterprise#1707.
   try {
     void (async () => {
+      const deadline = Date.now() + TELEMETRY_TIMEOUT_MS;
+
       try {
-        // Attempt to detect platform version from the health endpoint
-        payload.platform_version = await detectPlatformVersion(options.endpoint);
+        // Health probe gets up to HEALTH_BUDGET_CAP_MS of the remaining budget
+        // so the POST always has room, even when /health hits a slow or
+        // blackholed endpoint and consumes the full probe budget.
+        const healthBudget = Math.min(HEALTH_BUDGET_CAP_MS, Math.max(0, deadline - Date.now()));
+        if (options.endpoint && healthBudget > MIN_BUDGET_MS) {
+          payload.platform_version = await detectPlatformVersion(options.endpoint, healthBudget);
+        }
       } catch {
         // Silent — platform version remains null
       }
@@ -325,8 +355,14 @@ export function sendTelemetryPing(options: {
         console.log('[AxonFlow] Sending telemetry ping', JSON.stringify(payload, null, 2));
       }
 
+      // POST uses all remaining budget, bounded at the shared deadline.
+      const postBudget = Math.max(0, deadline - Date.now());
+      if (postBudget < MIN_BUDGET_MS) {
+        return;
+      }
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TELEMETRY_TIMEOUT_MS);
+      const timeoutId = setTimeout(() => controller.abort(), postBudget);
 
       try {
         await fetch(checkpointUrl, {
@@ -349,10 +385,14 @@ export function sendTelemetryPing(options: {
 /**
  * Detect the platform version by calling the agent's /health endpoint.
  * Returns the version string or null on any failure.
+ *
+ * @param timeoutMs — derived from the shared telemetry deadline so the health
+ * probe and the checkpoint POST don't stack into a larger combined budget.
+ * See enterprise#1707.
  */
-async function detectPlatformVersion(endpoint: string): Promise<string | null> {
+async function detectPlatformVersion(endpoint: string, timeoutMs: number): Promise<string | null> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 2000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const resp = await fetch(`${endpoint}/health`, {
