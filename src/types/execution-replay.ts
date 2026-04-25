@@ -87,6 +87,8 @@ export interface ExecutionSnapshot {
   approvedBy?: string;
   /** Approval timestamp */
   approvedAt?: string;
+  /** Number of retry attempts on this step. */
+  retryCount?: number;
 }
 
 /**

@@ -1480,6 +1480,13 @@ export class AxonFlow {
       complexity: agentResponse.data?.complexity ?? 0,
       parallel: agentResponse.data?.parallel ?? false,
       metadata: agentResponse.metadata ?? {},
+      success: agentResponse.success,
+      version: agentResponse.version ?? agentResponse.data?.version,
+      result: agentResponse.result ?? agentResponse.data?.result,
+      error: agentResponse.error,
+      workflow_execution_id:
+        agentResponse.workflow_execution_id ?? agentResponse.data?.workflow_execution_id,
+      policy_info: agentResponse.policy_info ?? agentResponse.data?.policy_info,
     };
   }
 
@@ -1644,6 +1651,11 @@ export class AxonFlow {
     return {
       planId: data.plan_id ?? planId,
       status: data.status,
+      // `success` is the canonical wire boolean. The deprecated
+      // `message` slot is also kept populated for back-compat
+      // readers; on a current server it will always be undefined
+      // because the wire never emits it.
+      success: data.success,
       message: data.message,
     };
   }
@@ -1670,6 +1682,9 @@ export class AxonFlow {
     }
     if (request.domain) {
       body.domain = request.domain;
+    }
+    if (request.metadata !== undefined) {
+      body.metadata = request.metadata;
     }
 
     const response = await fetch(url, {
@@ -1787,7 +1802,11 @@ export class AxonFlow {
     return {
       planId: data.plan_id ?? planId,
       status: data.status,
+      // `result` is the canonical wire-aggregated outcome on resume.
+      result: data.result,
       approved: data.approved,
+      // `message` kept populated for the back-compat alias; legacy
+      // path read this slot historically.
       message: data.message,
     };
   }
@@ -2793,6 +2812,14 @@ export class AxonFlow {
       requestBody.organization_id = policy.organizationId;
     }
 
+    // Wire-canonical fields surfaced in the v6 alignment sweep.
+    if (policy.priority !== undefined) {
+      requestBody.priority = policy.priority;
+    }
+    if (policy.tags !== undefined) {
+      requestBody.tags = policy.tags;
+    }
+
     return this.policyRequest<StaticPolicy>('POST', '/api/v1/static-policies', requestBody);
   }
 
@@ -2940,10 +2967,19 @@ export class AxonFlow {
     const response = await this.policyRequest<{
       policy_id: string;
       versions: Array<{
+        // Wire-canonical fields (server actually emits these per
+        // platform/agent/policy_types.go::StaticPolicyVersion):
+        id?: string;
+        policy_id?: string;
         version: number;
         changed_by?: string;
         changed_at: string;
         change_type: string;
+        change_summary?: string;
+        snapshot?: Record<string, unknown>;
+        // Legacy keys the previous transformer read; kept on the
+        // inline type so a server that still emits them doesn't
+        // type-error, even though current spec doesn't.
         change_description?: string;
         previous_values?: Record<string, unknown>;
         new_values?: Record<string, unknown>;
@@ -2951,12 +2987,21 @@ export class AxonFlow {
       count: number;
     }>('GET', `/api/v1/static-policies/${id}/versions`);
 
-    // Transform snake_case API response to camelCase
+    // Transform snake_case API response to camelCase, populating
+    // both the wire-canonical fields (`id`, `policy_id`,
+    // `change_summary`, `snapshot`) and the legacy aliases (kept for
+    // back-compat; will read undefined on a current server).
     return response.versions.map(v => ({
+      id: v.id,
+      policy_id: v.policy_id,
       version: v.version,
       changedBy: v.changed_by,
       changedAt: v.changed_at,
       changeType: v.change_type as PolicyVersion['changeType'],
+      change_summary: v.change_summary,
+      snapshot: v.snapshot,
+      // @deprecated aliases — only populated if a legacy server
+      // still emits them; current servers don't.
       changeDescription: v.change_description,
       previousValues: v.previous_values,
       newValues: v.new_values,
@@ -4258,6 +4303,7 @@ export class AxonFlow {
         approval_required?: boolean;
         approved_by?: string;
         approved_at?: string;
+        retry_count?: number;
       }>;
     }>('GET', `/api/v1/executions/${executionId}`);
 
@@ -4301,6 +4347,7 @@ export class AxonFlow {
         approvalRequired: s.approval_required,
         approvedBy: s.approved_by,
         approvedAt: s.approved_at,
+        retryCount: s.retry_count,
       })),
     };
   }
@@ -4346,6 +4393,7 @@ export class AxonFlow {
         approval_required?: boolean;
         approved_by?: string;
         approved_at?: string;
+        retry_count?: number;
       }>
     >('GET', `/api/v1/executions/${executionId}/steps`);
 
@@ -4370,6 +4418,7 @@ export class AxonFlow {
       approvalRequired: s.approval_required,
       approvedBy: s.approved_by,
       approvedAt: s.approved_at,
+      retryCount: s.retry_count,
     }));
   }
 
@@ -4626,6 +4675,7 @@ export class AxonFlow {
         amountUsd: (a.amount_usd as number) ?? 0,
         message: (a.message as string) ?? '',
         createdAt: (a.created_at as string) ?? '',
+        acknowledged: a.acknowledged as boolean | undefined,
       })
     );
     return {
@@ -4708,6 +4758,7 @@ export class AxonFlow {
     );
     const items = ((response.items as Record<string, unknown>[]) ?? []).map(
       (i): UsageBreakdownItem => ({
+        groupBy: i.group_by as string | undefined,
         groupValue: (i.group_value as string) ?? '',
         costUsd: (i.cost_usd as number) ?? 0,
         percentage: (i.percentage as number) ?? 0,
@@ -4755,6 +4806,18 @@ export class AxonFlow {
         requestId: r.request_id as string | undefined,
         orgId: r.org_id as string | undefined,
         agentId: r.agent_id as string | undefined,
+        // Wire-canonical fields surfaced in the v6 alignment sweep.
+        // The `timestamp` legacy field below has always read undefined
+        // because the server emits `created_at`; both kept populated
+        // so existing readers of `timestamp` see no behavior change.
+        created_at: r.created_at as string | undefined,
+        success: r.success as boolean | undefined,
+        error_message: r.error_message as string | undefined,
+        latency_ms: r.latency_ms as number | undefined,
+        team_id: r.team_id as string | undefined,
+        tenant_id: r.tenant_id as string | undefined,
+        user_id: r.user_id as string | undefined,
+        workflow_id: r.workflow_id as string | undefined,
         timestamp: r.timestamp as string | undefined,
       })
     );
@@ -4813,6 +4876,8 @@ export class AxonFlow {
       alertThresholds: (response.alert_thresholds as number[]) ?? [],
       enabled: (response.enabled as boolean) ?? true,
       scopeId: response.scope_id as string | undefined,
+      tenant_id: response.tenant_id as string | undefined,
+      org_id: response.org_id as string | undefined,
       createdAt: response.created_at as string | undefined,
       updatedAt: response.updated_at as string | undefined,
     };
@@ -6268,6 +6333,7 @@ export class AxonFlow {
       description: data.description,
       status: data.status,
       remediation: data.remediation,
+      article: data.article,
       dueDate: data.due_date ? new Date(data.due_date) : undefined,
     };
   }

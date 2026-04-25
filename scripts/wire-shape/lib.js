@@ -27,7 +27,47 @@ const YAML = require('yaml');
 
 const SDK_ROOT = path.resolve(__dirname, '..', '..');
 const SRC_DIR = path.join(SDK_ROOT, 'src');
+const CLIENT_TS = path.join(SRC_DIR, 'client.ts');
 const BASELINE_PATH = path.join(SDK_ROOT, 'tests', 'fixtures', 'wire-shape-baseline.json');
+
+/**
+ * Convert a camelCase identifier to snake_case. Handles three boundaries:
+ * - acronym → word: `AIRequest` → `AI_Request` (preserves consecutive caps)
+ * - lowercase → uppercase: `myField` → `my_Field`
+ * - lowercase letter → digit: `per1k` → `per_1k`
+ *
+ * Digit → lowercase letter is intentionally NOT a boundary so that
+ * `1k` stays as a unit-suffix (matches OpenAPI convention `input_per_1k`,
+ * `tokens_per_1k`, etc.).
+ */
+function toSnakeCase(s) {
+  return s
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .replace(/([a-z])(\d)/g, '$1_$2')
+    .toLowerCase();
+}
+
+/**
+ * Read src/client.ts (the hand-rolled snake_case ↔ camelCase
+ * transformer surface) and return a Set of every snake_case identifier
+ * that appears anywhere in the file. Used as the safety-net check for
+ * the case-normalizer below: we only treat a TS interface field as
+ * "bridged to its snake_case wire form" if the snake form actually
+ * appears in client.ts. Without this guard a missing transformer would
+ * pass the gate by silent normalization.
+ */
+function loadTransformerEvidence() {
+  if (!fs.existsSync(CLIENT_TS)) {
+    return new Set();
+  }
+  const content = fs.readFileSync(CLIENT_TS, 'utf8');
+  // Snake-case-shaped identifier: starts with a lowercase letter, must
+  // contain at least one underscore, lowercase + digits + underscores
+  // only. Avoids matching uppercase constants like `MAX_RETRIES`.
+  const matches = content.match(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g) || [];
+  return new Set(matches);
+}
 
 /**
  * Load every *.yaml in specDir. Returns {merged, crossSpecDuplicates,
@@ -174,7 +214,84 @@ function discoverSDKInterfaces() {
     );
     ts.forEachChild(sourceFile, (node) => collectTopLevelTypes(node, result));
   });
-  return result;
+  return canonicalizeWireNames(result);
+}
+
+/**
+ * Canonicalize each TS interface field name to its on-the-wire form.
+ *
+ * The TS SDK convention is camelCase TS properties + hand-rolled
+ * snake_case transformers in client.ts. Comparing TS in-memory names
+ * to OpenAPI wire names produces false drift (cosmetic camelCase ↔
+ * snake_case mismatches that the transformers already bridge).
+ *
+ * For each TS field name:
+ *   - If it's already snake_case, keep it.
+ *   - If its snake_case form appears in client.ts (transformer
+ *     evidence), output the snake_case form.
+ *   - If it's camelCase but no transformer evidence is found, emit a
+ *     console.warn and KEEP the camelCase name. The validator will
+ *     then surface this as drift, which is the correct behavior — a
+ *     camelCase TS field with no bridging transformer means the SDK
+ *     is wired to read/write camelCase on the wire, which won't match
+ *     a snake_case OpenAPI spec.
+ *
+ * Mirrors the wire-name extraction the Python (pydantic alias),
+ * Go (`json:"…"` tag), and Java (`@JsonProperty(…)`) discovery layers
+ * already do natively.
+ */
+function canonicalizeWireNames(typeMap) {
+  const evidence = loadTransformerEvidence();
+  const out = {};
+  // Per-type unbridged tracker — used downstream to suppress noise on
+  // SDK-internal config types (every field camelCase, none bridged) and
+  // surface only the wire-bound types where a transformer is missing.
+  const unbridgedByType = {};
+  for (const [typeName, fields] of Object.entries(typeMap)) {
+    const canonical = new Set();
+    let bridged = 0;
+    const unbridgedHere = [];
+    for (const field of fields) {
+      const snake = toSnakeCase(field);
+      if (snake === field) {
+        // Already snake_case or a single word — no normalization needed.
+        canonical.add(field);
+        continue;
+      }
+      if (evidence.has(snake)) {
+        canonical.add(snake);
+        bridged += 1;
+      } else {
+        unbridgedHere.push(field);
+        canonical.add(field);
+      }
+    }
+    out[typeName] = [...canonical].sort();
+    // Only flag a type as having unbridged fields if at least one OTHER
+    // field in the same type IS bridged. If no field is bridged, the
+    // type is almost certainly SDK-internal (configs, options, adapter
+    // metadata) and the whole type isn't wire-bound — there's nothing
+    // for a transformer to bridge against.
+    if (unbridgedHere.length > 0 && bridged > 0) {
+      unbridgedByType[typeName] = unbridgedHere;
+    }
+  }
+  const unbridgedFlat = Object.entries(unbridgedByType).flatMap(([t, fs]) =>
+    fs.map((f) => `${t}.${f}`),
+  );
+  if (unbridgedFlat.length > 0) {
+    console.warn(
+      `wire-shape: ${unbridgedFlat.length} TS field(s) on wire-bound types ` +
+        `are camelCase with no snake_case transformer evidence in client.ts; ` +
+        `keeping camelCase (may surface as drift):\n  ${unbridgedFlat
+          .slice(0, 20)
+          .join('\n  ')}` +
+        (unbridgedFlat.length > 20
+          ? `\n  ... and ${unbridgedFlat.length - 20} more`
+          : ''),
+    );
+  }
+  return out;
 }
 
 function walkTsFiles(dir, cb) {
@@ -220,6 +337,31 @@ function hasExportModifier(node) {
 }
 
 function extractInterfaceProps(iface) {
+  // A `heritageClauses` (e.g. `interface Foo extends Bar`) means the
+  // interface inherits members from its parents that we won't see by
+  // walking iface.members alone. The wire-shape gate would then
+  // under-report fields and silently miss drift on inherited
+  // properties. The TS SDK has no such interfaces today; flag it
+  // loudly the first time one appears so coverage gets resolved
+  // before it ships, instead of slipping past as invisible
+  // under-counting.
+  if (iface.heritageClauses && iface.heritageClauses.length > 0) {
+    const parents = [];
+    for (const clause of iface.heritageClauses) {
+      for (const t of clause.types || []) {
+        const expr = t.expression;
+        if (expr && ts.isIdentifier(expr)) {
+          parents.push(expr.text);
+        }
+      }
+    }
+    console.warn(
+      `wire-shape: interface ${iface.name.text} extends [${parents.join(', ')}]; ` +
+        'inherited fields are NOT walked. Add explicit field flattening to ' +
+        'scripts/wire-shape/lib.js::extractInterfaceProps before merging an ' +
+        'extending wire interface, or wire-shape coverage will be incomplete.',
+    );
+  }
   const names = [];
   for (const member of iface.members) {
     const name = propertyName(member);
@@ -290,8 +432,19 @@ function writeBaseline(baseline) {
     fs.mkdirSync(dir, { recursive: true });
   }
   const tmp = `${BASELINE_PATH}.tmp.${process.pid}`;
-  fs.writeFileSync(tmp, JSON.stringify(baseline, null, 2) + '\n');
-  fs.renameSync(tmp, BASELINE_PATH);
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(baseline, null, 2) + '\n');
+    fs.renameSync(tmp, BASELINE_PATH);
+  } catch (e) {
+    // Don't leave a `.tmp.<pid>` sidecar behind — the next run from
+    // the same PID would collide and confuse a future writer.
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      /* tmp may not exist yet; ignore */
+    }
+    throw e;
+  }
 }
 
 function difference(a, b) {

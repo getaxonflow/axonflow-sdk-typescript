@@ -70,6 +70,8 @@ export interface Finding {
   description: string;
   status: FindingStatus;
   remediation?: string;
+  /** Regulatory article reference (e.g. MAS FEAT principle number). */
+  article?: string;
   dueDate?: Date;
 }
 

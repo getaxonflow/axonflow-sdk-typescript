@@ -104,6 +104,19 @@ function main() {
       crossProblems.push(lines.join('\n'));
     }
   }
+  // Reverse pass: a baselined cross-spec divergence that is no longer
+  // observed must be removed from the baseline. Otherwise the stale
+  // fingerprint shields a future reintroduction of the same old
+  // incompatible shape from the gate. (Mirrors Gate 2's reverse pass
+  // for intra_file_duplicates.)
+  for (const name of Object.keys(baselinedCross)) {
+    if (!crossSpecDuplicates[name]) {
+      crossProblems.push(
+        `  ${name}: baselined cross-spec divergence no longer observed — remove from ` +
+          `baseline.cross_spec_duplicates.${name} so a future reintroduction of the same shape is caught as new.`,
+      );
+    }
+  }
   if (crossProblems.length > 0) {
     console.error('Cross-spec schema divergence gate failed:\n');
     for (const p of crossProblems) {
@@ -223,7 +236,29 @@ function main() {
   }
 
   // Gate 4: registered-type coverage.
-  if (baseline.registered_types.length > 0) {
+  // After the first introduction, the baseline always has registered
+  // types — emptying the list would silently disable the rename-
+  // escape guard. Fail loudly on an empty list unless the baseline
+  // is itself empty (genuine first-pin / fresh-repo case where every
+  // baseline section is empty).
+  const baselineIsFresh =
+    baseline.registered_types.length === 0 &&
+    Object.keys(baseline.per_type_drift).length === 0 &&
+    Object.keys(baseline.cross_spec_duplicates).length === 0 &&
+    Object.keys(baseline.intra_file_duplicates).length === 0;
+  if (baseline.registered_types.length === 0 && !baselineIsFresh) {
+    console.error(
+      'baseline.registered_types is empty but other baseline sections are not.',
+    );
+    console.error(
+      'This combination silently disables the rename-escape gate. Regenerate',
+    );
+    console.error(
+      'tests/fixtures/wire-shape-baseline.json via scripts/wire-shape/refresh.js,',
+    );
+    console.error('or remove the file entirely if introducing a fresh baseline.');
+    errors += 1;
+  } else if (baseline.registered_types.length > 0) {
     const missingSDK = [];
     const missingSpec = [];
     for (const name of baseline.registered_types) {

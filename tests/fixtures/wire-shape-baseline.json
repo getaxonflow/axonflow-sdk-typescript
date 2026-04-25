@@ -266,270 +266,75 @@
   "per_type_drift": {
     "AISystemRegistry": {
       "sdk_only": [
-        "businessOwner",
-        "createdAt",
-        "createdBy",
-        "customerImpact",
-        "humanReliance",
-        "materialityClassification",
-        "modelComplexity",
-        "orgId",
-        "ownerTeam",
-        "systemId",
-        "systemName",
-        "technicalOwner",
-        "updatedAt",
-        "useCase"
+        "materiality_classification"
       ],
       "spec_only": [
-        "business_owner",
-        "created_at",
-        "created_by",
-        "customer_impact",
-        "human_reliance",
-        "materiality",
-        "model_complexity",
-        "org_id",
-        "owner_team",
-        "system_id",
-        "system_name",
-        "technical_owner",
-        "updated_at",
-        "use_case"
+        "materiality"
       ]
     },
     "AuditLogEntry": {
       "sdk_only": [
-        "clientId",
-        "latencyMs",
         "metadata",
         "model",
-        "policyViolations",
-        "querySummary",
-        "requestId",
-        "requestType",
-        "riskScore",
-        "tenantId",
-        "tokensUsed",
-        "userEmail"
+        "policy_violations"
       ],
-      "spec_only": [
-        "client_id",
-        "latency_ms",
-        "query_summary",
-        "request_id",
-        "request_type",
-        "risk_score",
-        "tenant_id",
-        "tokens_used",
-        "user_email"
-      ]
+      "spec_only": []
     },
     "AuditSearchRequest": {
       "sdk_only": [
-        "clientId",
-        "decisionId",
-        "endTime",
+        "decision_id",
         "offset",
-        "overrideId",
-        "policyName",
-        "requestType",
-        "startTime",
-        "userEmail"
+        "override_id",
+        "policy_name"
       ],
-      "spec_only": [
-        "client_id",
-        "end_time",
-        "request_type",
-        "start_time",
-        "user_email"
-      ]
-    },
-    "AuditToolCallRequest": {
-      "sdk_only": [
-        "durationMs",
-        "errorMessage",
-        "policiesApplied",
-        "stepId",
-        "toolName",
-        "toolType",
-        "userId",
-        "workflowId"
-      ],
-      "spec_only": [
-        "duration_ms",
-        "error_message",
-        "policies_applied",
-        "step_id",
-        "tool_name",
-        "tool_type",
-        "user_id",
-        "workflow_id"
-      ]
-    },
-    "AuditToolCallResponse": {
-      "sdk_only": [
-        "auditId"
-      ],
-      "spec_only": [
-        "audit_id"
-      ]
+      "spec_only": []
     },
     "Budget": {
       "sdk_only": [
-        "alertThresholds",
-        "createdAt",
-        "enabled",
-        "limitUsd",
-        "onExceed",
-        "scopeId",
-        "updatedAt"
+        "enabled"
       ],
-      "spec_only": [
-        "alert_thresholds",
-        "created_at",
-        "limit_usd",
-        "on_exceed",
-        "org_id",
-        "scope_id",
-        "tenant_id",
-        "updated_at"
-      ]
-    },
-    "BudgetAlert": {
-      "sdk_only": [
-        "alertType",
-        "amountUsd",
-        "budgetId",
-        "createdAt",
-        "percentageReached"
-      ],
-      "spec_only": [
-        "acknowledged",
-        "alert_type",
-        "amount_usd",
-        "budget_id",
-        "created_at",
-        "percentage_reached"
-      ]
-    },
-    "BudgetCheckRequest": {
-      "sdk_only": [
-        "agentId",
-        "orgId",
-        "teamId",
-        "userId",
-        "workflowId"
-      ],
-      "spec_only": [
-        "agent_id",
-        "org_id",
-        "team_id",
-        "user_id",
-        "workflow_id"
-      ]
-    },
-    "BudgetStatus": {
-      "sdk_only": [
-        "isBlocked",
-        "isExceeded",
-        "periodEnd",
-        "periodStart",
-        "remainingUsd",
-        "usedUsd"
-      ],
-      "spec_only": [
-        "is_blocked",
-        "is_exceeded",
-        "period_end",
-        "period_start",
-        "remaining_usd",
-        "used_usd"
-      ]
+      "spec_only": []
     },
     "CancelPlanResponse": {
       "sdk_only": [
-        "message",
-        "planId"
+        "message"
       ],
-      "spec_only": [
-        "plan_id",
-        "success"
-      ]
-    },
-    "CircuitBreakerConfigUpdate": {
-      "sdk_only": [
-        "defaultTimeoutSeconds",
-        "enableAutoRecovery",
-        "errorThreshold",
-        "maxTimeoutSeconds",
-        "tenantId",
-        "violationThreshold",
-        "windowSeconds"
-      ],
-      "spec_only": [
-        "default_timeout_seconds",
-        "enable_auto_recovery",
-        "error_threshold",
-        "max_timeout_seconds",
-        "tenant_id",
-        "violation_threshold",
-        "window_seconds"
-      ]
+      "spec_only": []
     },
     "ConfigureKillSwitchRequest": {
       "sdk_only": [
-        "accuracyThreshold",
-        "autoTriggerEnabled",
-        "biasThreshold",
-        "errorRateThreshold",
         "triggerConditions"
       ],
-      "spec_only": [
-        "accuracy_threshold",
-        "auto_trigger_enabled",
-        "bias_threshold",
-        "error_rate_threshold"
-      ]
+      "spec_only": []
     },
     "CreateAssessmentRequest": {
       "sdk_only": [
-        "accountabilityDetails",
-        "accountabilityScore",
-        "assessmentDate",
-        "assessmentType",
-        "ethicsDetails",
-        "ethicsScore",
-        "fairnessDetails",
-        "fairnessScore",
+        "accountability_details",
+        "accountability_score",
+        "assessment_date",
+        "ethics_details",
+        "ethics_score",
+        "fairness_details",
+        "fairness_score",
         "findings",
         "recommendations",
-        "systemId",
-        "transparencyDetails",
-        "transparencyScore"
+        "transparency_details",
+        "transparency_score"
       ],
-      "spec_only": [
-        "assessment_type",
-        "system_id"
-      ]
+      "spec_only": []
     },
     "CreateStaticPolicyRequest": {
       "sdk_only": [
-        "organizationId"
+        "organization_id"
       ],
-      "spec_only": [
-        "priority",
-        "tags"
-      ]
+      "spec_only": []
     },
     "CreateWorkflowResponse": {
       "sdk_only": [
         "created_at",
         "source"
       ],
-      "spec_only": [
-        "started_at"
-      ]
+      "spec_only": []
     },
     "DynamicPolicy": {
       "sdk_only": [
@@ -564,206 +369,43 @@
       "sdk_only": [
         "reason"
       ],
-      "spec_only": [
-        "message"
-      ]
+      "spec_only": []
     },
     "EffectivePoliciesResponse": {
       "sdk_only": [
+        "dynamic",
         "inheritance",
         "policies"
       ],
-      "spec_only": [
-        "computed_at",
-        "organization_id",
-        "static",
-        "tenant_id"
-      ]
+      "spec_only": []
     },
     "ExecutionSnapshot": {
       "sdk_only": [
-        "approvalRequired",
-        "approvedAt",
-        "approvedBy",
-        "completedAt",
-        "costUsd",
-        "durationMs",
-        "errorMessage",
-        "policiesChecked",
-        "policiesTriggered",
-        "requestId",
-        "startedAt",
-        "stepIndex",
-        "stepName",
-        "tokensIn",
-        "tokensOut"
+        "approval_required",
+        "approved_at",
+        "approved_by"
       ],
-      "spec_only": [
-        "completed_at",
-        "cost_usd",
-        "duration_ms",
-        "error_message",
-        "policies_checked",
-        "policies_triggered",
-        "request_id",
-        "retry_count",
-        "started_at",
-        "step_index",
-        "step_name",
-        "tokens_in",
-        "tokens_out"
-      ]
+      "spec_only": []
     },
     "ExecutionSummary": {
       "sdk_only": [
-        "completedAt",
-        "completedSteps",
-        "durationMs",
-        "errorMessage",
-        "inputSummary",
-        "orgId",
-        "outputSummary",
-        "requestId",
-        "startedAt",
-        "tenantId",
-        "totalCostUsd",
-        "totalSteps",
-        "totalTokens",
-        "userId",
-        "workflowName"
+        "input_summary",
+        "output_summary"
       ],
-      "spec_only": [
-        "completed_at",
-        "completed_steps",
-        "duration_ms",
-        "error_message",
-        "org_id",
-        "request_id",
-        "started_at",
-        "tenant_id",
-        "total_cost_usd",
-        "total_steps",
-        "total_tokens",
-        "user_id",
-        "workflow_name"
-      ]
+      "spec_only": []
     },
     "ExfiltrationCheckInfo": {
       "sdk_only": [
         "within_limits"
       ],
-      "spec_only": [
-        "exceeded",
-        "limit_type"
-      ]
-    },
-    "FEATAssessment": {
-      "sdk_only": [
-        "accountabilityDetails",
-        "accountabilityScore",
-        "approvedAt",
-        "approvedBy",
-        "assessmentDate",
-        "assessmentType",
-        "createdAt",
-        "createdBy",
-        "ethicsDetails",
-        "ethicsScore",
-        "fairnessDetails",
-        "fairnessScore",
-        "orgId",
-        "overallScore",
-        "systemId",
-        "transparencyDetails",
-        "transparencyScore",
-        "updatedAt",
-        "validUntil"
-      ],
-      "spec_only": [
-        "accountability_details",
-        "accountability_score",
-        "approved_at",
-        "approved_by",
-        "assessment_date",
-        "assessment_type",
-        "created_at",
-        "created_by",
-        "ethics_details",
-        "ethics_score",
-        "fairness_details",
-        "fairness_score",
-        "org_id",
-        "overall_score",
-        "system_id",
-        "transparency_details",
-        "transparency_score",
-        "updated_at",
-        "valid_until"
-      ]
+      "spec_only": []
     },
     "Finding": {
       "sdk_only": [
-        "dueDate",
+        "due_date",
         "pillar"
       ],
-      "spec_only": [
-        "article"
-      ]
-    },
-    "KillSwitch": {
-      "sdk_only": [
-        "accuracyThreshold",
-        "autoTriggerEnabled",
-        "biasThreshold",
-        "createdAt",
-        "errorRateThreshold",
-        "orgId",
-        "restoredAt",
-        "restoredBy",
-        "systemId",
-        "triggeredAt",
-        "triggeredBy",
-        "triggeredReason",
-        "updatedAt"
-      ],
-      "spec_only": [
-        "accuracy_threshold",
-        "auto_trigger_enabled",
-        "bias_threshold",
-        "created_at",
-        "error_rate_threshold",
-        "org_id",
-        "restored_at",
-        "restored_by",
-        "system_id",
-        "triggered_at",
-        "triggered_by",
-        "triggered_reason",
-        "updated_at"
-      ]
-    },
-    "KillSwitchEvent": {
-      "sdk_only": [
-        "createdAt",
-        "createdBy",
-        "eventData",
-        "eventType",
-        "killSwitchId"
-      ],
-      "spec_only": [
-        "created_at",
-        "created_by",
-        "event_data",
-        "event_type",
-        "kill_switch_id"
-      ]
-    },
-    "ListWorkflowsResponse": {
-      "sdk_only": [],
-      "spec_only": [
-        "limit",
-        "offset"
-      ]
+      "spec_only": []
     },
     "MarkStepCompletedRequest": {
       "sdk_only": [
@@ -771,136 +413,35 @@
       ],
       "spec_only": []
     },
-    "MediaAnalysisResponse": {
-      "sdk_only": [
-        "analysisTimeMs",
-        "totalCostUsd"
-      ],
-      "spec_only": [
-        "analysis_time_ms",
-        "total_cost_usd"
-      ]
-    },
-    "MediaGovernanceConfig": {
-      "sdk_only": [
-        "allowedAnalyzers",
-        "tenantId",
-        "updatedAt",
-        "updatedBy"
-      ],
-      "spec_only": [
-        "allowed_analyzers",
-        "tenant_id",
-        "updated_at",
-        "updated_by"
-      ]
-    },
-    "MediaGovernanceStatus": {
-      "sdk_only": [
-        "enabledByDefault",
-        "perTenantControl"
-      ],
-      "spec_only": [
-        "enabled_by_default",
-        "per_tenant_control"
-      ]
-    },
-    "ModelPricing": {
-      "sdk_only": [
-        "inputPer1k",
-        "outputPer1k"
-      ],
-      "spec_only": [
-        "input_per_1k",
-        "output_per_1k"
-      ]
-    },
     "PlanResponse": {
       "sdk_only": [
         "complexity",
         "domain",
         "parallel",
-        "planId",
         "status"
       ],
-      "spec_only": [
-        "error",
-        "plan_id",
-        "policy_info",
-        "result",
-        "success",
-        "version",
-        "workflow_execution_id"
-      ]
-    },
-    "PlanVersionEntry": {
-      "sdk_only": [
-        "changeSummary",
-        "changeType",
-        "changedAt",
-        "changedBy"
-      ],
-      "spec_only": [
-        "change_summary",
-        "change_type",
-        "changed_at",
-        "changed_by"
-      ]
-    },
-    "PlanVersionsResponse": {
-      "sdk_only": [
-        "planId"
-      ],
-      "spec_only": [
-        "plan_id"
-      ]
+      "spec_only": []
     },
     "Policy": {
       "sdk_only": [
         "rules"
       ],
-      "spec_only": [
-        "action",
-        "actions",
-        "category",
-        "conditions",
-        "created_at",
-        "created_by",
-        "description",
-        "organization_id",
-        "pattern",
-        "policy_id",
-        "severity",
-        "tenant_id",
-        "tier",
-        "updated_at",
-        "updated_by",
-        "version"
-      ]
+      "spec_only": []
     },
     "PolicyEvaluationResult": {
       "sdk_only": [
-        "appliedPolicies",
         "databaseAccessed",
         "processingTimeMs",
-        "requiredActions",
-        "riskScore"
+        "requiredActions"
       ],
-      "spec_only": [
-        "applied_policies",
-        "database_accessed",
-        "processing_time_ms",
-        "required_actions",
-        "risk_score"
-      ]
+      "spec_only": []
     },
     "PolicyInfo": {
       "sdk_only": [
-        "codeArtifact",
-        "policiesEvaluated",
-        "processingTime",
-        "staticChecks",
-        "tenantId"
+        "code_artifact",
+        "processing_time",
+        "static_checks",
+        "tenant_id"
       ],
       "spec_only": [
         "block_reason",
@@ -908,100 +449,23 @@
         "dynamic_policy_info",
         "exfiltration_check",
         "matched_policies",
-        "policies_evaluated",
         "processing_time_ms",
         "redactions_applied"
-      ]
-    },
-    "PolicyMatch": {
-      "sdk_only": [
-        "policyId",
-        "policyName"
-      ],
-      "spec_only": [
-        "policy_id",
-        "policy_name"
       ]
     },
     "PolicyOverride": {
       "sdk_only": [
         "active"
       ],
-      "spec_only": [
-        "enabled_override",
-        "id"
-      ]
+      "spec_only": []
     },
     "PolicyVersion": {
       "sdk_only": [
-        "changeDescription",
-        "changeType",
-        "changedAt",
-        "changedBy",
-        "newValues",
-        "previousValues"
+        "change_description",
+        "new_values",
+        "previous_values"
       ],
-      "spec_only": [
-        "change_summary",
-        "change_type",
-        "changed_at",
-        "changed_by",
-        "id",
-        "policy_id",
-        "snapshot"
-      ]
-    },
-    "RateLimitInfo": {
-      "sdk_only": [
-        "resetAt"
-      ],
-      "spec_only": [
-        "reset_at"
-      ]
-    },
-    "RegisterSystemRequest": {
-      "sdk_only": [
-        "businessOwner",
-        "customerImpact",
-        "humanReliance",
-        "modelComplexity",
-        "ownerTeam",
-        "systemId",
-        "systemName",
-        "technicalOwner",
-        "useCase"
-      ],
-      "spec_only": [
-        "business_owner",
-        "customer_impact",
-        "human_reliance",
-        "model_complexity",
-        "owner_team",
-        "system_id",
-        "system_name",
-        "technical_owner",
-        "use_case"
-      ]
-    },
-    "RegistrySummary": {
-      "sdk_only": [
-        "activeSystems",
-        "byStatus",
-        "byUseCase",
-        "highMaterialityCount",
-        "lowMaterialityCount",
-        "mediumMaterialityCount",
-        "totalSystems"
-      ],
-      "spec_only": [
-        "active_systems",
-        "by_status",
-        "by_use_case",
-        "high_materiality_count",
-        "low_materiality_count",
-        "medium_materiality_count",
-        "total_systems"
-      ]
+      "spec_only": []
     },
     "ResumePlanResponse": {
       "sdk_only": [
@@ -1009,258 +473,63 @@
         "message",
         "nextStep",
         "nextStepName",
-        "planId",
         "stepResult",
-        "totalSteps",
-        "workflowId"
+        "total_steps",
+        "workflow_id"
       ],
-      "spec_only": [
-        "plan_id",
-        "result"
-      ]
-    },
-    "RollbackPlanResponse": {
-      "sdk_only": [
-        "planId",
-        "previousVersion"
-      ],
-      "spec_only": [
-        "plan_id",
-        "previous_version"
-      ]
+      "spec_only": []
     },
     "StaticPolicy": {
       "sdk_only": [
-        "createdAt",
-        "hasOverride",
-        "organizationId",
-        "tenantId",
-        "updatedAt"
+        "hasOverride"
       ],
-      "spec_only": [
-        "created_at",
-        "has_override",
-        "organization_id",
-        "policy_id",
-        "priority",
-        "tenant_id",
-        "updated_at"
-      ]
-    },
-    "StepGateRequest": {
-      "sdk_only": [],
-      "spec_only": [
-        "cost_usd",
-        "tokens_in",
-        "tokens_out"
-      ]
+      "spec_only": []
     },
     "StepGateResponse": {
       "sdk_only": [
-        "policiesEvaluated",
         "policiesMatched"
       ],
-      "spec_only": [
-        "decision_id",
-        "policies_evaluated",
-        "policies_matched"
-      ]
-    },
-    "TimelineEntry": {
-      "sdk_only": [
-        "completedAt",
-        "durationMs",
-        "hasApproval",
-        "hasError",
-        "startedAt",
-        "stepIndex",
-        "stepName"
-      ],
-      "spec_only": [
-        "completed_at",
-        "duration_ms",
-        "has_approval",
-        "has_error",
-        "started_at",
-        "step_index",
-        "step_name"
-      ]
-    },
-    "TokenUsage": {
-      "sdk_only": [
-        "completionTokens",
-        "promptTokens",
-        "totalTokens"
-      ],
-      "spec_only": [
-        "completion_tokens",
-        "prompt_tokens",
-        "total_tokens"
-      ]
+      "spec_only": []
     },
     "UpdateAssessmentRequest": {
       "sdk_only": [
-        "accountabilityDetails",
-        "accountabilityScore",
-        "ethicsDetails",
-        "ethicsScore",
-        "fairnessDetails",
-        "fairnessScore",
         "status",
-        "transparencyDetails",
-        "transparencyScore",
-        "validUntil"
+        "valid_until"
       ],
-      "spec_only": [
-        "accountability_details",
-        "accountability_score",
-        "ethics_details",
-        "ethics_score",
-        "fairness_details",
-        "fairness_score",
-        "transparency_details",
-        "transparency_score"
-      ]
-    },
-    "UpdatePlanRequest": {
-      "sdk_only": [
-        "executionMode"
-      ],
-      "spec_only": [
-        "execution_mode",
-        "metadata"
-      ]
-    },
-    "UpdatePlanResponse": {
-      "sdk_only": [
-        "planId"
-      ],
-      "spec_only": [
-        "plan_id"
-      ]
+      "spec_only": []
     },
     "UpdateStaticPolicyRequest": {
       "sdk_only": [
         "category"
       ],
-      "spec_only": [
-        "priority",
-        "tags"
-      ]
+      "spec_only": []
     },
     "UpdateSystemRequest": {
       "sdk_only": [
-        "businessOwner",
-        "customerImpact",
-        "humanReliance",
-        "modelComplexity",
-        "ownerTeam",
         "status",
-        "systemName",
-        "technicalOwner",
-        "useCase"
+        "use_case"
       ],
-      "spec_only": [
-        "business_owner",
-        "customer_impact",
-        "human_reliance",
-        "model_complexity",
-        "owner_team",
-        "system_name",
-        "technical_owner"
-      ]
+      "spec_only": []
     },
     "UsageBreakdown": {
       "sdk_only": [
-        "groupBy",
         "period",
-        "periodEnd",
-        "periodStart",
-        "totalCostUsd"
+        "period_end",
+        "period_start"
       ],
-      "spec_only": [
-        "group_by",
-        "total_cost_usd"
-      ]
-    },
-    "UsageBreakdownItem": {
-      "sdk_only": [
-        "costUsd",
-        "groupValue",
-        "requestCount",
-        "tokensIn",
-        "tokensOut"
-      ],
-      "spec_only": [
-        "cost_usd",
-        "group_by",
-        "group_value",
-        "request_count",
-        "tokens_in",
-        "tokens_out"
-      ]
+      "spec_only": []
     },
     "UsageRecord": {
       "sdk_only": [
-        "agentId",
-        "costUsd",
-        "orgId",
-        "requestId",
-        "timestamp",
-        "tokensIn",
-        "tokensOut"
+        "timestamp"
       ],
-      "spec_only": [
-        "agent_id",
-        "cost_usd",
-        "created_at",
-        "error_message",
-        "latency_ms",
-        "org_id",
-        "request_id",
-        "success",
-        "team_id",
-        "tenant_id",
-        "tokens_in",
-        "tokens_out",
-        "user_id",
-        "workflow_id"
-      ]
+      "spec_only": []
     },
     "UsageSummary": {
       "sdk_only": [
-        "averageCostPerRequest",
-        "period",
-        "periodEnd",
-        "periodStart",
-        "totalCostUsd",
-        "totalRequests",
-        "totalTokensIn",
-        "totalTokensOut"
+        "period"
       ],
-      "spec_only": [
-        "average_cost_per_request",
-        "period_end",
-        "period_start",
-        "total_cost_usd",
-        "total_requests",
-        "total_tokens_in",
-        "total_tokens_out"
-      ]
-    },
-    "WebhookSubscription": {
-      "sdk_only": [],
-      "spec_only": [
-        "org_id",
-        "secret",
-        "tenant_id"
-      ]
-    },
-    "WorkflowStatusResponse": {
-      "sdk_only": [],
-      "spec_only": [
-        "metadata"
-      ]
+      "spec_only": []
     },
     "WorkflowStepInfo": {
       "sdk_only": [

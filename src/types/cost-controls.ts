@@ -42,6 +42,10 @@ export interface Budget {
   alertThresholds: number[];
   enabled: boolean;
   scopeId?: string;
+  /** Tenant ID that owns this budget. */
+  tenant_id?: string;
+  /** Organization ID that owns this budget. */
+  org_id?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -73,6 +77,8 @@ export interface BudgetAlert {
   amountUsd: number;
   message: string;
   createdAt: string;
+  /** Whether the alert has been dismissed by an operator. */
+  acknowledged?: boolean;
 }
 
 export interface BudgetAlertsResponse {
@@ -109,6 +115,8 @@ export interface UsageSummary {
 }
 
 export interface UsageBreakdownItem {
+  /** Dimension name (provider, model, agent, etc.). */
+  groupBy?: string;
   groupValue: string;
   costUsd: number;
   percentage: number;
@@ -143,6 +151,27 @@ export interface UsageRecord {
   requestId?: string;
   orgId?: string;
   agentId?: string;
+  /** When the record was created (canonical wire field). */
+  created_at?: string;
+  /** Whether the underlying request succeeded. */
+  success?: boolean;
+  /** Error message if the request failed. */
+  error_message?: string;
+  /** Request latency in milliseconds. */
+  latency_ms?: number;
+  /** Team ID associated with the request. */
+  team_id?: string;
+  /** Tenant ID. */
+  tenant_id?: string;
+  /** User ID. */
+  user_id?: string;
+  /** Workflow ID if this record came from a workflow execution. */
+  workflow_id?: string;
+  /**
+   * @deprecated The transformer reads `r.timestamp`, but the wire
+   * emits `created_at`. So this field has always read `undefined`.
+   * Use `created_at`. Removed in v7.
+   */
   timestamp?: string;
 }
 

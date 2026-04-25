@@ -88,8 +88,14 @@ export type PolicySeverity = 'critical' | 'high' | 'medium' | 'low';
  * Static policy definition
  */
 export interface StaticPolicy {
-  /** Unique policy identifier */
+  /** Unique policy UUID */
   id: string;
+  /**
+   * Human-readable policy identifier (e.g. `sys_sqli_union_select`).
+   * Distinct from `id` which is the UUID; use this when referencing
+   * policies in code or audit logs.
+   */
+  policy_id?: string;
   /** Human-readable policy name */
   name: string;
   /** Policy description */
@@ -106,6 +112,8 @@ export interface StaticPolicy {
   enabled: boolean;
   /** Action to take when pattern matches */
   action: PolicyAction;
+  /** Evaluation order — lower values are evaluated first. */
+  priority?: number;
   /** Organization ID (for organization-tier policies) */
   organizationId?: string;
   /** Tenant ID (for tenant-tier policies) */
@@ -116,10 +124,21 @@ export interface StaticPolicy {
   updatedAt: string;
   /** Version number for tracking changes */
   version?: number;
-  /** Whether this policy has an active override */
-  hasOverride?: boolean;
-  /** Active override details */
+  /**
+   * Whether this policy has an active override (canonical wire-shape name).
+   */
+  has_override?: boolean;
+  /**
+   * Active override details
+   */
   override?: PolicyOverride;
+  /**
+   * @deprecated Use `has_override`. The `policyRequest` decoder is a
+   * JSON.parse passthrough — the wire field is `has_override`, so
+   * `hasOverride` has always read `undefined`. This alias is kept
+   * for type-compat and will be removed in v7.
+   */
+  hasOverride?: boolean;
 }
 
 /**
@@ -168,6 +187,10 @@ export interface CreateStaticPolicyRequest {
   enabled?: boolean;
   /** Action to take when pattern matches */
   action?: PolicyAction;
+  /** Evaluation order — lower values are evaluated first. */
+  priority?: number;
+  /** Free-form tags for grouping and filtering. */
+  tags?: string[];
 }
 
 /**
@@ -188,6 +211,10 @@ export interface UpdateStaticPolicyRequest {
   enabled?: boolean;
   /** Updated action */
   action?: PolicyAction;
+  /** Updated evaluation priority. */
+  priority?: number;
+  /** Updated tags. */
+  tags?: string[];
 }
 
 // ============================================================================
@@ -198,6 +225,8 @@ export interface UpdateStaticPolicyRequest {
  * Policy override configuration
  */
 export interface PolicyOverride {
+  /** Override identifier (required to revoke a specific override). */
+  id?: string;
   /** Policy ID this override applies to */
   policy_id: string;
   /** Override action */
@@ -210,8 +239,14 @@ export interface PolicyOverride {
   created_at: string;
   /** When the override expires (optional) */
   expires_at?: string;
-  /** Whether the override is currently active */
-  active: boolean;
+  /** Override enabled status (null = no override). Wire-shape canonical name. */
+  enabled_override?: boolean;
+  /**
+   * @deprecated Use `enabled_override`. The decoder is JSON.parse
+   * passthrough — the wire emits `enabled_override`, so `active` has
+   * always read `undefined`. Removed in v7.
+   */
+  active?: boolean;
 }
 
 /**
@@ -412,6 +447,10 @@ export interface TestPatternMatch {
  * Policy version history entry
  */
 export interface PolicyVersion {
+  /** Snapshot identifier (UUID). */
+  id?: string;
+  /** Policy ID this snapshot belongs to. */
+  policy_id?: string;
   /** Version number */
   version: number;
   /** Who made the change */
@@ -420,11 +459,27 @@ export interface PolicyVersion {
   changedAt: string;
   /** Type of change */
   changeType: 'created' | 'updated' | 'enabled' | 'disabled' | 'deleted';
-  /** Description of changes */
+  /** Summary of changes (canonical wire field). */
+  change_summary?: string;
+  /** Complete policy state at this version (canonical wire field). */
+  snapshot?: Record<string, unknown>;
+  /**
+   * @deprecated The transformer reads `change_description` from the
+   * wire, but the server actually emits `change_summary`. So this
+   * field has always read `undefined`. Use `change_summary`. Removed
+   * in v7.
+   */
   changeDescription?: string;
-  /** Previous values (for updates) */
+  /**
+   * @deprecated The transformer reads `previous_values` from the wire,
+   * but the server actually emits the full `snapshot` object. So this
+   * field has always read `undefined`. Use `snapshot`. Removed in v7.
+   */
   previousValues?: Record<string, unknown>;
-  /** New values */
+  /**
+   * @deprecated Same as `previousValues` — the wire emits a single
+   * `snapshot`, not before/after diffs. Use `snapshot`. Removed in v7.
+   */
   newValues?: Record<string, unknown>;
 }
 
@@ -445,13 +500,36 @@ export interface EffectivePoliciesOptions {
 }
 
 /**
- * Response containing effective policies with tier inheritance applied
+ * Response containing effective policies with tier inheritance applied.
+ *
+ * The wire emits this as a tier-stratified response with separate
+ * `static` and `dynamic` arrays plus tenant/org scope and a computed-at
+ * timestamp. The legacy `policies` flat array and `inheritance` summary
+ * are SDK-side conveniences — the wire-canonical fields are exposed
+ * directly below.
  */
 export interface EffectivePoliciesResponse {
-  /** Effective policies after tier inheritance */
-  policies: StaticPolicy[] | DynamicPolicy[];
-  /** Inheritance chain information */
-  inheritance: {
+  /** Effective static policies after tier inheritance (wire-canonical). */
+  static?: StaticPolicy[];
+  /** Effective dynamic policies after tier inheritance (wire-canonical). */
+  dynamic?: DynamicPolicy[];
+  /** Tenant ID this set was computed for. */
+  tenant_id?: string;
+  /** Organization ID this set was computed for (Enterprise). */
+  organization_id?: string;
+  /** When this effective set was computed (ISO 8601). */
+  computed_at?: string;
+  /**
+   * Combined effective policies (legacy flat shape). Prefer `static`
+   * and `dynamic` for new code.
+   */
+  policies?: StaticPolicy[] | DynamicPolicy[];
+  /**
+   * Inheritance chain summary (legacy SDK-side computed view; not on
+   * the wire). Populated by the SDK when the legacy `policies` shape
+   * is decoded.
+   */
+  inheritance?: {
     /** System policies count */
     systemPolicies: number;
     /** Organization policies count */

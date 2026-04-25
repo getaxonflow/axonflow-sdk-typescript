@@ -66,8 +66,17 @@ export interface ExfiltrationCheckInfo {
   bytes_returned: number;
   /** Configured maximum bytes per response */
   byte_limit: number;
-  /** Whether the response is within configured limits */
-  within_limits: boolean;
+  /** Whether any exfiltration limit was exceeded. */
+  exceeded?: boolean;
+  /** Type of limit that was exceeded (rows / bytes / none). */
+  limit_type?: 'rows' | 'bytes' | 'none';
+  /**
+   * @deprecated The `agent`'s response is JSON.parse passthrough — the
+   * wire emits `exceeded` and `limit_type`, not `within_limits`. So
+   * this field has always read `undefined`. Use `exceeded` (logical
+   * negation) and `limit_type` instead. Removed in v7.
+   */
+  within_limits?: boolean;
 }
 
 /**
@@ -98,7 +107,13 @@ export interface DynamicPolicyMatch {
   policy_type: string;
   /** Action taken (allow, block, log, etc.) */
   action: string;
-  /** Context for the policy match */
+  /** Optional message from the policy evaluation. */
+  message?: string;
+  /**
+   * @deprecated The wire field is `message`. JSON.parse passthrough
+   * never populated `reason`; it has always read `undefined`.
+   * Use `message`. Removed in v7.
+   */
   reason?: string;
 }
 
