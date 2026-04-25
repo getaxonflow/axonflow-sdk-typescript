@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [6.1.0] - 2026-04-25 — Plugin Batch 1 / ADR-043 explainability fields on MCP responses
+## [6.1.0] - 2026-04-25 — Plugin Batch 1 explainability fields on MCP responses
 
-Minor release. Surfaces fields the AxonFlow agent has emitted since v7.1.0 (Plugin Batch 1 / ADR-042 / ADR-043) but the SDK didn't declare. Pure Cat B field-additions on existing methods — no new SDK methods, no breaking changes. Documented in OpenAPI via platform v7.4.3 (axonflow-enterprise#1714); SDKs catch up here.
+Minor release. Surfaces fields the AxonFlow agent has emitted since v7.1.0 (Plugin Batch 1) but the SDK didn't declare. Pure field-additions on existing methods — no new SDK methods, no breaking changes. Documented in OpenAPI via platform v7.4.3.
 
 Coordinated cycle: Python v6.8.0 / Go v5.8.0 / Java v6.1.0 ship same day with the same field set.
 
@@ -25,13 +25,13 @@ Coordinated cycle: Python v6.8.0 / Go v5.8.0 / Java v6.1.0 ship same day with th
   - `decision_id?: string`
   - `policy_matches?: MCPExplainPolicy[]`
   - `redacted_message?: string` — text-redaction counterpart to `redacted_data` (used when the connector returned a string message rather than tabular rows; e.g. execute-style responses)
-- **`MCPExplainPolicy`** — new exported interface for the per-policy explainability record on MCP responses (snake_case wire shape, frozen per ADR-043). Fields: `policy_id`, `policy_name?`, `action?`, `risk_level?`, `allow_override?`, `policy_description?`. Distinct from the existing camelCase `ExplainPolicy` (in `src/types/decisions.ts`), which is the hand-decoded view returned by `client.explainDecision()`. Both describe the same logical record; the dual-name distinction follows the SDK's existing wire-vs-decoded convention. A future release may consolidate.
+- **`MCPExplainPolicy`** — new exported interface for the per-policy explainability record on MCP responses (snake_case wire shape). Fields: `policy_id`, `policy_name?`, `action?`, `risk_level?`, `allow_override?`, `policy_description?`. Distinct from the existing camelCase `ExplainPolicy` (in `src/types/decisions.ts`), which is the hand-decoded view returned by `client.explainDecision()`. Both describe the same logical record; the dual-name distinction follows the SDK's existing wire-vs-decoded convention. A future release may consolidate.
 
 All fields are optional. Pre-v7.1.0 platforms return `undefined` for every field; callers should treat absence as "context not available" rather than an error.
 
 ### Deferred
 
-`client.explainDecision(decisionId)` and the full `ExplainRule` / `DecisionExplanation` shapes (returned by the `explain_decision` MCP tool) are tracked separately as feature work — see axonflow-enterprise#1716. This release ships only the field-surfacing on existing methods.
+`client.explainDecision(decisionId)` and the full `ExplainRule` / `DecisionExplanation` shapes (returned by the `explain_decision` MCP tool) are tracked separately as feature work. This release ships only the field-surfacing on existing methods.
 
 ## [6.0.0] - 2026-04-25 — Major: PolicyInfo / MCPPolicyInfo rename + wire-shape canonicalization
 
@@ -94,7 +94,7 @@ This was previously hidden by the naming collision — code reading `response.po
 
 The above is an audit-driven sweep against the wire-shape contract gate. The validator now snake_case-normalizes TS interface field names against transformer evidence in `client.ts` (matching what pydantic alias / Go `json:"…"` tag / Java `@JsonProperty(…)` do natively in the other SDKs). The `@deprecated` marks above are set on fields that historically read `undefined` against the JSON.parse-passthrough decoder paths — keeping the typed name kept compile-time compat for callers that referenced the now-dead names. Removal scheduled for v7.
 
-Two platform-side spec corrections filed alongside this work, for issues the audit surfaced where the spec was wrong (server emits the SDK's name): `AISystemRegistry.materiality_classification` (axonflow-enterprise#1708), `DynamicPolicyInfo` schema completely wrong shape (axonflow-enterprise#1709). No SDK change for those — the SDK is correct.
+Two platform-side spec corrections filed alongside this work, for issues the audit surfaced where the spec was wrong (server emits the SDK's name): `AISystemRegistry.materiality_classification` and `DynamicPolicyInfo` schema. No SDK change for those — the SDK is correct.
 
 ## [5.6.0] - 2026-04-22
 
@@ -650,7 +650,7 @@ const client = new AxonFlow({
 
 ### Breaking Changes
 
-- **BREAKING**: Removed `orchestratorEndpoint` and `portalEndpoint` config options (Agent now proxies all routes per ADR-026)
+- **BREAKING**: Removed `orchestratorEndpoint` and `portalEndpoint` config options (Agent now proxies all routes)
 - **BREAKING**: Dynamic policy API path changed from `/api/v1/policies/dynamic` to `/api/v1/dynamic-policies`
 
 ### Added
