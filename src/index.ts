@@ -63,6 +63,11 @@ export type {
   DynamicPolicyInfo,
   DynamicPolicyMatch,
   ConnectorHealthStatus,
+  // v6.0.0: `PolicyInfo` exported from connector.ts is the OpenAPI
+  // `PolicyInfo` (MCP shape). The proxy-mode shape is `ProxyPolicyInfo`
+  // (exported below). `MCPPolicyInfo` kept as a type alias for one
+  // major-version migration window.
+  PolicyInfo,
   MCPPolicyInfo,
   ExfiltrationCheckInfo,
   MCPCheckInputOptions,
@@ -121,7 +126,12 @@ export type {
   CircuitBreakerConfigUpdate,
   // Proxy Mode types
   RequestType,
-  PolicyInfo,
+  // v6.0.0: this is the proxy-mode shape, renamed from `PolicyInfo`.
+  // The OpenAPI `PolicyInfo` (MCP shape) is now exported from the
+  // connector group above; `PolicyInfoLegacyProxyShape` is a kept-
+  // for-back-compat alias of `ProxyPolicyInfo` removed in v7.
+  ProxyPolicyInfo,
+  PolicyInfoLegacyProxyShape,
   CodeArtifact,
   HealthStatus,
   PlatformCapability,
