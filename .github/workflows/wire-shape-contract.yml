@@ -121,3 +121,12 @@ jobs:
         env:
           AXONFLOW_OPENAPI_SPECS_DIR: ${{ github.workspace }}/axonflow-community/docs/api
         run: node scripts/wire-shape/validate.js
+
+      - name: Run transformer-coverage gate (type-vs-implementation)
+        # Catches the class of bug where a typed wire field exists on
+        # the interface but the runtime transformer's return literal
+        # doesn't populate it (cancelPlan.success, mapBudgetResponse
+        # missing tenant_id/org_id, listUsageRecords missing 8 wire
+        # fields — every gap caught by the post-merge audit on PR
+        # #185 would have been blocked by this gate at PR time).
+        run: node scripts/transformer-coverage/check.js --baseline .lint_baselines/transformer_coverage.json
