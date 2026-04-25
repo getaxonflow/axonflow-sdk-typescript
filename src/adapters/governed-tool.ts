@@ -85,11 +85,11 @@ export class GovernedTool implements ToolDefinition {
     }
 
     this.name = tool.name;
-    this.description = tool.description || '';
+    this.description = tool.description ?? '';
     this.wrapped = tool;
     this.client = client;
     this.connectorType = options?.connectorTypeFn ? options.connectorTypeFn(tool.name) : tool.name;
-    this.operation = options?.operation || 'execute';
+    this.operation = options?.operation ?? 'execute';
   }
 
   /**
@@ -130,7 +130,7 @@ export class GovernedTool implements ToolDefinition {
 
     if (!inputCheck.allowed) {
       throw new PolicyViolationError(
-        inputCheck.block_reason || 'Tool call blocked by input policy'
+        inputCheck.block_reason ?? 'Tool call blocked by input policy'
       );
     }
 
@@ -145,7 +145,7 @@ export class GovernedTool implements ToolDefinition {
     });
 
     if (!outputCheck.allowed) {
-      throw new PolicyViolationError(outputCheck.block_reason || 'Tool output blocked by policy');
+      throw new PolicyViolationError(outputCheck.block_reason ?? 'Tool output blocked by policy');
     }
 
     if (outputCheck.redacted_data !== undefined && outputCheck.redacted_data !== null) {
