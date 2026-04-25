@@ -157,6 +157,44 @@ export interface MCPCheckInputOptions {
 }
 
 /**
+ * Per-policy explainability record on MCP responses (snake_case wire shape).
+ *
+ * Surfaced in `MCPCheckInputResponse.policy_matches` and
+ * `MCPCheckOutputResponse.policy_matches` when dynamic policy evaluation
+ * produces non-empty matches. The MCP response decoder is JSON.parse
+ * passthrough, so fields land on the wire shape directly — snake_case
+ * here matches what the agent emits per the OpenAPI `ExplainPolicy`
+ * schema (frozen shape per ADR-043).
+ *
+ * Distinct from {@link ExplainPolicy} in `src/types/decisions.ts`,
+ * which carries the same logical record but in camelCase form because
+ * `client.explainDecision()` hand-decodes its response. Both types
+ * describe the same wire payload; the snake_case one is the
+ * passthrough view, the camelCase one is the decoded view. A future
+ * release may consolidate; for now the dual-name distinction matches
+ * the SDK's existing wire-vs-decoded convention (e.g. `PolicyInfo`
+ * vs `ProxyPolicyInfo`).
+ *
+ * Available when the AxonFlow platform is v7.1.0+. Older platforms
+ * return `undefined` for `policy_matches`; callers should treat absence
+ * as "context not available" rather than an error.
+ */
+export interface MCPExplainPolicy {
+  /** Unique policy identifier. */
+  policy_id: string;
+  /** Human-readable policy name. */
+  policy_name?: string;
+  /** Action taken for this policy match (e.g. "block", "redact", "warn"). */
+  action?: string;
+  /** Risk level configured on this policy. */
+  risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  /** Whether this policy permits a session override. */
+  allow_override?: boolean;
+  /** Optional description text shown to operators. */
+  policy_description?: string;
+}
+
+/**
  * Response from the MCP check-input endpoint.
  * Indicates whether the request would be allowed by configured policies.
  */
@@ -165,6 +203,17 @@ export interface MCPCheckInputResponse {
   block_reason?: string;
   policies_evaluated: number;
   policy_info?: MCPPolicyInfo;
+  /**
+   * Plugin Batch 1 / ADR-042 / ADR-043 — richer governance context surfaced
+   * when the platform is v7.1.0+. All fields are optional; older platforms
+   * return `undefined`. Source of truth:
+   * `platform/agent/mcp_server_handler.go:880-940`.
+   */
+  decision_id?: string;
+  risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  policy_matches?: MCPExplainPolicy[];
+  override_available?: boolean;
+  override_existing_id?: string;
 }
 
 /**
@@ -187,10 +236,28 @@ export interface MCPCheckOutputOptions {
 export interface MCPCheckOutputResponse {
   allowed: boolean;
   block_reason?: string;
+  /**
+   * Tabular response data with PII fields masked (used when the connector
+   * returned rows; e.g. SQL/CSV results). Omitted if no redaction needed
+   * or if the response was a text message.
+   */
   redacted_data?: any;
+  /**
+   * Text message with PII fields masked (used when the connector returned
+   * a string message rather than tabular rows; e.g. execute-style
+   * responses). Omitted if no redaction needed or if the response was
+   * tabular. Source of truth: `platform/agent/mcp_server_handler.go:988`.
+   */
+  redacted_message?: string;
   policies_evaluated: number;
   exfiltration_info?: ExfiltrationCheckInfo;
   policy_info?: MCPPolicyInfo;
+  /**
+   * Plugin Batch 1 / ADR-043 — explainability context (matches the
+   * MCPCheckInputResponse fields on the same call site).
+   */
+  decision_id?: string;
+  policy_matches?: MCPExplainPolicy[];
 }
 
 /**

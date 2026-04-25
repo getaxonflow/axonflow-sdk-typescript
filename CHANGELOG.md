@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-04-25 — Plugin Batch 1 / ADR-043 explainability fields on MCP responses
+
+Minor release. Surfaces fields the AxonFlow agent has emitted since v7.1.0 (Plugin Batch 1 / ADR-042 / ADR-043) but the SDK didn't declare. Pure Cat B field-additions on existing methods — no new SDK methods, no breaking changes. Documented in OpenAPI via platform v7.4.3 (axonflow-enterprise#1714); SDKs catch up here.
+
+Coordinated cycle: Python v6.8.0 / Go v5.8.0 / Java v6.1.0 ship same day with the same field set.
+
+### Added
+
+- **`MCPCheckInputResponse`** gains 5 optional Plugin Batch 1 fields:
+  - `decision_id?: string` — audit correlator
+  - `risk_level?: 'low' | 'medium' | 'high' | 'critical'`
+  - `policy_matches?: MCPExplainPolicy[]` — per-policy explainability records (snake_case wire shape)
+  - `override_available?: boolean` — whether session override is permitted for the matched policies
+  - `override_existing_id?: string` — already-active override consumed by this decision (if any)
+- **`MCPCheckOutputResponse`** gains 3 optional fields:
+  - `decision_id?: string`
+  - `policy_matches?: MCPExplainPolicy[]`
+  - `redacted_message?: string` — text-redaction counterpart to `redacted_data` (used when the connector returned a string message rather than tabular rows; e.g. execute-style responses)
+- **`MCPExplainPolicy`** — new exported interface for the per-policy explainability record on MCP responses (snake_case wire shape, frozen per ADR-043). Fields: `policy_id`, `policy_name?`, `action?`, `risk_level?`, `allow_override?`, `policy_description?`. Distinct from the existing camelCase `ExplainPolicy` (in `src/types/decisions.ts`), which is the hand-decoded view returned by `client.explainDecision()`. Both describe the same logical record; the dual-name distinction follows the SDK's existing wire-vs-decoded convention. A future release may consolidate.
+
+All fields are optional. Pre-v7.1.0 platforms return `undefined` for every field; callers should treat absence as "context not available" rather than an error.
+
+### Deferred
+
+`client.explainDecision(decisionId)` and the full `ExplainRule` / `DecisionExplanation` shapes (returned by the `explain_decision` MCP tool) are tracked separately as feature work — see axonflow-enterprise#1716. This release ships only the field-surfacing on existing methods.
+
 ## [6.0.0] - 2026-04-25 — Major: PolicyInfo / MCPPolicyInfo rename + wire-shape canonicalization
 
 This is a major release. Coordinated with the Java SDK v6.0.0 release as a v6 alignment cycle for the SDKs that needed breaking changes; Python (v6.7.0) and Go (v5.7.0) ship as minor on the same day because their changes are purely additive.
