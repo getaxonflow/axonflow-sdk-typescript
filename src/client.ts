@@ -224,12 +224,12 @@ function mapIdempotencyKeyMismatch(err: unknown): IdempotencyKeyMismatchError | 
  * Returns -1 if a < b, 0 if equal, 1 if a > b.
  */
 function compareSemver(a: string, b: string): number {
-  const parseVersion = (v: string) => v.split('.').map(p => parseInt(p.split('-')[0], 10) || 0);
+  const parseVersion = (v: string) => v.split('.').map(p => parseInt(p.split('-')[0], 10) ?? 0);
   const aParts = parseVersion(a);
   const bParts = parseVersion(b);
   const len = Math.max(aParts.length, bParts.length);
   for (let i = 0; i < len; i++) {
-    const diff = (aParts[i] || 0) - (bParts[i] || 0);
+    const diff = (aParts[i] ?? 0) - (bParts[i] ?? 0);
     if (diff !== 0) return diff < 0 ? -1 : 1;
   }
   return 0;
@@ -278,7 +278,7 @@ export class AxonFlow {
     }
 
     // Set defaults first to determine endpoint
-    const endpoint = config.endpoint || 'https://staging-eu.getaxonflow.com';
+    const endpoint = config.endpoint ?? 'https://staging-eu.getaxonflow.com';
 
     // Credentials check: OAuth2-style (clientId/clientSecret)
     const hasCredentials = !!(config.clientId && config.clientSecret);
@@ -288,19 +288,19 @@ export class AxonFlow {
       clientId: config.clientId,
       clientSecret: config.clientSecret,
       endpoint,
-      mode: config.mode || 'production',
-      tenant: config.tenant || '',
-      debug: config.debug || false,
-      timeout: config.timeout || 30000,
-      mapTimeout: config.mapTimeout || 120000, // 2 minutes for MAP operations
+      mode: config.mode ?? 'production',
+      tenant: config.tenant ?? '',
+      debug: config.debug ?? false,
+      timeout: config.timeout ?? 30000,
+      mapTimeout: config.mapTimeout ?? 120000, // 2 minutes for MAP operations
       retry: {
         enabled: config.retry?.enabled !== false,
-        maxAttempts: config.retry?.maxAttempts || 3,
-        delay: config.retry?.delay || 1000,
+        maxAttempts: config.retry?.maxAttempts ?? 3,
+        delay: config.retry?.delay ?? 1000,
       },
       cache: {
         enabled: config.cache?.enabled !== false,
-        ttl: config.cache?.ttl || 60000,
+        ttl: config.cache?.ttl ?? 60000,
       },
     };
 
@@ -344,7 +344,7 @@ export class AxonFlow {
     const effectiveClientId = this.getEffectiveClientId();
     if (effectiveClientId) {
       const credentials = Buffer.from(
-        `${effectiveClientId}:${this.config.clientSecret || ''}`
+        `${effectiveClientId}:${this.config.clientSecret ?? ''}`
       ).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
     }
@@ -365,6 +365,9 @@ export class AxonFlow {
    * @returns The clientId to use in requests
    */
   private getEffectiveClientId(): string {
+    // Intentional || (not ??): an empty-string clientId/tenant is treated as
+    // "missing" by the SDK contract — see tests/smart-defaults.test.ts.
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     return this.config.clientId || this.config.tenant || 'community';
   }
 
@@ -444,7 +447,7 @@ export class AxonFlow {
       if (!governanceResponse.allowed) {
         const violation = governanceResponse.violations?.[0];
         throw new Error(
-          `Request blocked by AxonFlow: ${violation?.description || 'Policy violation'}`
+          `Request blocked by AxonFlow: ${violation?.description ?? 'Policy violation'}`
         );
       }
 
@@ -504,6 +507,9 @@ export class AxonFlow {
     const agentRequest = {
       query: request.aiRequest.prompt,
       user_token: '',
+      // Intentional || (not ??): an empty-string clientId/tenant is treated as
+      // "missing" by the SDK contract — see tests/smart-defaults.test.ts.
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       client_id: this.config.clientId || this.config.tenant,
       request_type: 'llm_chat',
       context: {
@@ -538,7 +544,7 @@ export class AxonFlow {
 
     // Transform Agent API response to SDK format
     // Extract policy name from policy_info if available
-    const policyName = agentResponse.policy_info?.policies_evaluated?.[0] || 'agent-policy';
+    const policyName = agentResponse.policy_info?.policies_evaluated?.[0] ?? 'agent-policy';
     return {
       requestId: request.requestId,
       allowed: !agentResponse.blocked,
@@ -547,17 +553,17 @@ export class AxonFlow {
             {
               type: 'security',
               severity: 'high',
-              description: agentResponse.block_reason || 'Request blocked by policy',
+              description: agentResponse.block_reason ?? 'Request blocked by policy',
               policy: policyName,
               action: 'blocked',
             },
           ]
         : [],
       modifiedRequest: agentResponse.data,
-      policies: agentResponse.policy_info?.policies_evaluated || [],
+      policies: agentResponse.policy_info?.policies_evaluated ?? [],
       audit: {
         timestamp: Date.now(),
-        duration: parseInt(agentResponse.policy_info?.processing_time?.replace('ms', '') || '0'),
+        duration: parseInt(agentResponse.policy_info?.processing_time?.replace('ms', '') ?? '0'),
         tenant: this.config.tenant,
       },
     };
@@ -572,7 +578,7 @@ export class AxonFlow {
     if (this.config.debug) {
       debugLog('Request processed', {
         allowed: response.allowed,
-        violations: response.violations?.length || 0,
+        violations: response.violations?.length ?? 0,
         duration: response.audit.duration,
       });
     }
@@ -582,11 +588,9 @@ export class AxonFlow {
    * Check if an error is from AxonFlow (vs the AI provider)
    */
   private isAxonFlowError(error: any): boolean {
-    return (
-      error?.message?.includes('AxonFlow') ||
-      error?.message?.includes('governance') ||
-      error?.message?.includes('fetch')
-    );
+    const msg = error?.message;
+    if (typeof msg !== 'string') return false;
+    return msg.includes('AxonFlow') || msg.includes('governance') || msg.includes('fetch');
   }
 
   /**
@@ -798,14 +802,17 @@ export class AxonFlow {
    */
   async proxyLLMCall(options: ExecuteQueryOptions): Promise<ExecuteQueryResponse> {
     // Default to "anonymous" if userToken is empty/undefined (community mode)
-    const effectiveUserToken = options.userToken || 'anonymous';
+    const effectiveUserToken = options.userToken ?? 'anonymous';
 
     const agentRequest: Record<string, unknown> = {
       query: options.query,
       user_token: effectiveUserToken,
+      // Intentional || (not ??): an empty-string clientId/tenant is treated as
+      // "missing" by the SDK contract — see tests/smart-defaults.test.ts.
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       client_id: this.config.clientId || this.config.tenant,
       request_type: options.requestType,
-      context: options.context || {},
+      context: options.context ?? {},
     };
 
     if (options.media && options.media.length > 0) {
@@ -862,7 +869,7 @@ export class AxonFlow {
           const errorJson = JSON.parse(errorText);
           if (errorJson.blocked || errorJson.block_reason) {
             throw new PolicyViolationError(
-              errorJson.block_reason || 'Request blocked by policy',
+              errorJson.block_reason ?? 'Request blocked by policy',
               errorJson.policy_info?.policies_evaluated
             );
           }
@@ -876,15 +883,13 @@ export class AxonFlow {
     }
 
     // Parse response if not already parsed (from 402 handling)
-    if (!data) {
-      data = await response.json();
-    }
+    data ??= await response.json();
 
     // Check for policy violation in successful response (some blocked responses return 200)
     // Note: Don't throw for budget blocks (402 responses) - return with budgetInfo instead
     if (data.blocked && !data.budget_info) {
       throw new PolicyViolationError(
-        data.block_reason || 'Request blocked by policy',
+        data.block_reason ?? 'Request blocked by policy',
         data.policy_info?.policies_evaluated
       );
     }
@@ -896,19 +901,19 @@ export class AxonFlow {
       result: data.result,
       planId: data.plan_id,
       requestId: data.request_id,
-      metadata: data.metadata || {},
+      metadata: data.metadata ?? {},
       error: data.error,
-      blocked: data.blocked || false,
+      blocked: data.blocked ?? false,
       blockReason: data.block_reason,
     };
 
     // Parse policy info if present
     if (data.policy_info) {
       result.policyInfo = {
-        policiesEvaluated: data.policy_info.policies_evaluated || [],
-        staticChecks: data.policy_info.static_checks || [],
-        processingTime: data.policy_info.processing_time || '',
-        tenantId: data.policy_info.tenant_id || '',
+        policiesEvaluated: data.policy_info.policies_evaluated ?? [],
+        staticChecks: data.policy_info.static_checks ?? [],
+        processingTime: data.policy_info.processing_time ?? '',
+        tenantId: data.policy_info.tenant_id ?? '',
         codeArtifact: data.policy_info.code_artifact,
       };
     }
@@ -918,10 +923,10 @@ export class AxonFlow {
       result.budgetInfo = {
         budgetId: data.budget_info.budget_id,
         budgetName: data.budget_info.budget_name,
-        usedUsd: data.budget_info.used_usd || 0,
-        limitUsd: data.budget_info.limit_usd || 0,
-        percentage: data.budget_info.percentage || 0,
-        exceeded: data.budget_info.exceeded || false,
+        usedUsd: data.budget_info.used_usd ?? 0,
+        limitUsd: data.budget_info.limit_usd ?? 0,
+        percentage: data.budget_info.percentage ?? 0,
+        exceeded: data.budget_info.exceeded ?? false,
         action: data.budget_info.action,
       };
     }
@@ -973,7 +978,7 @@ export class AxonFlow {
     }>('GET', '/api/v1/connectors');
 
     // Handle wrapped response
-    const connectors = Array.isArray(response) ? response : response.connectors || [];
+    const connectors = Array.isArray(response) ? response : (response.connectors ?? []);
 
     if (this.config.debug) {
       debugLog('Listed connectors', { count: connectors.length });
@@ -1054,11 +1059,14 @@ export class AxonFlow {
     const agentRequest = {
       query,
       user_token: '',
+      // Intentional || (not ??): an empty-string clientId/tenant is treated as
+      // "missing" by the SDK contract — see tests/smart-defaults.test.ts.
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       client_id: this.config.clientId || this.config.tenant,
       request_type: 'mcp-query',
       context: {
         connector: connectorName,
-        params: params || {},
+        params: params ?? {},
       },
     };
 
@@ -1146,7 +1154,7 @@ export class AxonFlow {
     const body = {
       connector: options.connector,
       statement: options.statement,
-      options: options.options || {},
+      options: options.options ?? {},
     };
 
     if (this.config.debug) {
@@ -1168,7 +1176,7 @@ export class AxonFlow {
     // Handle policy blocks (403 responses)
     if (!response.ok) {
       throw new ConnectorError(
-        responseData.error || `MCP query failed: ${response.status} ${response.statusText}`,
+        responseData.error ?? `MCP query failed: ${response.status} ${response.statusText}`,
         options.connector,
         'mcpQuery'
       );
@@ -1246,7 +1254,7 @@ export class AxonFlow {
     if (options.parameters) {
       body.parameters = options.parameters;
     }
-    body.operation = options.operation || 'execute';
+    body.operation = options.operation ?? 'execute';
 
     if (this.config.debug) {
       debugLog('MCP Check Input', {
@@ -1267,7 +1275,7 @@ export class AxonFlow {
     // 403 means policy blocked — this is a valid check response, not an error
     if (!response.ok && response.status !== 403) {
       throw new ConnectorError(
-        responseData.error || 'MCP check-input failed',
+        responseData.error ?? 'MCP check-input failed',
         options.connectorType,
         'check-input'
       );
@@ -1351,7 +1359,7 @@ export class AxonFlow {
     // 403 means policy blocked — this is a valid check response, not an error
     if (!response.ok && response.status !== 403) {
       throw new ConnectorError(
-        responseData.error || 'MCP check-output failed',
+        responseData.error ?? 'MCP check-output failed',
         options.connectorType,
         'check-output'
       );
@@ -1411,7 +1419,13 @@ export class AxonFlow {
 
     const agentRequest = {
       query,
+      // Intentional || (not ??): an empty-string clientId/tenant is treated as
+      // "missing" by the SDK contract — see tests/smart-defaults.test.ts.
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       user_token: userToken || this.config.clientId || this.config.tenant,
+      // Intentional || (not ??): an empty-string clientId/tenant is treated as
+      // "missing" by the SDK contract — see tests/smart-defaults.test.ts.
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       client_id: this.config.clientId || this.config.tenant,
       request_type: 'multi-agent-plan',
       context,
@@ -1452,7 +1466,7 @@ export class AxonFlow {
     }
 
     // plan_id can be at top level or inside data
-    const planId = agentResponse.plan_id || agentResponse.data?.plan_id;
+    const planId = agentResponse.plan_id ?? agentResponse.data?.plan_id;
 
     if (this.config.debug) {
       debugLog('Plan generated', { planId });
@@ -1460,12 +1474,12 @@ export class AxonFlow {
 
     return {
       planId,
-      status: agentResponse.data?.status || 'pending',
-      steps: agentResponse.data?.steps || [],
-      domain: agentResponse.data?.domain || domain || 'generic',
-      complexity: agentResponse.data?.complexity || 0,
-      parallel: agentResponse.data?.parallel || false,
-      metadata: agentResponse.metadata || {},
+      status: agentResponse.data?.status ?? 'pending',
+      steps: agentResponse.data?.steps ?? [],
+      domain: agentResponse.data?.domain ?? domain ?? 'generic',
+      complexity: agentResponse.data?.complexity ?? 0,
+      parallel: agentResponse.data?.parallel ?? false,
+      metadata: agentResponse.metadata ?? {},
     };
   }
 
@@ -1477,7 +1491,13 @@ export class AxonFlow {
   async executePlan(planId: string, userToken?: string): Promise<PlanExecutionResponse> {
     const agentRequest = {
       query: '',
+      // Intentional || (not ??): an empty-string clientId/tenant is treated as
+      // "missing" by the SDK contract — see tests/smart-defaults.test.ts.
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       user_token: userToken || this.config.clientId || this.config.tenant,
+      // Intentional || (not ??): an empty-string clientId/tenant is treated as
+      // "missing" by the SDK contract — see tests/smart-defaults.test.ts.
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       client_id: this.config.clientId || this.config.tenant,
       request_type: 'execute-plan',
       context: { plan_id: planId },
@@ -1518,7 +1538,7 @@ export class AxonFlow {
       success = false;
       if (data.error && !error) error = data.error;
       // Throw on nested failure (e.g., cancelled plan execution)
-      throw new PlanExecutionError(error || 'Plan execution failed', planId, 'execution');
+      throw new PlanExecutionError(error ?? 'Plan execution failed', planId, 'execution');
     }
     if (!result && data?.result) result = data.result;
 
@@ -1622,7 +1642,7 @@ export class AxonFlow {
     }
 
     return {
-      planId: data.plan_id || planId,
+      planId: data.plan_id ?? planId,
       status: data.status,
       message: data.message,
     };
@@ -1680,7 +1700,7 @@ export class AxonFlow {
     }
 
     return {
-      planId: data.plan_id || planId,
+      planId: data.plan_id ?? planId,
       version: data.version,
       status: data.status,
       success: data.success ?? true,
@@ -1715,7 +1735,7 @@ export class AxonFlow {
 
     const data = await response.json();
 
-    const versions: PlanVersionEntry[] = (data.versions || []).map((v: any) => ({
+    const versions: PlanVersionEntry[] = (data.versions ?? []).map((v: any) => ({
       version: v.version,
       changedAt: v.changed_at,
       changedBy: v.changed_by,
@@ -1724,7 +1744,7 @@ export class AxonFlow {
     }));
 
     return {
-      planId: data.plan_id || planId,
+      planId: data.plan_id ?? planId,
       versions,
     };
   }
@@ -1765,7 +1785,7 @@ export class AxonFlow {
     }
 
     return {
-      planId: data.plan_id || planId,
+      planId: data.plan_id ?? planId,
       status: data.status,
       approved: data.approved,
       message: data.message,
@@ -1835,8 +1855,8 @@ export class AxonFlow {
       user_token: options.userToken,
       client_id: clientId,
       query: options.query,
-      data_sources: options.dataSources || [],
-      context: options.context || {},
+      data_sources: options.dataSources ?? [],
+      context: options.context ?? {},
     };
 
     const headers: Record<string, string> = {
@@ -1874,9 +1894,9 @@ export class AxonFlow {
     const result: PolicyApprovalResult = {
       contextId: data.context_id,
       approved: data.approved,
-      requiresRedaction: data.requires_redaction || false,
-      approvedData: data.approved_data || {},
-      policies: data.policies || [],
+      requiresRedaction: data.requires_redaction ?? false,
+      approvedData: data.approved_data ?? {},
+      policies: data.policies ?? [],
       expiresAt,
       blockReason: data.block_reason,
     };
@@ -1941,7 +1961,7 @@ export class AxonFlow {
         total_tokens: options.tokenUsage.totalTokens,
       },
       latency_ms: options.latencyMs,
-      metadata: options.metadata || {},
+      metadata: options.metadata ?? {},
     };
 
     const headers: Record<string, string> = {
@@ -2087,7 +2107,7 @@ export class AxonFlow {
 
     const data = response.data;
     return {
-      activeCircuits: (data.active_circuits || []).map(c => ({
+      activeCircuits: (data.active_circuits ?? []).map(c => ({
         id: c.id,
         scope: c.scope,
         scopeId: c.scope_id,
@@ -2153,7 +2173,7 @@ export class AxonFlow {
 
     const data = response.data;
     return {
-      history: (data.history || []).map(h => ({
+      history: (data.history ?? []).map(h => ({
         id: h.id,
         orgId: h.org_id,
         scope: h.scope,
@@ -2450,10 +2470,10 @@ export class AxonFlow {
    * forward compatibility per ADR-043.
    */
   private parseDecisionExplanation(raw: Record<string, unknown>): DecisionExplanation {
-    const r = raw || {};
-    const rawMatches = (r.policy_matches as Array<Record<string, unknown>>) || [];
+    const r = raw ?? {};
+    const rawMatches = (r.policy_matches as Array<Record<string, unknown>>) ?? [];
     const policyMatches: ExplainPolicy[] = rawMatches.map(m => ({
-      policyId: (m.policy_id as string) || '',
+      policyId: (m.policy_id as string) ?? '',
       policyName: m.policy_name as string | undefined,
       action: m.action as string | undefined,
       riskLevel: m.risk_level as string | undefined,
@@ -2463,19 +2483,19 @@ export class AxonFlow {
 
     const rawRules = r.matched_rules as Array<Record<string, unknown>> | undefined;
     const matchedRules: ExplainRule[] | undefined = rawRules?.map(m => ({
-      policyId: (m.policy_id as string) || '',
+      policyId: (m.policy_id as string) ?? '',
       ruleId: m.rule_id as string | undefined,
       ruleText: m.rule_text as string | undefined,
       matchedOn: m.matched_on as string | undefined,
     }));
 
     return {
-      decisionId: (r.decision_id as string) || '',
+      decisionId: (r.decision_id as string) ?? '',
       timestamp: r.timestamp ? new Date(r.timestamp as string) : new Date(),
       policyMatches,
       matchedRules,
-      decision: (r.decision as string) || '',
-      reason: (r.reason as string) || '',
+      decision: (r.decision as string) ?? '',
+      reason: (r.reason as string) ?? '',
       riskLevel: r.risk_level as string | undefined,
       overrideAvailable: (r.override_available as boolean) ?? false,
       overrideExistingId: r.override_existing_id as string | undefined,
@@ -2519,7 +2539,7 @@ export class AxonFlow {
     }
 
     const data = response as Record<string, unknown>;
-    const entries = ((data.entries as unknown[]) || []).map(e => this.parseAuditLogEntry(e));
+    const entries = ((data.entries as unknown[]) ?? []).map(e => this.parseAuditLogEntry(e));
     return {
       entries,
       total: (data.total as number) ?? entries.length,
@@ -2582,7 +2602,7 @@ export class AxonFlow {
     }
 
     const data = response as Record<string, unknown>;
-    const entries = ((data.entries as unknown[]) || []).map(e => this.parseAuditLogEntry(e));
+    const entries = ((data.entries as unknown[]) ?? []).map(e => this.parseAuditLogEntry(e));
     return {
       entries,
       total: (data.total as number) ?? entries.length,
@@ -2710,7 +2730,7 @@ export class AxonFlow {
 
     // Backend returns { policies: [], pagination: {} }, extract the array
     const response = await this.policyRequest<{ policies: StaticPolicy[] }>('GET', path);
-    return response.policies || [];
+    return response.policies ?? [];
   }
 
   /**
@@ -2765,7 +2785,7 @@ export class AxonFlow {
       severity: policy.severity,
       enabled: policy.enabled,
       action: policy.action,
-      tier: policy.tier || 'tenant',
+      tier: policy.tier ?? 'tenant',
     };
 
     // Add organization_id for organization tier policies
@@ -2869,7 +2889,7 @@ export class AxonFlow {
 
     // Backend returns { static: [], dynamic: [], ... }, extract the static array
     const response = await this.policyRequest<{ static: StaticPolicy[] }>('GET', path);
-    return response.static || [];
+    return response.static ?? [];
   }
 
   /**
@@ -3022,7 +3042,7 @@ export class AxonFlow {
       'GET',
       '/api/v1/static-policies/overrides'
     );
-    return response.overrides || [];
+    return response.overrides ?? [];
   }
 
   // ============================================================================
@@ -3068,7 +3088,7 @@ export class AxonFlow {
       { policies: DynamicPolicy[] } | DynamicPolicy[]
     >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
-    return Array.isArray(response) ? response : response.policies || [];
+    return Array.isArray(response) ? response : (response.policies ?? []);
   }
 
   /**
@@ -3126,7 +3146,7 @@ export class AxonFlow {
     if (policy.category) requestBody.category = policy.category;
     if (policy.priority !== undefined) requestBody.priority = policy.priority;
     if (policy.enabled !== undefined) requestBody.enabled = policy.enabled;
-    requestBody.tier = policy.tier || 'tenant';
+    requestBody.tier = policy.tier ?? 'tenant';
     if (policy.organizationId) {
       requestBody.organization_id = policy.organizationId;
     }
@@ -3238,7 +3258,7 @@ export class AxonFlow {
       { policies: DynamicPolicy[] } | DynamicPolicy[]
     >('GET', path);
     // Handle both wrapped and unwrapped responses for compatibility
-    return Array.isArray(response) ? response : response.policies || [];
+    return Array.isArray(response) ? response : (response.policies ?? []);
   }
 
   // ============================================================================
@@ -3630,7 +3650,7 @@ export class AxonFlow {
 
     // Transform snake_case response to camelCase
     return {
-      prs: (response.prs || []).map(pr => ({
+      prs: (response.prs ?? []).map(pr => ({
         id: pr.id,
         prNumber: pr.pr_number,
         prUrl: pr.pr_url,
@@ -3932,7 +3952,7 @@ export class AxonFlow {
     }>('GET', path);
 
     return {
-      records: (response.records || []).map(r => ({
+      records: (response.records ?? []).map(r => ({
         id: r.id,
         prNumber: r.pr_number,
         prUrl: r.pr_url,
@@ -4153,7 +4173,7 @@ export class AxonFlow {
     }>('GET', path);
 
     return {
-      executions: (response.executions || []).map(e => ({
+      executions: (response.executions ?? []).map(e => ({
         requestId: e.request_id,
         workflowName: e.workflow_name,
         status: e.status,
@@ -4520,10 +4540,10 @@ export class AxonFlow {
 
     const response = await this.orchestratorRequest<Record<string, unknown>>('GET', path);
     return {
-      budgets: ((response.budgets as Record<string, unknown>[]) || []).map(b =>
+      budgets: ((response.budgets as Record<string, unknown>[]) ?? []).map(b =>
         this.mapBudgetResponse(b)
       ),
-      total: (response.total as number) || 0,
+      total: (response.total as number) ?? 0,
     };
   }
 
@@ -4575,13 +4595,13 @@ export class AxonFlow {
     );
     return {
       budget: this.mapBudgetResponse(response.budget as Record<string, unknown>),
-      usedUsd: (response.used_usd as number) || 0,
-      remainingUsd: (response.remaining_usd as number) || 0,
-      percentage: (response.percentage as number) || 0,
-      isExceeded: (response.is_exceeded as boolean) || false,
-      isBlocked: (response.is_blocked as boolean) || false,
-      periodStart: (response.period_start as string) || '',
-      periodEnd: (response.period_end as string) || '',
+      usedUsd: (response.used_usd as number) ?? 0,
+      remainingUsd: (response.remaining_usd as number) ?? 0,
+      percentage: (response.percentage as number) ?? 0,
+      isExceeded: (response.is_exceeded as boolean) ?? false,
+      isBlocked: (response.is_blocked as boolean) ?? false,
+      periodStart: (response.period_start as string) ?? '',
+      periodEnd: (response.period_end as string) ?? '',
     };
   }
 
@@ -4596,21 +4616,21 @@ export class AxonFlow {
       'GET',
       `/api/v1/budgets/${budgetId}/alerts`
     );
-    const alerts = ((response.alerts as Record<string, unknown>[]) || []).map(
+    const alerts = ((response.alerts as Record<string, unknown>[]) ?? []).map(
       (a): BudgetAlert => ({
-        id: (a.id as string) || '',
-        budgetId: (a.budget_id as string) || '',
-        alertType: (a.alert_type as string) || '',
-        threshold: (a.threshold as number) || 0,
-        percentageReached: (a.percentage_reached as number) || 0,
-        amountUsd: (a.amount_usd as number) || 0,
-        message: (a.message as string) || '',
-        createdAt: (a.created_at as string) || '',
+        id: (a.id as string) ?? '',
+        budgetId: (a.budget_id as string) ?? '',
+        alertType: (a.alert_type as string) ?? '',
+        threshold: (a.threshold as number) ?? 0,
+        percentageReached: (a.percentage_reached as number) ?? 0,
+        amountUsd: (a.amount_usd as number) ?? 0,
+        message: (a.message as string) ?? '',
+        createdAt: (a.created_at as string) ?? '',
       })
     );
     return {
       alerts,
-      count: (response.count as number) || 0,
+      count: (response.count as number) ?? 0,
     };
   }
 
@@ -4634,11 +4654,11 @@ export class AxonFlow {
       body
     );
     return {
-      allowed: (response.allowed as boolean) || false,
+      allowed: (response.allowed as boolean) ?? false,
       action: response.action as string | undefined,
       message: response.message as string | undefined,
       budgets: response.budgets
-        ? ((response.budgets as Record<string, unknown>[]) || []).map(b =>
+        ? ((response.budgets as Record<string, unknown>[]) ?? []).map(b =>
             this.mapBudgetResponse(b)
           )
         : undefined,
@@ -4659,14 +4679,14 @@ export class AxonFlow {
     const path = period ? `/api/v1/usage?period=${period}` : '/api/v1/usage';
     const response = await this.orchestratorRequest<Record<string, unknown>>('GET', path);
     return {
-      totalCostUsd: (response.total_cost_usd as number) || 0,
-      totalRequests: (response.total_requests as number) || 0,
-      totalTokensIn: (response.total_tokens_in as number) || 0,
-      totalTokensOut: (response.total_tokens_out as number) || 0,
-      averageCostPerRequest: (response.average_cost_per_request as number) || 0,
-      period: (response.period as string) || '',
-      periodStart: (response.period_start as string) || '',
-      periodEnd: (response.period_end as string) || '',
+      totalCostUsd: (response.total_cost_usd as number) ?? 0,
+      totalRequests: (response.total_requests as number) ?? 0,
+      totalTokensIn: (response.total_tokens_in as number) ?? 0,
+      totalTokensOut: (response.total_tokens_out as number) ?? 0,
+      averageCostPerRequest: (response.average_cost_per_request as number) ?? 0,
+      period: (response.period as string) ?? '',
+      periodStart: (response.period_start as string) ?? '',
+      periodEnd: (response.period_end as string) ?? '',
     };
   }
 
@@ -4686,23 +4706,23 @@ export class AxonFlow {
       'GET',
       `/api/v1/usage/breakdown?${params.toString()}`
     );
-    const items = ((response.items as Record<string, unknown>[]) || []).map(
+    const items = ((response.items as Record<string, unknown>[]) ?? []).map(
       (i): UsageBreakdownItem => ({
-        groupValue: (i.group_value as string) || '',
-        costUsd: (i.cost_usd as number) || 0,
-        percentage: (i.percentage as number) || 0,
-        requestCount: (i.request_count as number) || 0,
-        tokensIn: (i.tokens_in as number) || 0,
-        tokensOut: (i.tokens_out as number) || 0,
+        groupValue: (i.group_value as string) ?? '',
+        costUsd: (i.cost_usd as number) ?? 0,
+        percentage: (i.percentage as number) ?? 0,
+        requestCount: (i.request_count as number) ?? 0,
+        tokensIn: (i.tokens_in as number) ?? 0,
+        tokensOut: (i.tokens_out as number) ?? 0,
       })
     );
     return {
-      groupBy: (response.group_by as string) || '',
-      totalCostUsd: (response.total_cost_usd as number) || 0,
+      groupBy: (response.group_by as string) ?? '',
+      totalCostUsd: (response.total_cost_usd as number) ?? 0,
       items,
-      period: (response.period as string) || '',
-      periodStart: (response.period_start as string) || '',
-      periodEnd: (response.period_end as string) || '',
+      period: (response.period as string) ?? '',
+      periodStart: (response.period_start as string) ?? '',
+      periodEnd: (response.period_end as string) ?? '',
     };
   }
 
@@ -4724,14 +4744,14 @@ export class AxonFlow {
     const path = `/api/v1/usage/records${queryString ? `?${queryString}` : ''}`;
 
     const response = await this.orchestratorRequest<Record<string, unknown>>('GET', path);
-    const records = ((response.records as Record<string, unknown>[]) || []).map(
+    const records = ((response.records as Record<string, unknown>[]) ?? []).map(
       (r): UsageRecord => ({
-        id: (r.id as string) || '',
-        provider: (r.provider as string) || '',
-        model: (r.model as string) || '',
-        tokensIn: (r.tokens_in as number) || 0,
-        tokensOut: (r.tokens_out as number) || 0,
-        costUsd: (r.cost_usd as number) || 0,
+        id: (r.id as string) ?? '',
+        provider: (r.provider as string) ?? '',
+        model: (r.model as string) ?? '',
+        tokensIn: (r.tokens_in as number) ?? 0,
+        tokensOut: (r.tokens_out as number) ?? 0,
+        costUsd: (r.cost_usd as number) ?? 0,
         requestId: r.request_id as string | undefined,
         orgId: r.org_id as string | undefined,
         agentId: r.agent_id as string | undefined,
@@ -4740,7 +4760,7 @@ export class AxonFlow {
     );
     return {
       records,
-      total: (response.total as number) || 0,
+      total: (response.total as number) ?? 0,
     };
   }
 
@@ -4772,7 +4792,7 @@ export class AxonFlow {
       return { pricing: [pricing] };
     }
 
-    const pricingList = ((response.pricing as Record<string, unknown>[]) || []).map(p =>
+    const pricingList = ((response.pricing as Record<string, unknown>[]) ?? []).map(p =>
       this.mapPricingResponse(p)
     );
     return { pricing: pricingList };
@@ -4784,13 +4804,13 @@ export class AxonFlow {
 
   private mapBudgetResponse(response: Record<string, unknown>): Budget {
     return {
-      id: (response.id as string) || '',
-      name: (response.name as string) || '',
-      scope: (response.scope as string) || '',
-      limitUsd: (response.limit_usd as number) || 0,
-      period: (response.period as string) || '',
-      onExceed: (response.on_exceed as string) || '',
-      alertThresholds: (response.alert_thresholds as number[]) || [],
+      id: (response.id as string) ?? '',
+      name: (response.name as string) ?? '',
+      scope: (response.scope as string) ?? '',
+      limitUsd: (response.limit_usd as number) ?? 0,
+      period: (response.period as string) ?? '',
+      onExceed: (response.on_exceed as string) ?? '',
+      alertThresholds: (response.alert_thresholds as number[]) ?? [],
       enabled: (response.enabled as boolean) ?? true,
       scopeId: response.scope_id as string | undefined,
       createdAt: response.created_at as string | undefined,
@@ -4801,11 +4821,11 @@ export class AxonFlow {
   private mapPricingResponse(response: Record<string, unknown>): PricingInfo {
     const pricingData = response.pricing as Record<string, unknown> | undefined;
     return {
-      provider: (response.provider as string) || '',
-      model: (response.model as string) || '',
+      provider: (response.provider as string) ?? '',
+      model: (response.model as string) ?? '',
       pricing: {
-        inputPer1k: (pricingData?.input_per_1k as number) || 0,
-        outputPer1k: (pricingData?.output_per_1k as number) || 0,
+        inputPer1k: (pricingData?.input_per_1k as number) ?? 0,
+        outputPer1k: (pricingData?.output_per_1k as number) ?? 0,
       },
     };
   }
@@ -5043,7 +5063,7 @@ export class AxonFlow {
       await this.orchestratorRequest(
         'POST',
         `/api/v1/workflows/${workflowId}/steps/${stepId}/complete`,
-        request || {}
+        request ?? {}
       );
     } catch (err) {
       const idem = mapIdempotencyKeyMismatch(err);
@@ -5399,7 +5419,7 @@ export class AxonFlow {
     }
 
     return {
-      planId: data.plan_id || planId,
+      planId: data.plan_id ?? planId,
       version: data.version,
       previousVersion: data.previous_version,
       status: data.status,
@@ -5693,7 +5713,7 @@ export class AxonFlow {
     }
 
     const data = await response.json();
-    return (data || []).map((s: any) => this.mapSystemResponse(s));
+    return (data ?? []).map((s: any) => this.mapSystemResponse(s));
   }
 
   private async masfeatActivateSystem(systemId: string): Promise<AISystemRegistry> {
@@ -5760,8 +5780,8 @@ export class AxonFlow {
       highMaterialityCount: data.high_materiality_count ?? data.high_materiality ?? 0,
       mediumMaterialityCount: data.medium_materiality_count ?? data.medium_materiality ?? 0,
       lowMaterialityCount: data.low_materiality_count ?? data.low_materiality ?? 0,
-      byUseCase: data.by_use_case || {},
-      byStatus: data.by_status || {},
+      byUseCase: data.by_use_case ?? {},
+      byStatus: data.by_status ?? {},
     };
   }
 
@@ -5770,7 +5790,7 @@ export class AxonFlow {
     const url = `${this.config.endpoint}/api/v1/masfeat/assessments`;
     const body: Record<string, any> = {
       system_id: request.systemId,
-      assessment_type: request.assessmentType || 'periodic',
+      assessment_type: request.assessmentType ?? 'periodic',
       assessors: request.assessors,
     };
     if (request.assessmentDate) body.assessment_date = request.assessmentDate.toISOString();
@@ -5913,7 +5933,7 @@ export class AxonFlow {
     }
 
     const data = await response.json();
-    return (data || []).map((a: any) => this.mapAssessmentResponse(a));
+    return (data ?? []).map((a: any) => this.mapAssessmentResponse(a));
   }
 
   private async masfeatSubmitAssessment(assessmentId: string): Promise<FEATAssessment> {
@@ -6197,21 +6217,21 @@ export class AxonFlow {
     if (data && typeof data === 'object' && 'history' in data) {
       data = data.history;
     }
-    return (data || []).map((e: any) => ({
+    return (data ?? []).map((e: any) => ({
       id: e.id,
       killSwitchId: e.kill_switch_id,
       // Handle both API formats: event_type (SDK expected) vs action (API actual)
-      eventType: e.event_type || e.action,
+      eventType: e.event_type ?? e.action,
       // Build eventData from additional fields if not present
       eventData:
-        e.event_data ||
-        (e.previous_status || e.new_status || e.reason
+        e.event_data ??
+        ((e.previous_status ?? e.new_status ?? e.reason)
           ? { previousStatus: e.previous_status, newStatus: e.new_status, reason: e.reason }
           : undefined),
       // Handle both API formats: created_by vs performed_by
-      createdBy: e.created_by || e.performed_by,
+      createdBy: e.created_by ?? e.performed_by,
       // Handle both API formats: created_at vs performed_at
-      createdAt: new Date(e.created_at || e.performed_at),
+      createdAt: new Date(e.created_at ?? e.performed_at),
     }));
   }
 
@@ -6226,7 +6246,7 @@ export class AxonFlow {
       useCase: data.use_case,
       ownerTeam: data.owner_team,
       technicalOwner: data.technical_owner,
-      businessOwner: data.business_owner || data.owner_email,
+      businessOwner: data.business_owner ?? data.owner_email,
       customerImpact: data.customer_impact ?? data.risk_rating_impact,
       modelComplexity: data.model_complexity ?? data.risk_rating_complexity,
       humanReliance: data.human_reliance ?? data.risk_rating_reliance,
@@ -6297,7 +6317,7 @@ export class AxonFlow {
       autoTriggerEnabled: data.auto_trigger_enabled,
       triggeredAt: data.triggered_at ? new Date(data.triggered_at) : undefined,
       triggeredBy: data.triggered_by,
-      triggeredReason: data.triggered_reason || data.trigger_reason,
+      triggeredReason: data.triggered_reason ?? data.trigger_reason,
       restoredAt: data.restored_at ? new Date(data.restored_at) : undefined,
       restoredBy: data.restored_by,
       createdAt: new Date(data.created_at),
@@ -6501,7 +6521,7 @@ export class AxonFlow {
     }>('GET', path);
 
     return {
-      items: response.data || [],
+      items: response.data ?? [],
       total: response.meta?.total ?? 0,
       has_more:
         (response.meta?.offset ?? 0) + (response.data?.length ?? 0) < (response.meta?.total ?? 0),
@@ -6863,7 +6883,7 @@ export class AxonFlow {
         // Process complete SSE events (separated by double newline)
         const events = buffer.split('\n\n');
         // Keep the last (potentially incomplete) chunk in the buffer
-        buffer = events.pop() || '';
+        buffer = events.pop() ?? '';
 
         for (const event of events) {
           const trimmed = event.trim();

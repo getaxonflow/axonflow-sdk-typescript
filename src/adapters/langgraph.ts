@@ -44,11 +44,11 @@ export class WorkflowBlockedError extends AxonFlowError {
   public readonly policyIds: string[];
 
   constructor(message: string, stepId?: string, reason?: string, policyIds?: string[]) {
-    super(message, { stepId, reason, policyIds: policyIds || [] });
+    super(message, { stepId, reason, policyIds: policyIds ?? [] });
     this.name = 'WorkflowBlockedError';
     this.stepId = stepId;
     this.reason = reason;
-    this.policyIds = policyIds || [];
+    this.policyIds = policyIds ?? [];
     Object.setPrototypeOf(this, WorkflowBlockedError.prototype);
   }
 }
@@ -227,7 +227,7 @@ export class AxonFlowLangGraphAdapter {
     const response = await this.client.createWorkflow({
       workflow_name: this.workflowName,
       source: this.source,
-      metadata: metadata || {},
+      metadata: metadata ?? {},
       trace_id: traceId,
     });
     this.workflowId = response.workflow_id;
@@ -263,7 +263,7 @@ export class AxonFlowLangGraphAdapter {
     const response = await this.client.stepGate(this.workflowId, stepId, {
       step_name: stepName,
       step_type: stepType,
-      step_input: opts?.stepInput || {},
+      step_input: opts?.stepInput ?? {},
       model: opts?.model,
       provider: opts?.provider,
       tool_context: opts?.toolContext,
@@ -314,8 +314,8 @@ export class AxonFlowLangGraphAdapter {
     }
 
     await this.client.markStepCompleted(this.workflowId, stepId, {
-      output: opts?.output || {},
-      metadata: opts?.metadata || {},
+      output: opts?.output ?? {},
+      metadata: opts?.metadata ?? {},
       tokens_in: opts?.tokensIn,
       tokens_out: opts?.tokensOut,
       cost_usd: opts?.costUsd,
@@ -343,7 +343,7 @@ export class AxonFlowLangGraphAdapter {
     const toolContext: ToolContext = {
       tool_name: toolName,
       tool_type: toolType,
-      tool_input: opts?.toolInput || {},
+      tool_input: opts?.toolInput ?? {},
     };
 
     return this.checkGate(stepName, 'tool_call', {
@@ -508,7 +508,7 @@ export class AxonFlowLangGraphAdapter {
       });
 
       if (!preCheck.allowed) {
-        throw new PolicyViolationError(preCheck.block_reason || 'Tool call blocked by policy');
+        throw new PolicyViolationError(preCheck.block_reason ?? 'Tool call blocked by policy');
       }
 
       const result = await handler(request);
@@ -526,7 +526,7 @@ export class AxonFlowLangGraphAdapter {
       });
 
       if (!outputCheck.allowed) {
-        throw new PolicyViolationError(outputCheck.block_reason || 'Tool result blocked by policy');
+        throw new PolicyViolationError(outputCheck.block_reason ?? 'Tool result blocked by policy');
       }
 
       if (outputCheck.redacted_data !== undefined && outputCheck.redacted_data !== null) {

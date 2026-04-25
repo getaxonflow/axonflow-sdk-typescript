@@ -15,7 +15,7 @@ export class AxonFlowError extends Error {
   constructor(message: string, details?: Record<string, unknown>) {
     super(message);
     this.name = 'AxonFlowError';
-    this.details = details || {};
+    this.details = details ?? {};
     Object.setPrototypeOf(this, AxonFlowError.prototype);
   }
 }
