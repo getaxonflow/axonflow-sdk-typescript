@@ -4346,6 +4346,7 @@ export class AxonFlow {
         approval_required?: boolean;
         approved_by?: string;
         approved_at?: string;
+        retry_count?: number;
       }>
     >('GET', `/api/v1/executions/${executionId}/steps`);
 
@@ -4370,6 +4371,7 @@ export class AxonFlow {
       approvalRequired: s.approval_required,
       approvedBy: s.approved_by,
       approvedAt: s.approved_at,
+      retryCount: s.retry_count,
     }));
   }
 
@@ -4626,6 +4628,7 @@ export class AxonFlow {
         amountUsd: (a.amount_usd as number) ?? 0,
         message: (a.message as string) ?? '',
         createdAt: (a.created_at as string) ?? '',
+        acknowledged: a.acknowledged as boolean | undefined,
       })
     );
     return {
@@ -4708,6 +4711,7 @@ export class AxonFlow {
     );
     const items = ((response.items as Record<string, unknown>[]) ?? []).map(
       (i): UsageBreakdownItem => ({
+        groupBy: i.group_by as string | undefined,
         groupValue: (i.group_value as string) ?? '',
         costUsd: (i.cost_usd as number) ?? 0,
         percentage: (i.percentage as number) ?? 0,

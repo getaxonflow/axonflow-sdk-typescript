@@ -7,9 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`WebhookSubscription.secret`** — HMAC-SHA256 signing key now exposed on the response from `createWebhook`. Required to verify the `X-AxonFlow-Signature` header on inbound webhook deliveries; without it, callers couldn't validate payload authenticity. Also adds `org_id` and `tenant_id` (ownership scoping).
+- **`StepGateRequest`** carries `cost_usd`, `tokens_in`, `tokens_out` so budget-based policies can evaluate gate-time cost estimates.
+- **`StepGateResponse.decision_id`** — unique audit correlator that links a gate response to its audit row (previously absent on the SDK, present on the wire).
+- **`StepGateResponse.policies_evaluated` / `policies_matched`** (snake_case wire-canonical). The previous camelCase `policiesEvaluated` / `policiesMatched` always read `undefined` because the gate decoder is JSON.parse passthrough; both forms are kept (camel marked `@deprecated`) to preserve type-compat. Removed in v7.
+- **`ListWorkflowsResponse.limit` / `offset`** — pagination echo, surfaced on the response.
+- **`StaticPolicy.policy_id` / `priority` / `has_override`** — wire-canonical fields surfaced. `hasOverride` (camelCase) kept as `@deprecated` alias; it has always read `undefined` against the JSON.parse passthrough decoder.
+- **`CreateStaticPolicyRequest.priority` / `tags`** and **`UpdateStaticPolicyRequest.priority` / `tags`** — match the spec.
+- **`UpdatePlanRequest.metadata`** — accept arbitrary plan metadata, opaque to the platform.
+- **`UsageBreakdownItem.group_by`** — dimension name (provider/model/agent/etc.) is now exposed on each item.
+- **`BudgetAlert.acknowledged`** — alert dismissal flag.
+- **`Budget.org_id` / `tenant_id`** — ownership scoping.
+- **`UsageRecord`** gains `created_at`, `success`, `error_message`, `latency_ms`, `team_id`, `tenant_id`, `user_id`, `workflow_id` to match the wire. The legacy `timestamp` field is `@deprecated`; the decoder reads `r.timestamp`, but the wire emits `created_at`, so `timestamp` has always read `undefined`.
+- **`WorkflowStatusResponse.metadata`** — arbitrary workflow metadata.
+- **`CreateWorkflowResponse.started_at`** — wire-canonical timestamp. Legacy `created_at` and `source` are `@deprecated`; they have always read `undefined` (wire emits neither).
+- **`ExecutionSnapshot.retryCount`** — number of retry attempts on a step.
+- **`Finding.article`** — regulatory article reference (e.g. MAS FEAT principle number).
+- **`PolicyOverride.id` / `enabled_override`** — wire-canonical fields. `active` is `@deprecated`; the wire emits `enabled_override`, so `active` has always read `undefined`.
+- **`PolicyVersion.id` / `policy_id` / `change_summary` / `snapshot`** — match the wire shape (versions are immutable snapshots, not before/after diffs). `changeDescription`, `previousValues`, `newValues` are `@deprecated` orphan-reads.
+- **`DynamicPolicyMatch.message`** — wire-canonical name. `reason` is `@deprecated` (read `undefined` today).
+- **`ExfiltrationCheckInfo.exceeded` / `limit_type`** — match the wire. `within_limits` is `@deprecated`.
+- **`CancelPlanResponse.success`** — wire-canonical boolean. `message` is `@deprecated` (orphan read).
+- **`PlanResponse`** gains the wire top-level fields `success`, `version`, `result`, `error`, `workflow_execution_id`, `policy_info`. The decoder is JSON.parse passthrough, so consumers can now read these directly.
+- **`EffectivePoliciesResponse`** gains the tier-stratified wire shape (`static`, `dynamic`, `tenant_id`, `organization_id`, `computed_at`). Legacy `policies` flat array and `inheritance` summary kept as SDK-side conveniences.
+- **`Policy`** gains the rich wire shape (`policy_id`, `category`, `tier`, `pattern`, `severity`, `action`, `actions`, `conditions`, `description`, `organization_id`, `tenant_id`, `created_at`/`_by`, `updated_at`/`_by`, `version`). The legacy rules-only shape has only seen ~5 of 21 wire fields.
+- **`ResumePlanResponse.result`** — final aggregated result (canonical wire field). The interface previously declared 5 fields (`workflowId`, `message`, `stepResult`, `nextStep`, `nextStepName`, `totalSteps`) that the transformer never populated; all 5 are now `@deprecated`.
+
 ### Fixed
 
 - Telemetry path is bounded at `TELEMETRY_TIMEOUT_MS` (3s) total; the `/health` probe and checkpoint POST share a single monotonic deadline instead of stacking independent timeouts. Aligns with python/go/java SDKs.
+
+### Notes
+
+The above is an audit-driven sweep against the wire-shape contract gate. The validator now snake_case-normalizes TS interface field names against transformer evidence in `client.ts` (matching what pydantic alias / Go `json:"…"` tag / Java `@JsonProperty(…)` do natively in the other SDKs). The `@deprecated` marks above are set on fields that historically read `undefined` against the JSON.parse-passthrough decoder paths — keeping the typed name kept compile-time compat for callers that referenced the now-dead names. Removal scheduled for v7.
+
+Two platform-side spec corrections filed alongside this work, for issues the audit surfaced where the spec was wrong (server emits the SDK's name): `AISystemRegistry.materiality_classification` (axonflow-enterprise#1708), `DynamicPolicyInfo` schema completely wrong shape (axonflow-enterprise#1709). No SDK change for those — the SDK is correct.
 
 ## [5.6.0] - 2026-04-22
 

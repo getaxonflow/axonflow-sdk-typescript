@@ -33,11 +33,27 @@ export interface PolicyEvaluationResult {
   appliedPolicies: string[];
   /** Calculated risk score (0-100) based on policy evaluation */
   riskScore: number;
-  /** Actions required before proceeding (e.g., "approval_required", "mfa_required") */
+  /** Actions required before proceeding (canonical wire field). */
+  required_actions?: string[];
+  /** Time taken for policy evaluation in milliseconds (canonical wire field). */
+  processing_time_ms?: number;
+  /** Whether any database was accessed during evaluation (canonical wire field). */
+  database_accessed?: boolean;
+  /**
+   * @deprecated Use `required_actions` (matches the wire). The decoder
+   * is JSON.parse passthrough, so `requiredActions` has always read
+   * `undefined`. Removed in v7.
+   */
   requiredActions?: string[];
-  /** Time taken for policy evaluation in milliseconds */
-  processingTimeMs: number;
-  /** Whether any database was accessed during evaluation */
+  /**
+   * @deprecated Use `processing_time_ms`. Same orphan-read situation.
+   * Removed in v7.
+   */
+  processingTimeMs?: number;
+  /**
+   * @deprecated Use `database_accessed`. Same orphan-read situation.
+   * Removed in v7.
+   */
   databaseAccessed?: boolean;
 }
 
@@ -63,6 +79,18 @@ export interface PlanResponse {
   complexity: number;
   parallel: boolean;
   metadata: Record<string, any>;
+  /** Whether the plan was created successfully (wire top-level field). */
+  success?: boolean;
+  /** Plan version number for optimistic locking. */
+  version?: number;
+  /** Final aggregated result if the plan executed inline. */
+  result?: unknown;
+  /** Error message if creation failed. */
+  error?: string;
+  /** Workflow execution ID if the plan was auto-executed. */
+  workflow_execution_id?: string;
+  /** Policy evaluation summary for this plan creation. */
+  policy_info?: PolicyEvaluationResult;
 }
 
 /**
@@ -108,11 +136,24 @@ export interface GeneratePlanOptions {
 
 /**
  * Response from cancelling a plan.
+ *
+ * Wire shape: `{ success, plan_id, status }`. The transformer in
+ * `cancelPlan` reads `data.plan_id` (correct) and `data.message`
+ * (which the server doesn't emit — broken). Use `success` and the
+ * `status` enum to detect outcome; `message` has always read
+ * `undefined`.
  */
 export interface CancelPlanResponse {
   planId: string;
-  status: string;
-  message: string;
+  status: 'cancelled' | string;
+  /** Whether the cancel succeeded (canonical wire field). */
+  success?: boolean;
+  /**
+   * @deprecated The wire emits `success` (boolean) + `status` enum,
+   * not `message`. This field has always read `undefined`. Removed
+   * in v7.
+   */
+  message?: string;
 }
 
 /**
@@ -125,6 +166,8 @@ export interface UpdatePlanRequest {
   executionMode?: ExecutionMode;
   /** New domain hint for the plan */
   domain?: string;
+  /** Arbitrary metadata to set on the plan, opaque to the platform. */
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -158,16 +201,43 @@ export interface PlanVersionsResponse {
 
 /**
  * Response from resuming a paused plan.
+ *
+ * Wire shape: `{ plan_id, status, result }`. The 5 fields below marked
+ * @deprecated were declared but never populated by the `resumePlan`
+ * transformer — they have always read `undefined`. Use `result` and
+ * `status` for resume outcomes.
  */
 export interface ResumePlanResponse {
   planId: string;
-  workflowId?: string;
-  status: string;
+  status: 'awaiting_approval' | 'completed' | 'failed' | string;
+  /** Final aggregated result if the resume completed (canonical wire field). */
+  result?: unknown;
   approved?: boolean;
+  /**
+   * @deprecated Declared on the interface but never populated by the
+   * `resumePlan` transformer. Always read `undefined`. Removed in v7.
+   */
+  workflowId?: string;
+  /**
+   * @deprecated Same as `workflowId` — never populated. Removed in v7.
+   */
   message?: string;
+  /**
+   * @deprecated Never populated; the wire emits `result`. Use `result`.
+   * Removed in v7.
+   */
   stepResult?: Record<string, any>;
+  /**
+   * @deprecated Never populated; not on the wire. Removed in v7.
+   */
   nextStep?: number;
+  /**
+   * @deprecated Never populated; not on the wire. Removed in v7.
+   */
   nextStepName?: string;
+  /**
+   * @deprecated Never populated; not on the wire. Removed in v7.
+   */
   totalSteps?: number;
 }
 

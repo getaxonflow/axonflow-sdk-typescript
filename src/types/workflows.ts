@@ -58,14 +58,25 @@ export interface CreateWorkflowResponse {
   workflow_id: string;
   /** Name of the workflow */
   workflow_name: string;
-  /** Source orchestrator */
-  source: WorkflowSource;
-  /** Current status (always 'in_progress' for new workflows) */
+  /** Status (always 'in_progress' for new workflows) */
   status: WorkflowStatus;
-  /** When the workflow was created */
-  created_at: string;
+  /** When the workflow started executing (canonical wire field). */
+  started_at?: string;
   /** Trace ID for correlating with external tracing systems */
   trace_id?: string;
+  /**
+   * @deprecated The wire emits `started_at`, not `created_at`. The
+   * orchestratorRequest decoder is JSON.parse passthrough, so this
+   * field has always read `undefined`. Use `started_at`. Removed in v7.
+   */
+  created_at?: string;
+  /**
+   * @deprecated Not emitted on the create response. The wire shape
+   * for `CreateWorkflowResponse` does not include `source`; this
+   * field has always read `undefined`. Read `source` from a
+   * subsequent `getWorkflow()` call instead. Removed in v7.
+   */
+  source?: WorkflowSource;
 }
 
 /** Tool-level context for per-tool governance within tool_call steps. */
@@ -110,6 +121,12 @@ export interface StepGateRequest {
    * echoed on retry_context.idempotency_key in every subsequent gate response.
    */
   idempotency_key?: string;
+  /** Estimated input tokens for this step (used by budget policies at gate time). */
+  tokens_in?: number;
+  /** Estimated output tokens for this step (used by budget policies at gate time). */
+  tokens_out?: number;
+  /** Estimated cost in USD for this step (used by budget policies at gate time). */
+  cost_usd?: number;
 }
 
 /**
@@ -183,9 +200,23 @@ export interface StepGateResponse {
   policy_ids?: string[];
   /** URL to the approval portal (if decision is require_approval) */
   approval_url?: string;
+  /** Unique decision identifier for auditing (links a gate response to its audit row). */
+  decision_id?: string;
   /** All policies that were evaluated during the gate check (Issue #1021) */
-  policiesEvaluated?: PolicyMatch[];
+  policies_evaluated?: PolicyMatch[];
   /** Policies that matched and influenced the decision (Issue #1021) */
+  policies_matched?: PolicyMatch[];
+  /**
+   * @deprecated Use `policies_evaluated` (matches the wire). The
+   * `stepGate` decoder is a JSON.parse passthrough — the wire field
+   * is `policies_evaluated`, so `policiesEvaluated` has always read
+   * `undefined`. Removed in v7.
+   */
+  policiesEvaluated?: PolicyMatch[];
+  /**
+   * @deprecated Use `policies_matched` (matches the wire). Same
+   * orphan-read situation as `policiesEvaluated`. Removed in v7.
+   */
   policiesMatched?: PolicyMatch[];
   /**
    * Whether this response was served from a prior decision rather than a fresh policy evaluation.
@@ -297,6 +328,8 @@ export interface WorkflowStatusResponse {
   completed_at?: string;
   /** Trace ID for correlating with external tracing systems */
   trace_id?: string;
+  /** Arbitrary workflow metadata, opaque to the platform. */
+  metadata?: Record<string, unknown>;
   /** List of steps in the workflow */
   steps?: WorkflowStepInfo[];
 }
@@ -325,6 +358,10 @@ export interface ListWorkflowsResponse {
   workflows: WorkflowStatusResponse[];
   /** Total count (for pagination) */
   total: number;
+  /** Echo of the limit query param (for pagination clients). */
+  limit?: number;
+  /** Echo of the offset query param (for pagination clients). */
+  offset?: number;
 }
 
 /**
@@ -535,6 +572,17 @@ export interface WebhookSubscription {
   events: string[];
   /** Whether the webhook is active */
   active: boolean;
+  /** Tenant ID that owns this subscription. */
+  tenant_id?: string;
+  /** Organization ID that owns this subscription. */
+  org_id?: string;
+  /**
+   * HMAC-SHA256 signing key for webhook payload signature verification.
+   * Returned by `createWebhook`. Required to verify the `X-AxonFlow-Signature`
+   * header on incoming webhook deliveries; without it, callers cannot validate
+   * payload authenticity.
+   */
+  secret?: string;
   /** When the webhook was created */
   created_at: string;
   /** When the webhook was last updated */
