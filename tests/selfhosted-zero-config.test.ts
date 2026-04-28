@@ -81,7 +81,7 @@ describeE2E('Self-Hosted Zero-Config Mode Tests', () => {
       // Community mode works without credentials for any endpoint
       expect(() => {
         new AxonFlow({
-          endpoint: 'https://staging-eu.getaxonflow.com',
+          endpoint: 'https://example.com',
           // No credentials provided - community mode
           tenant: 'default',
         });

@@ -20,18 +20,11 @@ Expected output:
 ✅ dist/ folder created with .js and .d.ts files
 ```
 
-### 2. Run Manual Test
+### 2. Run Contract + Integration Tests
 
 ```bash
-npx ts-node test/manual-test.ts
-```
-
-Expected output:
-```
-🚀 AxonFlow SDK Manual Test
-[AxonFlow] AxonFlow initialized
-[AxonFlow] Protecting AI call
-✅ SUCCESS! Result: {...}
+npm run test:contract               # No stack required
+npm run test:integration            # Requires AXONFLOW_AGENT_URL pointing at a live agent
 ```
 
 ---
@@ -68,8 +61,10 @@ npm test
 
 **Test 1: Public Endpoint**
 
+Run the integration tests against a live agent:
+
 ```bash
-npx ts-node test/manual-test.ts
+RUN_INTEGRATION_TESTS=1 AXONFLOW_AGENT_URL=http://localhost:8080 npm run test:integration
 ```
 
 **Expected:**
@@ -90,7 +85,7 @@ async function testVPC() {
   const axonflow = new AxonFlow({
     apiKey: 'healthcare-demo-token',
     tenant: 'healthcare-acme',
-    endpoint: 'https://staging-eu.getaxonflow.com',
+    endpoint: 'http://localhost:8080',
     debug: true
   });
 
@@ -157,7 +152,7 @@ async function realIntegrationTest() {
   const axonflow = new AxonFlow({
     apiKey: 'test-user-token',
     tenant: 'healthcare-acme',
-    endpoint: 'https://staging-eu.getaxonflow.com',
+    endpoint: 'http://localhost:8080',
     debug: true
   });
 
@@ -231,7 +226,7 @@ async function e2eTest() {
   const axonflow = new AxonFlow({
     apiKey: 'valid-user-token-here', // Replace with actual token
     tenant: 'healthcare-acme', // Replace with actual client
-    endpoint: 'https://staging-eu.getaxonflow.com',
+    endpoint: 'http://localhost:8080',
     debug: true
   });
 
@@ -289,7 +284,7 @@ async function performanceTest() {
   const axonflow = new AxonFlow({
     apiKey: 'test-token',
     tenant: 'healthcare-acme',
-    endpoint: 'https://staging-eu.getaxonflow.com',
+    endpoint: 'http://localhost:8080',
     debug: false
   });
 
@@ -380,7 +375,7 @@ cd sdk/typescript
 npm run build
 
 # 2. Run manual test
-npx ts-node test/manual-test.ts
+npm run test:integration
 
 # 3. Run VPC test
 npx ts-node test/vpc-test.ts
@@ -408,7 +403,7 @@ npx ts-node test/performance-test.ts
 **Fix:** Install types: `npm install --save-dev @types/node`
 
 **Issue:** Connection timeout to Agent
-**Fix:** Verify Agent is running: `curl https://staging-eu.getaxonflow.com/health`
+**Fix:** Verify Agent is running: `curl http://localhost:8080/health`
 
 **Issue:** 401 Unauthorized
 **Fix:** Use valid client_id and user_token from database
