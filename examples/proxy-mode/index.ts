@@ -5,10 +5,10 @@
  * Proxy Mode routes all requests through AxonFlow, which handles policy checking
  * and optionally routes to LLM providers.
  *
- * Run: npx ts-node examples/proxy-mode/index.ts
+ * Run: npx tsx examples/proxy-mode/index.ts
  */
 
-import { AxonFlow, PolicyViolationError } from '../../src';
+import { AxonFlow, PolicyViolationError } from '@axonflow/sdk';
 
 async function main() {
   // Initialize client

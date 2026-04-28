@@ -8,10 +8,16 @@ on:
   workflow_dispatch: {}
   # Weekly drift catch
   schedule:
-    - cron: '0 6 * * 1'  # Monday 06:00 UTC
+    - cron: '0 6 * * 2'  # Tuesday 06:00 UTC — failures land in EU/IN working hours
 
 permissions:
   contents: read
+
+# Avoid spawning parallel docker-compose stacks for back-to-back pushes;
+# also cancels stale PR runs when a new commit lands.
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   DO_NOT_TRACK: '1'
@@ -37,8 +43,9 @@ jobs:
       - name: Run contract tests
         run: npm run test:contract
 
-  # Example type-check on every PR and push. Catches API drift at PR time
-  # without needing a live stack. Mirrors Python SDK demo-scripts job.
+  # Example + integration-test type-check on every PR and push. Catches API
+  # drift at PR time without needing a live stack. Mirrors Python SDK
+  # demo-scripts job.
   example-typecheck:
     name: Example Type-Check
     runs-on: ubuntu-latest
@@ -62,14 +69,11 @@ jobs:
       # Integration test files live behind jest's testPathIgnorePatterns
       # (only run on push-to-main), so jest never type-checks them at PR
       # time. Drift in those files (e.g. method renames on AxonFlow) only
-      # surfaced after merge. Catch it on every PR.
+      # surfaced after merge. Catch it on every PR. The dedicated tsconfig
+      # inherits strict + esModuleInterop + types from tsconfig.json so
+      # the gate matches what ts-jest applies at runtime.
       - name: Type-check integration test files
-        run: |
-          npx tsc --noEmit \
-            --target es2020 --module commonjs --moduleResolution node \
-            --esModuleInterop --skipLibCheck \
-            --types node,jest \
-            tests/integration.test.ts test/integration.test.ts
+        run: npx tsc -p tsconfig.tests.json
 
   # Integration tests run against a live community stack via docker compose.
   # Runs on main merges, scheduled, and manual dispatch. Skipped on PRs to keep
@@ -103,8 +107,10 @@ jobs:
       - name: Start community stack
         run: |
           cd ../axonflow
-          docker compose up -d
+          docker compose up -d --wait --wait-timeout 120
 
+          # Belt-and-suspenders: also poll /health, since not every compose
+          # service has a healthcheck wired.
           echo "Waiting for agent to be healthy..."
           timeout 120 bash -c 'until curl -sf http://localhost:8080/health; do sleep 2; done'
           echo "Agent is healthy"
@@ -131,27 +137,47 @@ jobs:
           AXONFLOW_CLIENT_SECRET: demo-secret
         run: |
           set -e
+          # Clean tarball dir so a stale .tgz from a re-run can't shadow the
+          # fresh one. `npm pack --json` gives us the exact filename — don't
+          # rely on alphabetical glob.
+          rm -rf /tmp/sdk-tarball /tmp/example-runner
           mkdir -p /tmp/sdk-tarball /tmp/example-runner
-          npm pack --pack-destination /tmp/sdk-tarball
+          PACK_JSON=$(npm pack --pack-destination /tmp/sdk-tarball --json)
+          TARBALL_NAME=$(printf '%s' "$PACK_JSON" | node -e 'process.stdin.on("data",d=>{const o=JSON.parse(d);console.log(o[0].filename||o[0].name)})')
+          TARBALL="/tmp/sdk-tarball/$TARBALL_NAME"
+          test -f "$TARBALL" || { echo "Tarball not found at $TARBALL"; ls -la /tmp/sdk-tarball; exit 1; }
           cp examples/basic/index.ts /tmp/example-runner/
           cd /tmp/example-runner
-          TARBALL=$(ls /tmp/sdk-tarball/*.tgz | head -1)
           npm init -y >/dev/null
-          npm install "$TARBALL" tsx@4 typescript@5 @types/node@20
-          timeout 30 npx tsx index.ts
+          npm install --prefer-offline --no-audit --no-fund \
+            "$TARBALL" tsx@4 typescript@5 @types/node@20
+          timeout 60 npx tsx index.ts
 
-      - name: Stop community stack
-        if: always()
-        run: |
-          if [ -d "../axonflow" ]; then
-            cd ../axonflow
-            docker compose down --volumes --remove-orphans || true
-          fi
-
+      # Logs MUST be captured before `Stop community stack` runs — `compose
+      # down` destroys the containers and `compose logs` then returns
+      # nothing. `if: failure()` here, `if: always()` on teardown.
       - name: Show docker logs on failure
         if: failure()
         run: |
           if [ -d "../axonflow" ]; then
             cd ../axonflow
             docker compose logs --tail=200 || true
+          fi
+
+      - name: Upload docker logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-compose-logs
+          path: ../axonflow/docker-compose-logs.txt
+          if-no-files-found: ignore
+
+      - name: Stop community stack
+        if: always()
+        run: |
+          if [ -d "../axonflow" ]; then
+            cd ../axonflow
+            # Persist logs to disk so the upload step can grab them even after teardown.
+            docker compose logs --tail=500 > docker-compose-logs.txt 2>/dev/null || true
+            docker compose down --volumes --remove-orphans || true
           fi
