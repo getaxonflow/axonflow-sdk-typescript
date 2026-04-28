@@ -9,6 +9,8 @@ import {
   ConnectorInstallRequest,
   ConnectorResponse,
   ConnectorHealthStatus,
+  LLMProvider,
+  ListProvidersOptions,
   MCPCheckInputOptions,
   MCPCheckInputResponse,
   MCPCheckOutputOptions,
@@ -985,6 +987,50 @@ export class AxonFlow {
     }
 
     return connectors;
+  }
+
+  /**
+   * List configured LLM providers and their per-provider health status.
+   *
+   * Calls `GET /api/v1/llm-providers`. Mirrors the Java SDK's
+   * `listLLMProviders()`, the Python SDK's `list_providers()`, and the Go
+   * SDK's `ListProviders()`.
+   *
+   * @param options - Optional filters: `type` and/or `enabled`.
+   * @returns Array of LLMProvider records, each with optional health snapshot.
+   *
+   * @example
+   * ```typescript
+   * const providers = await client.listProviders();
+   * providers.forEach(p =>
+   *   console.log(`${p.name} (${p.type}) — ${p.health?.status ?? "?"}`)
+   * );
+   * ```
+   */
+  async listProviders(options?: ListProvidersOptions): Promise<LLMProvider[]> {
+    const queryParts: string[] = [];
+    if (options?.type !== undefined) {
+      queryParts.push(`type=${encodeURIComponent(options.type)}`);
+    }
+    if (options?.enabled !== undefined) {
+      queryParts.push(`enabled=${options.enabled ? 'true' : 'false'}`);
+    }
+    const path = queryParts.length
+      ? `/api/v1/llm-providers?${queryParts.join('&')}`
+      : '/api/v1/llm-providers';
+
+    const response = await this.orchestratorRequest<{ providers?: LLMProvider[] }>(
+      'GET',
+      path
+    );
+
+    const providers = Array.isArray(response) ? response : (response.providers ?? []);
+
+    if (this.config.debug) {
+      debugLog('Listed LLM providers', { count: providers.length });
+    }
+
+    return providers;
   }
 
   /**
