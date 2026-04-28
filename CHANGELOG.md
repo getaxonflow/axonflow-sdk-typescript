@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`examples/basic/`** — removed the "Sandbox Mode" demonstration that constructed `AxonFlow.sandbox(...)`. The sandbox client hard-codes the decommissioned staging-eu endpoint internally and the example would always fail at that step. The sandbox helper itself is unchanged in the SDK.
 - **`examples/README.md`** — corrected stale env-var docs: examples expect `AXONFLOW_CLIENT_ID` / `AXONFLOW_CLIENT_SECRET`, not `AXONFLOW_API_KEY` / `AXONFLOW_TENANT`. Updated runner instructions to use `tsx` (the examples no longer rely on `ts-node`).
 - **All examples** — standardized on `import { AxonFlow } from '@axonflow/sdk'` (was mixed; some examples imported from `'../../src'` which only worked when copy-pasted inside the repo tree).
+- **`examples/basic/`** — rewritten to use the modern Gateway-Mode (`getPolicyApprovedContext` + `auditLLMCall`) and Proxy-Mode (`proxyLLMCall`) APIs. The previous version used the deprecated `protect()` helper (deprecated in v6.0.0) and the SDK emitted a deprecation warning every time the example ran.
 
 ## [6.1.0] - 2026-04-25 — Plugin Batch 1 explainability fields on MCP responses
 
