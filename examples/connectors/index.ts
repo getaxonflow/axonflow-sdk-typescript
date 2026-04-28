@@ -44,8 +44,9 @@ async function main() {
   if (amadeusKey && amadeusSecret) {
     try {
       await client.installConnector({
-        connectorId: 'amadeus-travel',
+        connector_id: 'amadeus-travel',
         name: 'amadeus-prod',
+        tenant_id: clientId,
         options: { environment: 'production' },
         credentials: { api_key: amadeusKey, api_secret: amadeusSecret },
       });

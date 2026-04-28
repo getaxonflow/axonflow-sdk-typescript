@@ -13,7 +13,7 @@ Set environment variables:
 ```bash
 export AXONFLOW_API_KEY="AXON-PLUS-yourorg-20351025-signature"  # Your license key
 export AXONFLOW_TENANT="your-tenant-id"
-export AXONFLOW_AGENT_URL="https://staging-eu.getaxonflow.com"  # Optional
+export AXONFLOW_AGENT_URL="http://localhost:8080"  # Optional (default for local docker-compose)
 ```
 
 **Note**: `AXONFLOW_API_KEY` should be your AxonFlow license key in the format `AXON-{TIER}-{ORG}-{EXPIRY}-{SIGNATURE}`
@@ -91,7 +91,7 @@ node index.js
 |----------|----------|-------------|
 | `AXONFLOW_API_KEY` | Yes | Your AxonFlow license key (format: AXON-{TIER}-{ORG}-{EXPIRY}-{SIG}) |
 | `AXONFLOW_TENANT` | Yes | Your tenant identifier |
-| `AXONFLOW_AGENT_URL` | No | Custom endpoint (default: staging) |
+| `AXONFLOW_AGENT_URL` | No | Custom endpoint (default: `http://localhost:8080` for local docker-compose) |
 | `AMADEUS_API_KEY` | No | For connector examples |
 | `AMADEUS_API_SECRET` | No | For connector examples |
 

@@ -1,21 +1,21 @@
 /**
  * Proxy Mode Example
  *
- * Demonstrates using AxonFlow's Proxy Mode (executeQuery) for policy enforcement.
+ * Demonstrates using AxonFlow's Proxy Mode (proxyLLMCall) for policy enforcement.
  * Proxy Mode routes all requests through AxonFlow, which handles policy checking
  * and optionally routes to LLM providers.
  *
  * Run: npx ts-node examples/proxy-mode/index.ts
  */
 
-import { AxonFlow, ExecuteQueryOptions, PolicyViolationError } from '../../src';
+import { AxonFlow, PolicyViolationError } from '../../src';
 
 async function main() {
   // Initialize client
   const axonflow = new AxonFlow({
     clientId: process.env.AXONFLOW_CLIENT_ID || 'demo-client',
     clientSecret: process.env.AXONFLOW_CLIENT_SECRET || 'demo-secret',
-    endpoint: process.env.AXONFLOW_AGENT_URL || 'https://staging-eu.getaxonflow.com',
+    endpoint: process.env.AXONFLOW_AGENT_URL || 'http://localhost:8080',
     debug: true,
   });
 
@@ -34,7 +34,7 @@ async function main() {
   console.log('\n2. Basic Chat Query');
   console.log('-'.repeat(40));
   try {
-    const chatResult = await axonflow.executeQuery({
+    const chatResult = await axonflow.proxyLLMCall({
       userToken: 'user-123',
       query: 'What is the capital of France?',
       requestType: 'chat',
@@ -52,7 +52,7 @@ async function main() {
   console.log('\n3. Query with Context (LLM Provider Info)');
   console.log('-'.repeat(40));
   try {
-    const contextResult = await axonflow.executeQuery({
+    const contextResult = await axonflow.proxyLLMCall({
       userToken: 'user-123',
       query: 'Explain quantum computing in simple terms',
       requestType: 'chat',
@@ -75,7 +75,7 @@ async function main() {
   console.log('\n4. PII Detection Test (should be blocked)');
   console.log('-'.repeat(40));
   try {
-    await axonflow.executeQuery({
+    await axonflow.proxyLLMCall({
       userToken: 'user-123',
       query: 'Process this SSN: 123-45-6789 and credit card: 4111-1111-1111-1111',
       requestType: 'chat',
@@ -95,7 +95,7 @@ async function main() {
   console.log('\n5. SQL Injection Test (should be blocked)');
   console.log('-'.repeat(40));
   try {
-    await axonflow.executeQuery({
+    await axonflow.proxyLLMCall({
       userToken: 'user-123',
       query: "SELECT * FROM users WHERE id = '1'; DROP TABLE users;--",
       requestType: 'sql',
@@ -114,7 +114,7 @@ async function main() {
   console.log('\n6. Safe SQL Query');
   console.log('-'.repeat(40));
   try {
-    const sqlResult = await axonflow.executeQuery({
+    const sqlResult = await axonflow.proxyLLMCall({
       userToken: 'user-123',
       query: 'SELECT name, email FROM customers WHERE status = active LIMIT 10',
       requestType: 'sql',
@@ -129,7 +129,7 @@ async function main() {
   console.log('\n7. MCP Connector Query');
   console.log('-'.repeat(40));
   try {
-    const mcpResult = await axonflow.executeQuery({
+    const mcpResult = await axonflow.proxyLLMCall({
       userToken: 'user-123',
       query: 'Get recent orders',
       requestType: 'mcp-query',

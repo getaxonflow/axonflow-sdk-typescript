@@ -12,7 +12,7 @@ import { AxonFlow } from '@axonflow/sdk';
 
 async function main() {
   // Load configuration from environment variables
-  const agentURL = process.env.AXONFLOW_AGENT_URL || 'https://staging-eu.getaxonflow.com';
+  const agentURL = process.env.AXONFLOW_AGENT_URL || 'http://localhost:8080';
   const clientId = process.env.AXONFLOW_CLIENT_ID;
   const clientSecret = process.env.AXONFLOW_CLIENT_SECRET;
 
