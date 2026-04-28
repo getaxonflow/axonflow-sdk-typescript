@@ -42,8 +42,8 @@ async function main() {
       console.log(`   Type: ${step.type}`);
       console.log(`   Agent: ${step.agent}`);
       console.log(`   Description: ${step.description}`);
-      if (step.dependencies?.length) {
-        console.log(`   Dependencies: ${step.dependencies.join(', ')}`);
+      if (step.dependsOn?.length) {
+        console.log(`   Dependencies: ${step.dependsOn.join(', ')}`);
       }
     });
 
