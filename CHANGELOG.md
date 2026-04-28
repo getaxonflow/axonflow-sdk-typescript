@@ -17,10 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`examples/planning/`** — `PlanStep` field reference fixed: `step.dependsOn` (was `step.dependencies`).
 - **`examples/proxy-mode/`** — replaced `client.executeQuery(...)` with `client.proxyLLMCall(...)` (the method was renamed in v6.0.0); removed the import of the `@internal` `ExecuteQueryOptions` type.
 - **`examples/basic/`, `examples/proxy-mode/`, `examples/README.md`** — replaced the decommissioned `https://staging-eu.getaxonflow.com` default endpoint with `http://localhost:8080` (the local docker-compose default). The staging-eu environment was torn down 2026-04-09.
-- **`examples/basic/`** — removed the "Sandbox Mode" demonstration that constructed `AxonFlow.sandbox(...)`. The sandbox client hard-codes the decommissioned staging-eu endpoint internally and the example would always fail at that step. The sandbox helper itself is unchanged in the SDK.
+- **`examples/basic/`** — removed the "Sandbox Mode" demonstration that constructed `AxonFlow.sandbox(...)`. The sandbox client used to hard-code the decommissioned staging-eu endpoint internally, so the example always failed at that step. The sandbox helper itself has been pointed at `http://localhost:8080` (see Changed below).
 - **`examples/README.md`** — corrected stale env-var docs: examples expect `AXONFLOW_CLIENT_ID` / `AXONFLOW_CLIENT_SECRET`, not `AXONFLOW_API_KEY` / `AXONFLOW_TENANT`. Updated runner instructions to use `tsx` (the examples no longer rely on `ts-node`).
 - **All examples** — standardized on `import { AxonFlow } from '@axonflow/sdk'` (was mixed; some examples imported from `'../../src'` which only worked when copy-pasted inside the repo tree).
 - **`examples/basic/`** — rewritten to use the modern Gateway-Mode (`getPolicyApprovedContext` + `auditLLMCall`) and Proxy-Mode (`proxyLLMCall`) APIs. The previous version used the deprecated `protect()` helper (deprecated in v6.0.0) and the SDK emitted a deprecation warning every time the example ran.
+- **`tests/e2e-staging.test.ts`** — default endpoint changed from the decommissioned `staging-eu.getaxonflow.com` to `http://localhost:8080`. Override with `AXONFLOW_AGENT_URL` to point at any other stack.
+- **`tests/selfhosted-zero-config.test.ts`** — replaced an `https://staging-eu.getaxonflow.com` stand-in URL with `https://example.com` (the test only verifies that the constructor accepts a public URL; the URL itself isn't called).
+- **`test/manual-test.ts`** — deleted. The harness pointed at the decommissioned staging-eu endpoint, used the deprecated `protect()` API, used invalid demo credentials, and `tests/integration.test.ts` already covers the same surface.
+
+### Changed
+
+- **SDK default endpoint** is now `http://localhost:8080` (was `https://staging-eu.getaxonflow.com`). Constructing `new AxonFlow({...})` without an explicit `endpoint` previously routed every request to a host that was decommissioned 2026-04-09; the new default works zero-config against a local docker-compose stack. Production callers were already passing an explicit `endpoint`, so behaviour is unchanged for them.
+- **`AxonFlow.sandbox(...)`** now targets `http://localhost:8080` for the same reason. Override via the regular constructor if you need to point sandbox at a hosted environment.
 
 ## [6.1.0] - 2026-04-25 — Plugin Batch 1 explainability fields on MCP responses
 

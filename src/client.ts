@@ -280,8 +280,11 @@ export class AxonFlow {
       };
     }
 
-    // Set defaults first to determine endpoint
-    const endpoint = config.endpoint ?? 'https://staging-eu.getaxonflow.com';
+    // Set defaults first to determine endpoint. Default is localhost so
+    // local docker-compose flows work zero-config; production callers
+    // always pass an explicit endpoint. The previous default
+    // (staging-eu.getaxonflow.com) was decommissioned 2026-04-09.
+    const endpoint = config.endpoint ?? 'http://localhost:8080';
 
     // Credentials check: OAuth2-style (clientId/clientSecret)
     const hasCredentials = !!(config.clientId && config.clientSecret);
@@ -600,11 +603,15 @@ export class AxonFlow {
    * Create a sandbox client for testing
    */
   static sandbox(clientId: string = 'demo-client', clientSecret: string = 'demo-secret'): AxonFlow {
+    // Sandbox mode targets the local docker-compose default. The previous
+    // staging-eu.getaxonflow.com endpoint was decommissioned 2026-04-09.
+    // Override with a custom endpoint via AxonFlow constructor if you
+    // need to point sandbox at a hosted environment.
     return new AxonFlow({
       clientId,
       clientSecret,
       mode: 'sandbox',
-      endpoint: 'https://staging-eu.getaxonflow.com',
+      endpoint: 'http://localhost:8080',
       debug: true,
     });
   }

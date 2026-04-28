@@ -14,10 +14,13 @@
 import { AxonFlow } from '../src/client';
 
 // Test configuration
-const STAGING_URL = 'https://staging-eu.getaxonflow.com';
+// Default to local docker-compose. The previous public staging-eu
+// environment was decommissioned 2026-04-09; e2e against a hosted stack
+// now requires explicit AXONFLOW_AGENT_URL.
+const DEFAULT_E2E_URL = 'http://localhost:8080';
 
 function getTestConfig() {
-  const endpoint = process.env.AXONFLOW_AGENT_URL || STAGING_URL;
+  const endpoint = process.env.AXONFLOW_AGENT_URL || DEFAULT_E2E_URL;
   const isLocalhost = endpoint.includes('localhost') || endpoint.includes('127.0.0.1');
 
   return {
