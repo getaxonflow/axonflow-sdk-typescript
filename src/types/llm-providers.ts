@@ -12,7 +12,14 @@ export interface LLMProviderHealth {
   last_checked?: string;
 }
 
-/** A configured LLM provider returned by `client.listProviders()`. */
+/**
+ * A configured LLM provider returned by `client.listProviders()`.
+ *
+ * Mirrors the platform's `LLMProviderResource` schema. Optional fields
+ * are populated when the provider config has them set; `settings` is a
+ * free-form provider-specific record (e.g. Bedrock inference-profile id,
+ * Azure OpenAI deployment name).
+ */
 export interface LLMProvider {
   name: string;
   type: string;
@@ -21,15 +28,40 @@ export interface LLMProvider {
   weight?: number;
   has_api_key: boolean;
   health?: LLMProviderHealth;
+  endpoint?: string;
+  model?: string;
+  region?: string;
+  rate_limit?: number;
+  timeout_seconds?: number;
+  settings?: Record<string, unknown>;
 }
 
 /**
- * Optional filters for `client.listProviders()`. Both fields are optional;
- * leaving them undefined returns every configured provider.
+ * Optional filters and pagination controls for `client.listProviders()`.
+ * All fields are optional; leaving them undefined uses the server's
+ * defaults (page 1, page_size 20, no filtering).
  */
 export interface ListProvidersOptions {
   /** Filter by provider type (e.g. `"openai"`, `"anthropic"`). */
   type?: string;
   /** Filter by the provider's enabled flag. */
   enabled?: boolean;
+  /** 1-indexed page number. Server default: 1. */
+  page?: number;
+  /** Items per page. Server default: 20, max: 100. */
+  page_size?: number;
+}
+
+/** Pagination metadata returned alongside paginated list responses. */
+export interface PaginationMeta {
+  page: number;
+  page_size: number;
+  total_items: number;
+  total_pages: number;
+}
+
+/** Paginated wrapper returned by `client.listProvidersPaged()`. */
+export interface LLMProviderListResponse {
+  providers: LLMProvider[];
+  pagination: PaginationMeta;
 }
