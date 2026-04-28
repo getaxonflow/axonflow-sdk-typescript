@@ -166,7 +166,7 @@ describeIntegration('AxonFlow SDK Integration Tests', () => {
           requestType: 'sql',
         });
         // If we get here without throwing, check if the response indicates blocking
-        fail('Expected PolicyViolationError to be thrown');
+        throw new Error('Expected PolicyViolationError to be thrown');
       } catch (error: any) {
         expect(error.name).toBe('PolicyViolationError');
         expect(error.blockReason).toBeTruthy();
@@ -181,7 +181,7 @@ describeIntegration('AxonFlow SDK Integration Tests', () => {
           query: 'Process this SSN: 123-45-6789',
           requestType: 'chat',
         });
-        fail('Expected PolicyViolationError to be thrown');
+        throw new Error('Expected PolicyViolationError to be thrown');
       } catch (error: any) {
         expect(error.name).toBe('PolicyViolationError');
         console.log(`PII blocked: ${error.blockReason}`);

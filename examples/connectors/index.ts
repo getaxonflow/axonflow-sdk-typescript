@@ -12,6 +12,9 @@ import { AxonFlow } from '@axonflow/sdk';
 async function main() {
   const clientId = process.env.AXONFLOW_CLIENT_ID || 'demo-client';
   const clientSecret = process.env.AXONFLOW_CLIENT_SECRET || 'demo-secret';
+  // Tenant id is independent of the auth principal in real installations,
+  // even when a single demo collapses them to the same value.
+  const tenantId = process.env.AXONFLOW_TENANT_ID || clientId;
 
   const client = new AxonFlow({ clientId, clientSecret, debug: true });
 
@@ -46,7 +49,7 @@ async function main() {
       await client.installConnector({
         connector_id: 'amadeus-travel',
         name: 'amadeus-prod',
-        tenant_id: clientId,
+        tenant_id: tenantId,
         options: { environment: 'production' },
         credentials: { api_key: amadeusKey, api_secret: amadeusSecret },
       });

@@ -72,27 +72,6 @@ async function main() {
     console.log('✓ Request blocked (PII detected):', err.message);
   }
 
-  // Test with sandbox client
-  console.log('\n' + '='.repeat(60));
-  console.log('Example 3: Sandbox Mode');
-  console.log('='.repeat(60));
-
-  const sandboxClient = AxonFlow.sandbox('demo-key');
-
-  try {
-    const result = await sandboxClient.protect(async () => {
-      return {
-        response: 'This is a sandbox test response',
-        model: 'gpt-4-turbo',
-      };
-    });
-
-    console.log('✓ Sandbox query succeeded:', result);
-  } catch (error) {
-    const err = error as Error;
-    console.log('⚠ Sandbox query result:', err.message);
-  }
-
   console.log('\n✅ All examples completed');
 }
 

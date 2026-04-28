@@ -6,6 +6,7 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
+    "outDir": "./.tsbuildinfo-examples",
     "baseUrl": ".",
     "paths": {
       "@axonflow/sdk": ["./src/index.ts"]

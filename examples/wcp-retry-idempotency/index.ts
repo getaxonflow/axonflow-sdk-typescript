@@ -7,14 +7,14 @@
  * Run:
  *   source /tmp/axonflow-e2e-env.sh
  *   export AXONFLOW_BASE_URL=http://localhost:8080
- *   npx ts-node index.ts
+ *   npx tsx index.ts
  */
 
 import {
   AxonFlow,
   IdempotencyKeyMismatchError,
   type StepGateRequest,
-} from '../../src';
+} from '@axonflow/sdk';
 
 function mustEnv(k: string): string {
   const v = process.env[k];

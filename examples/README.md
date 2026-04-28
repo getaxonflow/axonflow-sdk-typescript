@@ -11,12 +11,10 @@ npm install @axonflow/sdk
 Set environment variables:
 
 ```bash
-export AXONFLOW_API_KEY="AXON-PLUS-yourorg-20351025-signature"  # Your license key
-export AXONFLOW_TENANT="your-tenant-id"
+export AXONFLOW_CLIENT_ID="your-client-id"
+export AXONFLOW_CLIENT_SECRET="your-client-secret"
 export AXONFLOW_AGENT_URL="http://localhost:8080"  # Optional (default for local docker-compose)
 ```
-
-**Note**: `AXONFLOW_API_KEY` should be your AxonFlow license key in the format `AXON-{TIER}-{ORG}-{EXPIRY}-{SIGNATURE}`
 
 ## Examples
 
@@ -26,7 +24,7 @@ Simple SDK initialization and protected AI calls.
 
 ```bash
 cd examples/basic
-npx ts-node index.ts
+npx tsx index.ts
 ```
 
 Demonstrates:
@@ -34,7 +32,6 @@ Demonstrates:
 - Protecting AI calls with governance
 - Handling blocked requests
 - PII detection
-- Sandbox mode
 
 ### 2. MCP Connectors (`examples/connectors/`)
 
@@ -42,7 +39,7 @@ Working with the MCP connector marketplace.
 
 ```bash
 cd examples/connectors
-npx ts-node index.ts
+npx tsx index.ts
 ```
 
 Demonstrates:
@@ -56,7 +53,7 @@ Complex workflow orchestration with MAP.
 
 ```bash
 cd examples/planning
-npx ts-node index.ts
+npx tsx index.ts
 ```
 
 Demonstrates:
@@ -65,33 +62,46 @@ Demonstrates:
 - Checking plan status
 - Handling plan results
 
-## Running Examples
+### 4. Proxy Mode (`examples/proxy-mode/`)
 
-Each example can be run directly with ts-node:
+Routing requests through AxonFlow with `proxyLLMCall`.
 
 ```bash
-# Install ts-node if not already installed
-npm install -g ts-node typescript
+cd examples/proxy-mode
+npx tsx index.ts
+```
+
+### 5. WCP retry_context + idempotency_key (`examples/wcp-retry-idempotency/`)
+
+End-to-end exercise of the v7.3.0 WCP retry primitives. Requires an
+enterprise stack at `AXONFLOW_BASE_URL`.
+
+```bash
+cd examples/wcp-retry-idempotency
+npx tsx index.ts
+```
+
+## Running Examples
+
+Each example uses `tsx` to run TypeScript directly without a separate compile step:
+
+```bash
+# tsx is a zero-config TS runner; either install globally or use npx
+npm install -g tsx
 
 # Run any example
 cd examples/basic
-ts-node index.ts
-```
-
-Or compile and run:
-
-```bash
-tsc index.ts
-node index.js
+tsx index.ts
 ```
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `AXONFLOW_API_KEY` | Yes | Your AxonFlow license key (format: AXON-{TIER}-{ORG}-{EXPIRY}-{SIG}) |
-| `AXONFLOW_TENANT` | Yes | Your tenant identifier |
-| `AXONFLOW_AGENT_URL` | No | Custom endpoint (default: `http://localhost:8080` for local docker-compose) |
+| `AXONFLOW_CLIENT_ID` | Yes | Your client/tenant identifier |
+| `AXONFLOW_CLIENT_SECRET` | Yes | Your client secret |
+| `AXONFLOW_AGENT_URL` | No | Agent endpoint (default: `http://localhost:8080`) |
+| `AXONFLOW_TENANT_ID` | No | Tenant ID for connector ops; falls back to `AXONFLOW_CLIENT_ID` |
 | `AMADEUS_API_KEY` | No | For connector examples |
 | `AMADEUS_API_SECRET` | No | For connector examples |
 

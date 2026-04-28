@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`client.listProviders(options?)`** — list configured LLM providers and their per-provider health snapshot. Calls `GET /api/v1/llm-providers`. New `LLMProvider`, `LLMProviderHealth`, and `ListProvidersOptions` types in `@axonflow/sdk`. Supports `type` and `enabled` filters. Closes the parity gap with the Java SDK's `listLLMProviders()` and the Python SDK's `list_providers()`.
 
+### Fixed
+
+- **`examples/connectors/`** — `installConnector()` call now uses the correct snake-case `connector_id` field (was `connectorId`) and supplies the required `tenant_id` (now sourced from `AXONFLOW_TENANT_ID`, falling back to `AXONFLOW_CLIENT_ID`).
+- **`examples/planning/`** — `PlanStep` field reference fixed: `step.dependsOn` (was `step.dependencies`).
+- **`examples/proxy-mode/`** — replaced `client.executeQuery(...)` with `client.proxyLLMCall(...)` (the method was renamed in v6.0.0); removed the import of the `@internal` `ExecuteQueryOptions` type.
+- **`examples/basic/`, `examples/proxy-mode/`, `examples/README.md`** — replaced the decommissioned `https://staging-eu.getaxonflow.com` default endpoint with `http://localhost:8080` (the local docker-compose default). The staging-eu environment was torn down 2026-04-09.
+- **`examples/basic/`** — removed the "Sandbox Mode" demonstration that constructed `AxonFlow.sandbox(...)`. The sandbox client hard-codes the decommissioned staging-eu endpoint internally and the example would always fail at that step. The sandbox helper itself is unchanged in the SDK.
+- **`examples/README.md`** — corrected stale env-var docs: examples expect `AXONFLOW_CLIENT_ID` / `AXONFLOW_CLIENT_SECRET`, not `AXONFLOW_API_KEY` / `AXONFLOW_TENANT`. Updated runner instructions to use `tsx` (the examples no longer rely on `ts-node`).
+- **All examples** — standardized on `import { AxonFlow } from '@axonflow/sdk'` (was mixed; some examples imported from `'../../src'` which only worked when copy-pasted inside the repo tree).
+
 ## [6.1.0] - 2026-04-25 — Plugin Batch 1 explainability fields on MCP responses
 
 Minor release. Surfaces fields the AxonFlow agent has emitted since v7.1.0 (Plugin Batch 1) but the SDK didn't declare. Pure field-additions on existing methods — no new SDK methods, no breaking changes. Documented in OpenAPI via platform v7.4.3.
