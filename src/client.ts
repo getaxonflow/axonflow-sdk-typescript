@@ -1019,10 +1019,7 @@ export class AxonFlow {
       ? `/api/v1/llm-providers?${queryParts.join('&')}`
       : '/api/v1/llm-providers';
 
-    const response = await this.orchestratorRequest<{ providers?: LLMProvider[] }>(
-      'GET',
-      path
-    );
+    const response = await this.orchestratorRequest<{ providers?: LLMProvider[] }>('GET', path);
 
     const providers = Array.isArray(response) ? response : (response.providers ?? []);
 
