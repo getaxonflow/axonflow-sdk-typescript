@@ -10,6 +10,7 @@ import {
   ConnectorResponse,
   ConnectorHealthStatus,
   LLMProvider,
+  LLMProviderListResponse,
   ListProvidersOptions,
   MCPCheckInputOptions,
   MCPCheckInputResponse,
@@ -990,13 +991,17 @@ export class AxonFlow {
   }
 
   /**
-   * List configured LLM providers and their per-provider health status.
+   * List configured LLM providers from a SINGLE page of results.
    *
    * Calls `GET /api/v1/llm-providers`. Mirrors the Java SDK's
    * `listLLMProviders()`, the Python SDK's `list_providers()`, and the Go
    * SDK's `ListProviders()`.
    *
-   * @param options - Optional filters: `type` and/or `enabled`.
+   * For multi-page traversal use {@link listAllProviders}; for pagination
+   * metadata use {@link listProvidersPaged}.
+   *
+   * @param options - Optional filters and pagination: `type`, `enabled`,
+   *   `page`, `page_size`. Server defaults are page 1, page_size 20.
    * @returns Array of LLMProvider records, each with optional health snapshot.
    *
    * @example
@@ -1008,26 +1013,102 @@ export class AxonFlow {
    * ```
    */
   async listProviders(options?: ListProvidersOptions): Promise<LLMProvider[]> {
-    const queryParts: string[] = [];
+    const result = await this.listProvidersPaged(options);
+    return result.providers;
+  }
+
+  /**
+   * List one page of LLM providers along with the pagination metadata
+   * (page / page_size / total_items / total_pages) so callers can
+   * paginate manually.
+   *
+   * @param options - Optional filters and pagination controls.
+   * @returns LLMProviderListResponse with `providers` and `pagination`.
+   */
+  async listProvidersPaged(options?: ListProvidersOptions): Promise<LLMProviderListResponse> {
+    const params = new URLSearchParams();
     if (options?.type !== undefined) {
-      queryParts.push(`type=${encodeURIComponent(options.type)}`);
+      params.set('type', options.type);
     }
     if (options?.enabled !== undefined) {
-      queryParts.push(`enabled=${options.enabled ? 'true' : 'false'}`);
+      params.set('enabled', options.enabled ? 'true' : 'false');
     }
-    const path = queryParts.length
-      ? `/api/v1/llm-providers?${queryParts.join('&')}`
-      : '/api/v1/llm-providers';
+    if (options?.page !== undefined) {
+      params.set('page', String(options.page));
+    }
+    if (options?.page_size !== undefined) {
+      params.set('page_size', String(options.page_size));
+    }
+    const queryString = params.toString();
+    const path = queryString ? `/api/v1/llm-providers?${queryString}` : '/api/v1/llm-providers';
 
-    const response = await this.orchestratorRequest<{ providers?: LLMProvider[] }>('GET', path);
+    const response = await this.orchestratorRequest<LLMProviderListResponse | LLMProvider[]>(
+      'GET',
+      path
+    );
 
-    const providers = Array.isArray(response) ? response : (response.providers ?? []);
+    if (Array.isArray(response)) {
+      // Defensive fallback — older platforms may not have wrapped the
+      // response in {providers: [...], pagination: {...}}.
+      return {
+        providers: response,
+        pagination: {
+          page: 1,
+          page_size: response.length,
+          total_items: response.length,
+          total_pages: 1,
+        },
+      };
+    }
+
+    const providers = response.providers ?? [];
+    const pagination = response.pagination ?? {
+      page: 1,
+      page_size: providers.length,
+      total_items: providers.length,
+      total_pages: 1,
+    };
 
     if (this.config.debug) {
-      debugLog('Listed LLM providers', { count: providers.length });
+      debugLog('Listed LLM providers', {
+        count: providers.length,
+        page: pagination.page,
+        total_pages: pagination.total_pages,
+      });
     }
 
-    return providers;
+    return { providers, pagination };
+  }
+
+  /**
+   * Walk every page of LLM providers and return the combined list.
+   *
+   * Defaults to `page_size=100` (the server-side max) to minimise round
+   * trips. Per-page filters from `options.type` / `options.enabled` are
+   * honoured on every page; `options.page` / `options.page_size` are
+   * overridden by the walker.
+   *
+   * @param options - Optional `type` / `enabled` filters and `page_size`.
+   * @returns The full provider list across all pages.
+   */
+  async listAllProviders(options?: ListProvidersOptions): Promise<LLMProvider[]> {
+    const pageSize = options?.page_size ?? 100;
+    const all: LLMProvider[] = [];
+    let page = 1;
+    while (true) {
+      const result = await this.listProvidersPaged({
+        type: options?.type,
+        enabled: options?.enabled,
+        page,
+        page_size: pageSize,
+      });
+      all.push(...result.providers);
+      if (result.pagination.total_pages <= page || result.providers.length === 0) {
+        break;
+      }
+      page += 1;
+    }
+    return all;
   }
 
   /**
