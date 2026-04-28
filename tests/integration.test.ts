@@ -131,7 +131,7 @@ describeIntegration('AxonFlow SDK Integration Tests', () => {
     });
 
     test('should execute query successfully', async () => {
-      const result = await client.executeQuery({
+      const result = await client.proxyLLMCall({
         userToken: 'demo-user',
         query: 'What is the capital of France?',
         requestType: 'chat',
@@ -139,11 +139,11 @@ describeIntegration('AxonFlow SDK Integration Tests', () => {
 
       expect(result.success).toBe(true);
       expect(result.blocked).toBe(false);
-      console.log(`Execute query: success=${result.success}, blocked=${result.blocked}`);
+      console.log(`proxyLLMCall: success=${result.success}, blocked=${result.blocked}`);
     });
 
     test('should execute query with context', async () => {
-      const result = await client.executeQuery({
+      const result = await client.proxyLLMCall({
         userToken: 'demo-user',
         query: 'Analyze this data',
         requestType: 'chat',
@@ -155,12 +155,12 @@ describeIntegration('AxonFlow SDK Integration Tests', () => {
       });
 
       expect(result.success).toBe(true);
-      console.log(`Execute query with context: success=${result.success}`);
+      console.log(`proxyLLMCall with context: success=${result.success}`);
     });
 
-    test('should block SQL injection via executeQuery', async () => {
+    test('should block SQL injection via proxyLLMCall', async () => {
       try {
-        await client.executeQuery({
+        await client.proxyLLMCall({
           userToken: 'demo-user',
           query: 'SELECT * FROM users; DROP TABLE users;--',
           requestType: 'sql',
@@ -174,9 +174,9 @@ describeIntegration('AxonFlow SDK Integration Tests', () => {
       }
     });
 
-    test('should block PII via executeQuery', async () => {
+    test('should block PII via proxyLLMCall', async () => {
       try {
-        await client.executeQuery({
+        await client.proxyLLMCall({
           userToken: 'demo-user',
           query: 'Process this SSN: 123-45-6789',
           requestType: 'chat',
@@ -188,8 +188,8 @@ describeIntegration('AxonFlow SDK Integration Tests', () => {
       }
     });
 
-    test('should return policy info in executeQuery response', async () => {
-      const result = await client.executeQuery({
+    test('should return policy info in proxyLLMCall response', async () => {
+      const result = await client.proxyLLMCall({
         userToken: 'demo-user',
         query: 'Simple query without violations',
         requestType: 'chat',
@@ -208,7 +208,7 @@ describeIntegration('AxonFlow SDK Integration Tests', () => {
       const requestTypes = ['chat', 'sql', 'mcp-query'] as const;
 
       for (const requestType of requestTypes) {
-        const result = await client.executeQuery({
+        const result = await client.proxyLLMCall({
           userToken: 'demo-user',
           query: 'Test query',
           requestType,

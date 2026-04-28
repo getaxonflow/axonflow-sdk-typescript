@@ -59,6 +59,18 @@ jobs:
       - name: Type-check examples against local source
         run: npx tsc -p tsconfig.examples.json
 
+      # Integration test files live behind jest's testPathIgnorePatterns
+      # (only run on push-to-main), so jest never type-checks them at PR
+      # time. Drift in those files (e.g. method renames on AxonFlow) only
+      # surfaced after merge. Catch it on every PR.
+      - name: Type-check integration test files
+        run: |
+          npx tsc --noEmit \
+            --target es2020 --module commonjs --moduleResolution node \
+            --esModuleInterop --skipLibCheck \
+            --types node,jest \
+            tests/integration.test.ts test/integration.test.ts
+
   # Integration tests run against a live community stack via docker compose.
   # Runs on main merges, scheduled, and manual dispatch. Skipped on PRs to keep
   # latency reasonable — PR-level live coverage is added in QF-13.
