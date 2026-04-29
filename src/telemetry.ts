@@ -268,10 +268,84 @@ function expandIPv6(addr: string): string {
 }
 
 /**
- * Send an anonymous telemetry ping on client initialization.
+ * Send an anonymous telemetry ping and return whether it landed.
  *
- * This is fire-and-forget: the returned promise is intentionally not awaited,
- * errors are silently swallowed, and a 3-second timeout prevents blocking.
+ * Returns `true` only when the POST received a 2xx response. Network
+ * failures, timeouts, and non-2xx responses all return `false`. Used by
+ * the heartbeat orchestrator (see `heartbeat.ts`) where the boolean
+ * drives stamp-on-DELIVERY semantics: only successful POSTs advance the
+ * stamp file.
+ *
+ * The caller is responsible for the gating decision — this function does
+ * NOT consult `AXONFLOW_TELEMETRY`, the stamp file, or any rate-limit
+ * state.
+ */
+export async function sendTelemetryPingNow(options: {
+  mode: string;
+  endpoint: string;
+  debug?: boolean;
+}): Promise<boolean> {
+  const checkpointUrl = resolveCheckpointUrl();
+
+  const payload: TelemetryPayload = {
+    sdk: 'typescript',
+    sdk_version: VERSION,
+    platform_version: null,
+    os: typeof process !== 'undefined' ? process.platform : 'unknown',
+    arch: typeof process !== 'undefined' ? process.arch : 'unknown',
+    runtime_version: typeof process !== 'undefined' ? process.version.replace(/^v/, '') : 'unknown',
+    deployment_mode: options.mode,
+    endpoint_type: classifyEndpoint(options.endpoint),
+    features: [],
+    instance_id: generateInstanceId(),
+  };
+
+  try {
+    const deadline = Date.now() + TELEMETRY_TIMEOUT_MS;
+
+    try {
+      const healthBudget = Math.min(HEALTH_BUDGET_CAP_MS, Math.max(0, deadline - Date.now()));
+      if (options.endpoint && healthBudget > MIN_BUDGET_MS) {
+        payload.platform_version = await detectPlatformVersion(options.endpoint, healthBudget);
+      }
+    } catch {
+      /* platform_version remains null on failure */
+    }
+
+    if (options.debug) {
+      console.log('[AxonFlow] Sending telemetry ping', JSON.stringify(payload, null, 2));
+    }
+
+    const postBudget = Math.max(0, deadline - Date.now());
+    if (postBudget < MIN_BUDGET_MS) {
+      return false;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), postBudget);
+
+    try {
+      const response = await fetch(checkpointUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      return response.ok;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Send an anonymous telemetry ping on client initialization (compat shim).
+ *
+ * Kept for the existing test surface. Production code goes through
+ * `maybeSendHeartbeat` in heartbeat.ts instead. This shim performs the
+ * gating + fire-and-forget POST without consulting the 7-day stamp file.
  */
 export function sendTelemetryPing(options: {
   mode: string;

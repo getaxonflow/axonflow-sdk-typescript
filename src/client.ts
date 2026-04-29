@@ -1,5 +1,6 @@
 import { VERSION } from './version';
-import { sendTelemetryPing } from './telemetry';
+import { maybeSendHeartbeat } from './heartbeat';
+import { sendTelemetryPing, sendTelemetryPingNow } from './telemetry';
 import {
   AxonFlowConfig,
   AIRequest,
@@ -254,6 +255,12 @@ export class AxonFlow {
     retry: { enabled: boolean; maxAttempts: number; delay: number };
     cache: { enabled: boolean; ttl: number };
   };
+  // Stores the explicit telemetry override (true / false / undefined) and the
+  // user's original `mode` so the heartbeat gate's _preRequestHook can match
+  // the legacy `sendTelemetryPing` gating semantics. Auto-detected sandbox
+  // (when explicitMode is undefined) leaves telemetry on at the default.
+  private telemetryEnabled: boolean | undefined;
+  private explicitMode: string | undefined;
   private interceptors: {
     canHandle(aiCall: any): boolean;
     extractRequest(aiCall: any): AIRequest;
@@ -313,6 +320,10 @@ export class AxonFlow {
     // Interceptors removed in v3.0.0 (deprecated wrapOpenAIClient/wrapAnthropicClient)
     this.interceptors = [];
 
+    // Capture for the heartbeat gate (see _preRequestHook).
+    this.telemetryEnabled = config.telemetry;
+    this.explicitMode = config.mode;
+
     if (this.config.debug) {
       // Determine auth method for logging
       const authMethod = hasCredentials ? 'client-credentials' : 'community (no auth)';
@@ -324,14 +335,62 @@ export class AxonFlow {
       });
     }
 
-    // Send telemetry ping (fire-and-forget).
-    sendTelemetryPing({
-      mode: this.config.mode,
-      explicitMode: config.mode,
-      endpoint: this.config.endpoint,
-      telemetryEnabled: config.telemetry,
-      debug: this.config.debug,
-    });
+    // Heartbeat gate: at most one anonymous ping per environment per
+    // 7 days, gated by SDK activity. Constructor schedules the gate
+    // (which may or may not fire a POST depending on the stamp file);
+    // subsequent gate runs happen async via _preRequestHook on every
+    // public HTTP request site. See src/heartbeat.ts.
+    void this._preRequestHook();
+  }
+
+  /**
+   * Single hook invoked at the start of every public HTTP request path
+   * (via the `_fetch` wrapper). Schedules a heartbeat-gate evaluation;
+   * the gate's in-memory 1-hour cache plus the in-flight Promise gate
+   * mean the typical hot-path cost is a single comparison and an env
+   * read.
+   *
+   * Returns a Promise that the caller may discard — the gate runs
+   * asynchronously so user API calls are never delayed by telemetry.
+   */
+  private async _preRequestHook(): Promise<void> {
+    // Replicate the legacy sendTelemetryPing gating decision precisely:
+    //   - explicit telemetry === false → off
+    //   - explicit telemetry === true  → on
+    //   - explicit explicitMode === 'sandbox' (user-provided) → off
+    //   - undefined explicitMode (auto-detected) → on regardless of mode
+    let enabled: boolean;
+    if (this.telemetryEnabled === false) {
+      enabled = false;
+    } else if (this.telemetryEnabled === true) {
+      enabled = true;
+    } else {
+      enabled = this.explicitMode !== 'sandbox';
+    }
+    await maybeSendHeartbeat(enabled, () =>
+      sendTelemetryPingNow({
+        mode: this.config.mode,
+        endpoint: this.config.endpoint,
+        debug: this.config.debug,
+      })
+    );
+  }
+
+  /**
+   * Single HTTP wrapper used by every public-API request path. Schedules
+   * a heartbeat-gate evaluation as a side effect (non-blocking — the gate
+   * runs asynchronously) and returns the underlying `fetch` response.
+   *
+   * IMPORTANT: This wrapper must NOT be called from the telemetry path
+   * itself (sendTelemetryPingNow / detectPlatformVersion). Those use raw
+   * `fetch` to avoid recursive heartbeat triggering.
+   */
+  private async _fetch(
+    input: string | URL | Request,
+    init?: RequestInit
+  ): Promise<Response> {
+    void this._preRequestHook();
+    return fetch(input, init);
   }
 
   /**
@@ -532,7 +591,7 @@ export class AxonFlow {
       ...this.getAuthHeaders(),
     };
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
@@ -656,7 +715,7 @@ export class AxonFlow {
     const url = `${this.config.endpoint}/health`;
 
     try {
-      const response = await fetch(url, {
+      const response = await this._fetch(url, {
         method: 'GET',
         headers: this.getAuthHeaders(),
         signal: AbortSignal.timeout(this.config.timeout),
@@ -729,7 +788,7 @@ export class AxonFlow {
     const url = `${this.config.endpoint}/health`;
 
     try {
-      const response = await fetch(url, {
+      const response = await this._fetch(url, {
         method: 'GET',
         headers: this.getAuthHeaders(),
         signal: AbortSignal.timeout(this.config.timeout),
@@ -848,7 +907,7 @@ export class AxonFlow {
       });
     }
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
@@ -1208,7 +1267,7 @@ export class AxonFlow {
       ...this.getAuthHeaders(),
     };
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
@@ -1295,7 +1354,7 @@ export class AxonFlow {
       });
     }
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -1394,7 +1453,7 @@ export class AxonFlow {
       });
     }
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -1478,7 +1537,7 @@ export class AxonFlow {
       });
     }
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -1570,7 +1629,7 @@ export class AxonFlow {
     };
 
     // Use mapTimeout for MAP operations (default 2 minutes)
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
@@ -1649,7 +1708,7 @@ export class AxonFlow {
     };
 
     // Use mapTimeout for MAP operations (default 2 minutes)
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(agentRequest),
@@ -1715,7 +1774,7 @@ export class AxonFlow {
   async getPlanStatus(planId: string): Promise<PlanExecutionResponse> {
     const url = `${this.config.endpoint}/api/v1/plan/${planId}`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'GET',
       signal: AbortSignal.timeout(this.config.timeout),
     });
@@ -1757,7 +1816,7 @@ export class AxonFlow {
       body.reason = reason;
     }
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -1818,7 +1877,7 @@ export class AxonFlow {
       body.metadata = request.metadata;
     }
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'PUT',
       headers,
       body: JSON.stringify(body),
@@ -1864,7 +1923,7 @@ export class AxonFlow {
       ...this.getAuthHeaders(),
     };
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'GET',
       headers,
       signal: AbortSignal.timeout(this.config.timeout),
@@ -1908,7 +1967,7 @@ export class AxonFlow {
       ...this.getAuthHeaders(),
     };
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify({ approved: approved ?? true }),
@@ -2018,7 +2077,7 @@ export class AxonFlow {
       debugLog('Gateway Mode: Pre-check', { query: options.query.substring(0, 50) });
     }
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
@@ -2127,7 +2186,7 @@ export class AxonFlow {
       });
     }
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
@@ -2825,7 +2884,7 @@ export class AxonFlow {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    const response = await this._fetch(url, options);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -3464,7 +3523,7 @@ export class AxonFlow {
   ): Promise<{ sessionId: string; orgId: string; email: string; name: string; expiresAt: string }> {
     const url = `${this.config.endpoint}/api/v1/auth/login`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ org_id: orgId, password }),
@@ -3520,7 +3579,7 @@ export class AxonFlow {
     }
 
     try {
-      await fetch(`${this.config.endpoint}/api/v1/auth/logout`, {
+      await this._fetch(`${this.config.endpoint}/api/v1/auth/logout`, {
         method: 'POST',
         headers: { Cookie: `axonflow_session=${this.sessionCookie}` },
         signal: AbortSignal.timeout(this.config.timeout),
@@ -4211,7 +4270,7 @@ export class AxonFlow {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    const response = await this._fetch(url, options);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -4267,7 +4326,7 @@ export class AxonFlow {
       debugLog('Portal request', { method, path });
     }
 
-    const response = await fetch(url, options);
+    const response = await this._fetch(url, options);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -5053,7 +5112,7 @@ export class AxonFlow {
       debugLog('Portal request (text)', { method, path });
     }
 
-    const response = await fetch(url, options);
+    const response = await this._fetch(url, options);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -5592,7 +5651,7 @@ export class AxonFlow {
       ...this.getAuthHeaders(),
     };
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify({}),
@@ -5811,7 +5870,7 @@ export class AxonFlow {
       metadata: request.metadata,
     };
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -5832,7 +5891,7 @@ export class AxonFlow {
   private async masfeatGetSystem(systemId: string): Promise<AISystemRegistry> {
     const url = `${this.config.endpoint}/api/v1/masfeat/registry/${systemId}`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'GET',
       headers: {
         ...this.getAuthHeaders(),
@@ -5865,7 +5924,7 @@ export class AxonFlow {
     if (request.humanReliance !== undefined) body.human_reliance = request.humanReliance;
     if (request.metadata !== undefined) body.metadata = request.metadata;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -5895,7 +5954,7 @@ export class AxonFlow {
     const queryString = params.toString();
     const url = `${this.config.endpoint}/api/v1/masfeat/registry${queryString ? `?${queryString}` : ''}`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'GET',
       headers: {
         ...this.getAuthHeaders(),
@@ -5916,7 +5975,7 @@ export class AxonFlow {
     // Use PUT to update status - the /activate endpoint doesn't exist
     const url = `${this.config.endpoint}/api/v1/masfeat/registry/${systemId}`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -5937,7 +5996,7 @@ export class AxonFlow {
   private async masfeatRetireSystem(systemId: string): Promise<AISystemRegistry> {
     const url = `${this.config.endpoint}/api/v1/masfeat/registry/${systemId}`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'DELETE',
       headers: {
         ...this.getAuthHeaders(),
@@ -5956,7 +6015,7 @@ export class AxonFlow {
   private async masfeatGetRegistrySummary(): Promise<RegistrySummary> {
     const url = `${this.config.endpoint}/api/v1/masfeat/registry/summary`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'GET',
       headers: {
         ...this.getAuthHeaders(),
@@ -6014,7 +6073,7 @@ export class AxonFlow {
       }));
     }
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6035,7 +6094,7 @@ export class AxonFlow {
   private async masfeatGetAssessment(assessmentId: string): Promise<FEATAssessment> {
     const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'GET',
       headers: {
         ...this.getAuthHeaders(),
@@ -6085,7 +6144,7 @@ export class AxonFlow {
     if (request.recommendations !== undefined) body.recommendations = request.recommendations;
     if (request.assessors !== undefined) body.assessors = request.assessors;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -6115,7 +6174,7 @@ export class AxonFlow {
     const queryString = params.toString();
     const url = `${this.config.endpoint}/api/v1/masfeat/assessments${queryString ? `?${queryString}` : ''}`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'GET',
       headers: {
         ...this.getAuthHeaders(),
@@ -6135,7 +6194,7 @@ export class AxonFlow {
   private async masfeatSubmitAssessment(assessmentId: string): Promise<FEATAssessment> {
     const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}/submit`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6158,7 +6217,7 @@ export class AxonFlow {
   ): Promise<FEATAssessment> {
     const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}/approve`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6185,7 +6244,7 @@ export class AxonFlow {
   ): Promise<FEATAssessment> {
     const url = `${this.config.endpoint}/api/v1/masfeat/assessments/${assessmentId}/reject`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6210,7 +6269,7 @@ export class AxonFlow {
   private async masfeatGetKillSwitch(systemId: string): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'GET',
       headers: {
         ...this.getAuthHeaders(),
@@ -6241,7 +6300,7 @@ export class AxonFlow {
     if (request.autoTriggerEnabled !== undefined)
       body.auto_trigger_enabled = request.autoTriggerEnabled;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6265,7 +6324,7 @@ export class AxonFlow {
   ): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/check`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6293,7 +6352,7 @@ export class AxonFlow {
   ): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/trigger`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6320,7 +6379,7 @@ export class AxonFlow {
   ): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/restore`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6344,7 +6403,7 @@ export class AxonFlow {
   private async masfeatEnableKillSwitch(systemId: string): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/enable`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6367,7 +6426,7 @@ export class AxonFlow {
   ): Promise<KillSwitch> {
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/disable`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6395,7 +6454,7 @@ export class AxonFlow {
     const queryString = params.toString();
     const url = `${this.config.endpoint}/api/v1/masfeat/killswitch/${systemId}/history${queryString ? `?${queryString}` : ''}`;
 
-    const response = await fetch(url, {
+    const response = await this._fetch(url, {
       method: 'GET',
       headers: {
         ...this.getAuthHeaders(),
@@ -7041,7 +7100,7 @@ export class AxonFlow {
 
     let response: Response;
     try {
-      response = await fetch(url, fetchOptions);
+      response = await this._fetch(url, fetchOptions);
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
         return; // Clean exit on abort
