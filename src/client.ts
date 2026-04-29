@@ -1,5 +1,5 @@
 import { VERSION } from './version';
-import { maybeSendHeartbeat } from './heartbeat';
+import { maybeSendHeartbeat, flushHeartbeat } from './heartbeat';
 import { sendTelemetryPing, sendTelemetryPingNow } from './telemetry';
 import {
   AxonFlowConfig,
@@ -267,6 +267,17 @@ export class AxonFlow {
   }[] = [];
   private sessionCookie: string | null = null;
 
+  /**
+   * Promise that resolves when the constructor's heartbeat gate
+   * evaluation has finished (whether it sent a ping or short-circuited).
+   * Long-running services can ignore this — Node's event loop holds the
+   * process open until the in-flight Promise resolves naturally. CLI
+   * binaries and Lambda boot handlers that exit quickly should
+   * `await client.heartbeatReady` so the boot ping isn't truncated by
+   * an explicit `process.exit()`.
+   */
+  public readonly heartbeatReady: Promise<void>;
+
   constructor(config: AxonFlowConfig) {
     // Configuration validation
     if (config.clientSecret && !config.clientId) {
@@ -336,11 +347,20 @@ export class AxonFlow {
     }
 
     // Heartbeat gate: at most one anonymous ping per environment per
-    // 7 days, gated by SDK activity. Constructor schedules the gate
-    // (which may or may not fire a POST depending on the stamp file);
-    // subsequent gate runs happen async via _preRequestHook on every
-    // public HTTP request site. See src/heartbeat.ts.
-    void this._preRequestHook();
+    // 7 days, gated by SDK activity. Constructor kicks off the gate AND
+    // chains the in-flight delivery Promise so `heartbeatReady` resolves
+    // only once the POST has settled — callers in short-lived processes
+    // (CLI, Lambda boot) can `await client.heartbeatReady` to guarantee
+    // delivery before exit. Subsequent gate runs happen async via
+    // _preRequestHook on every public HTTP request site. See
+    // src/heartbeat.ts.
+    this.heartbeatReady = (async () => {
+      await this._preRequestHook();
+      const inFlight = flushHeartbeat();
+      if (inFlight) {
+        await inFlight;
+      }
+    })();
   }
 
   /**

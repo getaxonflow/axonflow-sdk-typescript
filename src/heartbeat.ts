@@ -157,6 +157,34 @@ export function replaceHeartbeatStateForTest(
 }
 
 /**
+ * Test helper: restore a previously-saved singleton.
+ *
+ * Pair with `replaceHeartbeatStateForTest`:
+ *
+ *   const previous = replaceHeartbeatStateForTest(tempStamp);
+ *   try { ... } finally { restoreHeartbeatStateForTest(previous); }
+ */
+export function restoreHeartbeatStateForTest(state: HeartbeatState): void {
+  _state = state;
+}
+
+/**
+ * Returns the in-flight heartbeat Promise, or `null` if no ping is in
+ * progress. Use this from short-lived processes (CLI scripts, Lambda
+ * boot) to await delivery before exit:
+ *
+ *   const client = new AxonFlow(config);
+ *   // ... do work ...
+ *   await flushHeartbeat();  // ensures the boot ping landed
+ *
+ * Long-running services don't need to call this — the Node event loop
+ * keeps the process alive while the Promise is pending.
+ */
+export function flushHeartbeat(): Promise<void> | null {
+  return _state.inFlight;
+}
+
+/**
  * Cheap opt-out check, re-evaluated on every gate run so a mid-process
  * `process.env.AXONFLOW_TELEMETRY = 'off'` toggle takes effect immediately
  * without restart.

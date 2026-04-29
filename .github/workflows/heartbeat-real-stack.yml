@@ -1,0 +1,49 @@
+name: heartbeat-real-stack
+
+# Real-stack heartbeat E2E across Linux + Windows + macOS. Stands up a
+# localhost fake checkpoint server, constructs the SDK through its
+# public API, verifies (a) the OS-native stamp file appears, (b) the
+# checkpoint endpoint received exactly one ping, (c) a second
+# invocation does NOT re-fire (warm-cache regression).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AXONFLOW_TELEMETRY: 'off'
+
+jobs:
+  real-stack:
+    name: real-stack ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python (for harness driver)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install + build SDK
+        run: |
+          npm ci
+          npm run build
+
+      - name: Run real-stack heartbeat E2E (cold + warm)
+        env:
+          SDK_DIST_DIR: ${{ github.workspace }}/dist/cjs/index.js
+        run: python tests/heartbeat-real-stack/run_real_stack.py node tests/heartbeat-real-stack/smoke_ts.mjs
+        shell: bash
