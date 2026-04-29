@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The one-line `[AxonFlow] DO_NOT_TRACK=1 is deprecated...` `console.warn` is no longer emitted. Removing the warning eliminates console noise that previously appeared on every client construction when `DO_NOT_TRACK=1` was set.
 
+### Changed
+
+- **Telemetry now follows the 7-day delivered-heartbeat contract** instead of firing on every `new AxonFlow()` construction. The SDK emits at most one anonymous heartbeat per environment every 7 days during SDK activity. A stamp file at the OS-native user cache dir tracks last successful delivery; mtime is the source of truth across process restarts. Failed POSTs do NOT advance the stamp — a transient network error does not silence telemetry for 7 days. An in-memory 1-hour cache caps `fs.statSync` calls on hot request paths; an in-flight Promise coalesces concurrent stampedes so only one ping fires under load. `AXONFLOW_TELEMETRY=off` is re-evaluated on every gate run. Restricted environments where no cache dir is available (e.g. AWS Lambda with no `HOME`/`LOCALAPPDATA`) fall back transparently to the previous "one ping per process" behavior.
+
 ### CI / development
 
 - Test harness (`jest.setup.ts`) and CI workflows (`test.yml`, `integration.yml`, `publish.yml`) now use `AXONFLOW_TELEMETRY=off` to suppress telemetry during automated runs.
