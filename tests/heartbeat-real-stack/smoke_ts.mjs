@@ -5,6 +5,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 function stampPath() {
   if (process.platform === 'darwin') {
@@ -44,7 +45,12 @@ async function main() {
     console.error('FAIL: SDK_DIST_DIR not set');
     process.exit(1);
   }
-  const { AxonFlow } = await import(sdkPath);
+  // Node's ESM loader requires file:// URLs for absolute paths. On Windows
+  // an absolute path like `D:\a\...\index.js` triggers
+  // ERR_UNSUPPORTED_ESM_URL_SCHEME — pathToFileURL handles the platform-
+  // specific conversion correctly (file:///D:/a/.../index.js).
+  const sdkUrl = pathToFileURL(sdkPath).href;
+  const { AxonFlow } = await import(sdkUrl);
 
   const agent = process.env.AXONFLOW_AGENT_URL;
   if (!agent) {

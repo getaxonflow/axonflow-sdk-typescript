@@ -19,10 +19,10 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   HeartbeatState,
-  USE_DEFAULT_CACHE_DIR,
   getHeartbeatStateForTest,
   maybeSendHeartbeat,
   replaceHeartbeatStateForTest,
+  restoreHeartbeatStateForTest,
 } from '../src/heartbeat';
 
 let tempStampPath: string;
@@ -37,12 +37,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // Restore original state.
-  replaceHeartbeatStateForTest(USE_DEFAULT_CACHE_DIR);
-  // (Singleton replacement above doesn't expose the previous instance; the
-  // module-level state remains the new default singleton — tests don't
-  // rely on the original state being the literal pre-test object, only on
-  // freshness per test, which is guaranteed by the beforeEach replacement.)
+  // Restore the original state captured in beforeEach so we don't leak
+  // test state into other test files.
+  restoreHeartbeatStateForTest(originalState);
 });
 
 // Helper to wait for the in-flight Promise to resolve so the test can

@@ -1,6 +1,6 @@
 import { VERSION } from './version';
 import { maybeSendHeartbeat, flushHeartbeat } from './heartbeat';
-import { sendTelemetryPing, sendTelemetryPingNow } from './telemetry';
+import { sendTelemetryPingNow } from './telemetry';
 import {
   AxonFlowConfig,
   AIRequest,

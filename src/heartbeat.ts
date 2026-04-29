@@ -34,7 +34,6 @@
  */
 
 import { promises as fsPromises, statSync } from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 /** 7 days in milliseconds. */
