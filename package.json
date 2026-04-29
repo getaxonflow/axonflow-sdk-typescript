@@ -81,6 +81,9 @@
   "dependencies": {
     "openai": "^6.15.0"
   },
+  "overrides": {
+    "fast-xml-parser": "^5.7.0"
+  },
   "publishConfig": {
     "access": "public",
     "provenance": true
