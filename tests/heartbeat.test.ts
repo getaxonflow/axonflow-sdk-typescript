@@ -143,7 +143,7 @@ test('Case 6: AXONFLOW_TELEMETRY=off mid-run → 0 pings, stamp unchanged', asyn
 test('Case 7: 100 concurrent callers → exactly 1 ping', async () => {
   const ping = jest.fn().mockImplementation(async () => {
     // Slight delay to encourage stampede behavior.
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise(r => setTimeout(r, 10));
     return true;
   });
 

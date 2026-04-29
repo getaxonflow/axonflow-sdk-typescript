@@ -405,10 +405,7 @@ export class AxonFlow {
    * itself (sendTelemetryPingNow / detectPlatformVersion). Those use raw
    * `fetch` to avoid recursive heartbeat triggering.
    */
-  private async _fetch(
-    input: string | URL | Request,
-    init?: RequestInit
-  ): Promise<Response> {
+  private async _fetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
     void this._preRequestHook();
     return fetch(input, init);
   }
