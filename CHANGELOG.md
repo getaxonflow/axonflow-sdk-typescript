@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **BREAKING:** `DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out. Use `AXONFLOW_TELEMETRY=off` instead.
+
+  `DO_NOT_TRACK` was deprecated because it is commonly inherited from host tools and developer environments (CLIs like Codex and Claude Code inject it unconditionally), which makes it an unreliable expression of user intent for AxonFlow telemetry.
+
+### Fixed
+
+- The one-line `[AxonFlow] DO_NOT_TRACK=1 is deprecated...` `console.warn` is no longer emitted. Removing the warning eliminates console noise that previously appeared on every client construction when `DO_NOT_TRACK=1` was set.
+
+### CI / development
+
+- Test harness (`jest.setup.ts`) and CI workflows (`test.yml`, `integration.yml`, `publish.yml`) now use `AXONFLOW_TELEMETRY=off` to suppress telemetry during automated runs.
+
+
 ## [6.2.0] - 2026-04-28 — listProviders() + example modernization
 
 Minor release. New LLM-provider listing API closes the parity gap with the Java + Python SDKs; the rest of the cycle is example modernization and a non-breaking default-endpoint correction. Coordinated cycle: Python v6.9.0 / Go v6.0.0 (major: see SDKCompatibility breaking type change in that release) / Java v6.2.0 ship same day.

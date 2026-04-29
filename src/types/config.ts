@@ -85,8 +85,8 @@ export interface AxonFlowConfig {
    * When undefined, defaults to ON for production mode and OFF for sandbox mode.
    * Set explicitly to `true` or `false` to override the default.
    *
-   * Telemetry can also be disabled globally via the DO_NOT_TRACK=1 or
-   * AXONFLOW_TELEMETRY=off environment variables.
+   * Telemetry can also be disabled globally via the
+   * `AXONFLOW_TELEMETRY=off` environment variable.
    */
   telemetry?: boolean;
 }

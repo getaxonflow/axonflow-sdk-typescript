@@ -24,10 +24,12 @@ const originalEnv = { ...process.env };
 
 describe('telemetry — shared deadline (regression for #1707)', () => {
   beforeEach(() => {
-    // Strip environment-level opt-outs so sendTelemetryPing actually fires.
-    // CI and developer shells commonly have DO_NOT_TRACK=1 or AXONFLOW_TELEMETRY=off
-    // set; without this cleanup the fetches never happen and the test times out
-    // without verifying the thing it claims to verify.
+    // Strip the AxonFlow opt-out so sendTelemetryPing actually fires. CI
+    // workflows + jest.setup.ts set AXONFLOW_TELEMETRY=off; without this
+    // cleanup the fetches never happen and the test times out without
+    // verifying the thing it claims to verify. DO_NOT_TRACK is also
+    // deleted defensively (no-op for telemetry but cheap; some dev shells
+    // export it from broader privacy conventions).
     delete process.env.DO_NOT_TRACK;
     delete process.env.AXONFLOW_TELEMETRY;
   });
