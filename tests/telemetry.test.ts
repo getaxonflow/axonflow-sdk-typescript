@@ -73,7 +73,7 @@ describe('sendTelemetryPing', () => {
   // Opt-out via environment variables
   // ============================================================
   describe('opt-out via environment variables', () => {
-    it('should not send when DO_NOT_TRACK=1', () => {
+    it('should STILL send when only DO_NOT_TRACK=1 is set (DNT no longer honored)', async () => {
       process.env.DO_NOT_TRACK = '1';
 
       sendTelemetryPing({
@@ -81,7 +81,11 @@ describe('sendTelemetryPing', () => {
         endpoint: 'https://api.axonflow.com',
       });
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // DNT alone is no longer honored — host CLIs inject it unconditionally
+      // so it cannot be a real user signal.
+      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
     });
 
     it('should not send when AXONFLOW_TELEMETRY=off', () => {
@@ -95,8 +99,21 @@ describe('sendTelemetryPing', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('should send when DO_NOT_TRACK is not set to 1', async () => {
-      process.env.DO_NOT_TRACK = '0';
+    it('should not send when AXONFLOW_TELEMETRY=off, even with DO_NOT_TRACK=1 also set', () => {
+      process.env.DO_NOT_TRACK = '1';
+      process.env.AXONFLOW_TELEMETRY = 'off';
+
+      sendTelemetryPing({
+        mode: 'production',
+        endpoint: 'https://api.axonflow.com',
+      });
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should not emit a console.warn when DO_NOT_TRACK=1 is set (no deprecation noise)', async () => {
+      process.env.DO_NOT_TRACK = '1';
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
       sendTelemetryPing({
         mode: 'production',
@@ -104,8 +121,8 @@ describe('sendTelemetryPing', () => {
       });
 
       await new Promise(resolve => setTimeout(resolve, 50));
-
-      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
     });
 
     it('should send when AXONFLOW_TELEMETRY is not off', async () => {
@@ -259,7 +276,7 @@ describe('sendTelemetryPing', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('env var opt-out takes priority over telemetryEnabled=true', () => {
+    it('DNT=1 alone does NOT override telemetryEnabled=true (DNT no longer honored)', async () => {
       process.env.DO_NOT_TRACK = '1';
 
       sendTelemetryPing({
@@ -268,7 +285,8 @@ describe('sendTelemetryPing', () => {
         telemetryEnabled: true,
       });
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      await new Promise(resolve => setTimeout(resolve, 50));
+      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
     });
 
     it('AXONFLOW_TELEMETRY=off takes priority over telemetryEnabled=true', () => {
