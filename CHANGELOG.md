@@ -5,18 +5,21 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [7.0.0] - 2026-04-29 — DO_NOT_TRACK removal
+## [7.0.0] - 2026-04-29 — DO_NOT_TRACK removal + 7-day delivered heartbeat
 
-Major release. The single breaking change is the removal of `DO_NOT_TRACK` as an AxonFlow telemetry opt-out — `AXONFLOW_TELEMETRY=off` is now the canonical and only opt-out signal. Companion releases on the same day: Python v7.0.0 / Go v7.0.0 (with `/v7` module path migration) / Java v7.0.0.
+Major release. Two headline changes: removal of `DO_NOT_TRACK` as an AxonFlow telemetry opt-out (`AXONFLOW_TELEMETRY=off` is now the canonical and only opt-out signal), and a move from "one ping per `new AxonFlow()`" to a 7-day delivered-heartbeat contract that better matches active-customer signal across both long-running services and short-lived CLI tools / Lambdas. Companion releases on the same day: Python v7.0.0 / Go v7.0.0 (with `/v7` module path migration) / Java v7.0.0.
 
 ### BREAKING
 
 - **`DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out.** Use `AXONFLOW_TELEMETRY=off` instead. `DO_NOT_TRACK` was deprecated because it is commonly inherited from host tools and developer environments (CLIs like Codex and Claude Code inject it unconditionally), which makes it an unreliable expression of user intent for AxonFlow telemetry.
 
+### Changed
+
+- **Telemetry now follows the 7-day delivered-heartbeat contract** instead of firing on every `new AxonFlow()` construction. The SDK emits at most one anonymous heartbeat per environment every 7 days during SDK activity. A stamp file at the OS-native user cache dir tracks last successful delivery; mtime is the source of truth across process restarts. Failed POSTs do NOT advance the stamp — a transient network error does not silence telemetry for 7 days. An in-memory 1-hour cache caps `fs.statSync` calls on hot request paths; an in-flight Promise coalesces concurrent stampedes so only one ping fires under load. `AXONFLOW_TELEMETRY=off` is re-evaluated on every gate run. Restricted environments where no cache dir is available (e.g. AWS Lambda with no `HOME` / `LOCALAPPDATA`) fall back transparently to the previous "one ping per process" behavior.
+
 ### Fixed
 
 - The one-line `[AxonFlow] DO_NOT_TRACK=1 is deprecated...` `console.warn` is no longer emitted. Removing the warning eliminates console noise that previously appeared on every client construction when `DO_NOT_TRACK=1` was set.
-
 
 ## [6.2.0] - 2026-04-28 — listProviders() + example modernization
 
