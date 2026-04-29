@@ -1424,11 +1424,10 @@ describe('AxonFlow Client Unit Tests', () => {
     });
 
     it('should allow tenant without clientId in community mode', () => {
-      // Set AXONFLOW_TELEMETRY=off alongside CI's DO_NOT_TRACK=1 so the
-      // telemetry deprecation warning (v5.6.0+) stays silent and doesn't
-      // shadow this test's credential-warning assertion. This also prevents
-      // the client constructor's fire-and-forget ping from hitting the real
-      // checkpoint endpoint — fetch is not mocked in this file.
+      // Set AXONFLOW_TELEMETRY=off so the client constructor's fire-and-forget
+      // ping doesn't hit the real checkpoint endpoint (fetch is not mocked in
+      // this file). jest.setup.ts already sets this globally, but we re-set it
+      // here in case a prior test scrubbed it.
       const origAxonflowTelemetry = process.env.AXONFLOW_TELEMETRY;
       process.env.AXONFLOW_TELEMETRY = 'off';
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();

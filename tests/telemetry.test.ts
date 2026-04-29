@@ -2,7 +2,7 @@
  * Telemetry Module Tests
  *
  * Verifies the anonymous usage telemetry ping behavior:
- * - Opt-out via DO_NOT_TRACK and AXONFLOW_TELEMETRY env vars
+ * - Opt-out via AXONFLOW_TELEMETRY=off env var (DO_NOT_TRACK is no longer honored)
  * - Default ON for all modes except sandbox
  * - Config-level override of defaults
  * - Payload format correctness
