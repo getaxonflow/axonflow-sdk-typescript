@@ -5,26 +5,33 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [7.0.0] - 2026-04-29 — Production, quality, and security hardening — upgrade encouraged
 
-### Removed
+**Upgrade strongly recommended.** Over the past month we've shipped substantial production, quality, and security hardening across the AxonFlow SDKs and platform — upgrade to the latest major for a more secure, reliable, and bug-free experience.
 
-- **BREAKING:** `DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out. Use `AXONFLOW_TELEMETRY=off` instead.
+**Security highlights from this release cycle:**
+- **Webhook signing-key now exposed by SDK request type** (this release). The `webhookSigningKey` (HMAC-SHA256) field on `RegisterRequest` was missing from the SDK type, so callers had no way to retrieve the signing key and webhook signature verification was effectively un-implementable. The field is now wired through end-to-end. Documented in [`GHSA-mph8-9v29-pm42`](https://github.com/getaxonflow/axonflow-sdk-typescript/security/advisories/GHSA-mph8-9v29-pm42).
+- **`DO_NOT_TRACK` opt-out removed in favor of `AXONFLOW_TELEMETRY=off`** (this release). `DO_NOT_TRACK` was unreliable because host CLIs and runtimes commonly inject `DO_NOT_TRACK=1` regardless of user intent; an explicit AxonFlow-scoped opt-out is the only signal we honor now. JSDoc on `AxonFlowConfig` was updated so npm/IDE consumers no longer see the stale "honored" claim.
+- **`prefer-nullish-coalescing` lint enforcement** (last cycle, v6.x). Blocks falsey-clobber bugs (`x.field || default` swallowing `false` / `0` / `""`) at PR time across the SDK source.
 
-  `DO_NOT_TRACK` was deprecated because it is commonly inherited from host tools and developer environments (CLIs like Codex and Claude Code inject it unconditionally), which makes it an unreliable expression of user intent for AxonFlow telemetry.
+Major release across the AxonFlow SDK family. Companion releases ship the same day: TypeScript v7.0.0 / Python v7.0.0 / Go v7.0.0 (with `/v7` module path migration) / Java v7.0.0. The full set of platform-side security fixes shipped alongside this release is documented in the consolidated platform advisory [`GHSA-9h64-2846-7x7f`](https://github.com/getaxonflow/axonflow/security/advisories/GHSA-9h64-2846-7x7f).
 
-### Fixed
+**Reliability and bug-fix highlights:**
+- **`retry_context` + `idempotency_key` for cross-step de-duplication** (last cycle, v6.x). Workflow steps that retry across pod restarts no longer record duplicate audit entries; idempotency_key flows end-to-end through MAP HITL approve/reject responses.
+- **Plane-scoped pending-approvals parity** (last cycle, v6.x). MAP plane now exposes `/api/v1/plans/approvals/pending` mirroring the WCP plane queue; the SDK gained a typed `pendingApprovals()` accessor with full pagination and URLSearchParams encoding.
+- **Wire-shape contract CI + transformer-coverage gate** (last cycle, v6.x). PR-blocking gate that catches drift between SDK types and platform OpenAPI before consumers hit it; transformer-coverage gate ensures every type field has an explicit serialization mapping.
 
-- The one-line `[AxonFlow] DO_NOT_TRACK=1 is deprecated...` `console.warn` is no longer emitted. Removing the warning eliminates console noise that previously appeared on every client construction when `DO_NOT_TRACK=1` was set.
+### BREAKING
+
+- **`DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out.** Use `AXONFLOW_TELEMETRY=off` instead. Host tools and CLIs commonly inject `DO_NOT_TRACK=1` regardless of user intent, which makes it unreliable as a signal.
 
 ### Changed
 
-- **Telemetry now follows the 7-day delivered-heartbeat contract** instead of firing on every `new AxonFlow()` construction. The SDK emits at most one anonymous heartbeat per environment every 7 days during SDK activity. A stamp file at the OS-native user cache dir tracks last successful delivery; mtime is the source of truth across process restarts. Failed POSTs do NOT advance the stamp — a transient network error does not silence telemetry for 7 days. An in-memory 1-hour cache caps `fs.statSync` calls on hot request paths; an in-flight Promise coalesces concurrent stampedes so only one ping fires under load. `AXONFLOW_TELEMETRY=off` is re-evaluated on every gate run. Restricted environments where no cache dir is available (e.g. AWS Lambda with no `HOME`/`LOCALAPPDATA`) fall back transparently to the previous "one ping per process" behavior.
+- **Telemetry switched to a 7-day delivered-heartbeat.** At most one anonymous ping per environment every 7 days, with the stamp advanced only after the POST returns 2xx — a transient network failure doesn't silence telemetry until the next window. Concurrent stampedes are de-duplicated by an in-flight Promise. Restricted environments where no cache dir is available (e.g. AWS Lambda) fall back transparently to the previous "one ping per process" behavior.
 
-### CI / development
+### Fixed
 
-- Test harness (`jest.setup.ts`) and CI workflows (`test.yml`, `integration.yml`, `publish.yml`) now use `AXONFLOW_TELEMETRY=off` to suppress telemetry during automated runs.
-
+- The `DO_NOT_TRACK=1 is deprecated...` `console.warn` is no longer emitted on every client construction when `DO_NOT_TRACK=1` is set.
 
 ## [6.2.0] - 2026-04-28 — listProviders() + example modernization
 
