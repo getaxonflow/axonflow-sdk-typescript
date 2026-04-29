@@ -5,6 +5,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
+> **Upgrade strongly recommended.** Over the past month we've shipped substantial production, quality, and security hardening across the AxonFlow SDKs and platform — see the [v7.0.0 release notes](./CHANGELOG.md), the per-SDK advisory [`GHSA-mph8-9v29-pm42`](https://github.com/getaxonflow/axonflow-sdk-typescript/security/advisories/GHSA-mph8-9v29-pm42), and the consolidated platform advisory [`GHSA-9h64-2846-7x7f`](https://github.com/getaxonflow/axonflow/security/advisories/GHSA-9h64-2846-7x7f). Upgrade to the latest major for a more secure, reliable, and bug-free experience.
+
 > **Evaluating AxonFlow in production?** We're opening limited Design Partner slots.
 >
 > Free 30-minute architecture and incident-readiness review, priority issue triage, roadmap input, and early feature access.
