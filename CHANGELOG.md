@@ -5,21 +5,17 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [7.0.0] - 2026-04-29 — DO_NOT_TRACK removal
 
-### Removed
+Major release. The single breaking change is the removal of `DO_NOT_TRACK` as an AxonFlow telemetry opt-out — `AXONFLOW_TELEMETRY=off` is now the canonical and only opt-out signal. Companion releases on the same day: Python v7.0.0 / Go v7.0.0 (with `/v7` module path migration) / Java v7.0.0.
 
-- **BREAKING:** `DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out. Use `AXONFLOW_TELEMETRY=off` instead.
+### BREAKING
 
-  `DO_NOT_TRACK` was deprecated because it is commonly inherited from host tools and developer environments (CLIs like Codex and Claude Code inject it unconditionally), which makes it an unreliable expression of user intent for AxonFlow telemetry.
+- **`DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out.** Use `AXONFLOW_TELEMETRY=off` instead. `DO_NOT_TRACK` was deprecated because it is commonly inherited from host tools and developer environments (CLIs like Codex and Claude Code inject it unconditionally), which makes it an unreliable expression of user intent for AxonFlow telemetry.
 
 ### Fixed
 
 - The one-line `[AxonFlow] DO_NOT_TRACK=1 is deprecated...` `console.warn` is no longer emitted. Removing the warning eliminates console noise that previously appeared on every client construction when `DO_NOT_TRACK=1` was set.
-
-### CI / development
-
-- Test harness (`jest.setup.ts`) and CI workflows (`test.yml`, `integration.yml`, `publish.yml`) now use `AXONFLOW_TELEMETRY=off` to suppress telemetry during automated runs.
 
 
 ## [6.2.0] - 2026-04-28 — listProviders() + example modernization
