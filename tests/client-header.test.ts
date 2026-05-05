@@ -51,7 +51,7 @@ describe('X-Axonflow-Client header injection', () => {
         headers: expect.objectContaining({
           'X-Axonflow-Client': EXPECTED_CLIENT,
         }),
-      }),
+      })
     );
   });
 
@@ -64,7 +64,7 @@ describe('X-Axonflow-Client header injection', () => {
         headers: expect.objectContaining({
           'X-Axonflow-Client': EXPECTED_CLIENT,
         }),
-      }),
+      })
     );
   });
 
