@@ -434,6 +434,13 @@ export class AxonFlow {
     // Include SDK version for version discovery and compatibility checks
     headers['User-Agent'] = `axonflow-sdk-typescript/${VERSION}`;
 
+    // ADR-050 §4: every governed request to the agent carries
+    // X-Axonflow-Client so the agent can derive request scope (sdk) and
+    // validate it against the token's aud.scope via HasScope(). Sourced
+    // from the bundled VERSION constant; no env override (the consumer
+    // doesn't get to spoof its own client identity to the agent).
+    headers['X-Axonflow-Client'] = `sdk-typescript/${VERSION}`;
+
     return headers;
   }
 
