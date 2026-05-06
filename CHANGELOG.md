@@ -5,7 +5,7 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [7.7.0] - 2026-05-06 — X-Axonflow-Client header + scope-aware license validation
+## [7.1.0] - 2026-05-06 — X-Axonflow-Client header + scope-aware license validation
 
 **Companion release to platform v7.7.0.** The TypeScript SDK now sends an
 `X-Axonflow-Client` identification header on every governed request, which
@@ -24,7 +24,7 @@ license token's audience claim per the ADR-050 license matrix.
 ### Compatibility
 
 - **No public API changes.** Existing v7.0.x callers
-  `npm install @axonflow/sdk@^7.7.0` and rebuild against v7.7.0 with no
+  `npm install @axonflow/sdk@^7.1.0` and rebuild against v7.1.0 with no
   source changes.
 - **Backward-compatible against pre-v7.7.0 agents.** The header is
   silently dropped by older agents; the SDK behaves identically against
@@ -38,8 +38,8 @@ license token's audience claim per the ADR-050 license matrix.
 - **Platform v7.7.0** — V1 SaaS Plugin Pro launch, license matrix,
   per-tenant tier resolution, GDPR right-to-erasure
   ([CHANGELOG](https://github.com/getaxonflow/axonflow/blob/main/CHANGELOG.md))
-- **Go SDK v7.7.0** / **Python SDK v7.7.0** /
-  **Java SDK v7.7.0** — same `X-Axonflow-Client` injection
+- **Go SDK v7.1.0** / **Python SDK v7.1.0** /
+  **Java SDK v7.1.0** — same `X-Axonflow-Client` injection
 - **Plugins** — Claude Code / Cursor / Codex v1.2.0; OpenClaw v2.2.0
   with Pro license token paste activating Pro features
 
