@@ -34,8 +34,10 @@ import {
   AuditOptions,
   AuditSearchRequest,
   DecisionExplanation,
+  DecisionSummary,
   ExplainPolicy,
   ExplainRule,
+  ListDecisionsOptions,
   AuditQueryOptions,
   AuditLogEntry,
   AuditSearchResponse,
@@ -178,6 +180,7 @@ import {
   ConfigurationError,
   ConnectorError,
   PlanExecutionError,
+  RateLimitError,
   VersionConflictError,
   IdempotencyKeyMismatchError,
 } from './errors';
@@ -237,6 +240,44 @@ function compareSemver(a: string, b: string): number {
     if (diff !== 0) return diff < 0 ? -1 : 1;
   }
   return 0;
+}
+
+/**
+ * Serialize {@link ListDecisionsOptions} into the URL query string for
+ * `listDecisions`. `undefined` values are omitted so the platform applies
+ * its tier-default page. Field order is stable so test mocks can match
+ * the URL exactly. Exported for unit tests.
+ */
+export function buildListDecisionsQuery(opts?: ListDecisionsOptions): string {
+  if (!opts) return '';
+  const params = new URLSearchParams();
+  if (opts.since !== undefined) {
+    // Use the "Z" UTC marker rather than `+00:00` (default toISOString
+    // would emit `+00:00` if the Date had that offset). Matches the
+    // platform-side wire format byte-for-byte.
+    const iso = opts.since.toISOString();
+    params.append('since', iso.replace(/\.\d{3}Z$/, 'Z'));
+  }
+  if (opts.decision !== undefined) params.append('decision', opts.decision);
+  if (opts.policyId !== undefined) params.append('policy_id', opts.policyId);
+  if (opts.toolSignature !== undefined) params.append('tool_signature', opts.toolSignature);
+  if (opts.limit !== undefined) params.append('limit', String(opts.limit));
+  return params.toString();
+}
+
+/**
+ * Parse a raw row from `GET /api/v1/decisions` into a typed
+ * {@link DecisionSummary}. Unknown keys ignored for forward-compat;
+ * `policyId` and `toolSignature` left undefined when absent.
+ */
+function parseDecisionSummary(raw: Record<string, unknown>): DecisionSummary {
+  return {
+    decisionId: (raw.decision_id as string) ?? '',
+    timestamp: raw.timestamp ? new Date(raw.timestamp as string) : new Date(),
+    decision: (raw.decision as string) ?? '',
+    policyId: raw.policy_id as string | undefined,
+    toolSignature: raw.tool_signature as string | undefined,
+  };
 }
 
 /**
@@ -2695,6 +2736,75 @@ export class AxonFlow {
       `/api/v1/decisions/${encodeURIComponent(decisionId)}/explain`
     );
     return this.parseDecisionExplanation(response);
+  }
+
+  /**
+   * List recent policy decisions for the caller's tenant (Session γ / #1982).
+   *
+   * Returns the slim 5-field {@link DecisionSummary} page; the platform
+   * applies a tier-gated cap (5/24h Free + Community, 100/30d Pro +
+   * Evaluation, 1000/full retention Enterprise). Over-cap requests yield
+   * a 429 with the V1 upgrade envelope, surfaced as
+   * {@link RateLimitError} carrying `upgrade.{tier,compareUrl,buyUrl}`.
+   *
+   * Filters compose; `undefined` fields are omitted from the URL so the
+   * platform applies tier defaults.
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   const decisions = await client.listDecisions({ decision: 'deny', limit: 10 });
+   *   for (const d of decisions) {
+   *     console.log(d.decisionId, d.decision, d.timestamp);
+   *   }
+   * } catch (err) {
+   *   if (err instanceof RateLimitError && err.upgrade) {
+   *     console.log('upgrade to:', err.upgrade.buyUrl);
+   *   }
+   * }
+   * ```
+   */
+  async listDecisions(opts?: ListDecisionsOptions): Promise<DecisionSummary[]> {
+    const qs = buildListDecisionsQuery(opts);
+    const path = qs ? `/api/v1/decisions?${qs}` : '/api/v1/decisions';
+
+    // Hand-roll the request so we can branch on 429 BEFORE
+    // orchestratorRequest promotes it to a generic APIError.
+    const url = `${this.config.endpoint}${path}`;
+    const headers = this.buildAuthHeaders();
+    const response = await this._fetch(url, {
+      method: 'GET',
+      headers,
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (response.status === 429) {
+      const text = await response.text();
+      try {
+        const envelope = JSON.parse(text);
+        if (envelope && typeof envelope === 'object' && 'limit_type' in envelope) {
+          throw RateLimitError.fromTierEnvelope(envelope);
+        }
+      } catch (e) {
+        if (e instanceof RateLimitError) {
+          throw e;
+        }
+        // JSON parse failed — fall through to generic 429 below.
+      }
+      throw new APIError(429, 'Too Many Requests', text);
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 401 || response.status === 403) {
+        throw new AuthenticationError(`Request failed: ${errorText}`);
+      }
+      throw new APIError(response.status, response.statusText, errorText);
+    }
+
+    const body = (await response.json()) as { decisions?: Array<Record<string, unknown>> };
+    const rows = body?.decisions ?? [];
+    return rows.map(parseDecisionSummary);
   }
 
   /**

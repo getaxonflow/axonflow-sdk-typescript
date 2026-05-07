@@ -48,3 +48,42 @@ export interface DecisionExplanation {
   policySourceLink?: string;
   toolSignature?: string;
 }
+
+/**
+ * Slim 5-field row returned by {@link AxonFlowClient.listDecisions}.
+ *
+ * `policyId` and `toolSignature` are optional because pre-α1 audit rows +
+ * dynamic-only blocks may not populate them. Additive new fields land via
+ * optional properties per ADR-043 §"Versioning" (non-breaking).
+ *
+ * Cross-SDK parity:
+ *   Go:     axonflow-sdk-go/decisions.go (DecisionSummary)
+ *   Python: axonflow-sdk-python/axonflow/decisions.py (DecisionSummary)
+ *   Java:   .../sdk/types/DecisionSummary.java
+ *   Rust:   axonflow-sdk-rust/src/types/decisions.rs (DecisionSummary)
+ */
+export interface DecisionSummary {
+  decisionId: string;
+  timestamp: Date;
+  /** allow | deny | require_approval */
+  decision: string;
+  policyId?: string;
+  toolSignature?: string;
+}
+
+/**
+ * Optional filters for {@link AxonFlowClient.listDecisions}.
+ *
+ * Every field is optional; `undefined` values are omitted from the URL so
+ * the platform applies its tier-default page. `decision` must be one of
+ * `'allow' | 'deny' | 'require_approval'` when set. `limit` is server-
+ * capped per tier; over-cap requests yield a 429 with the V1 upgrade
+ * envelope (surfaced as {@link RateLimitError} carrying `upgrade`).
+ */
+export interface ListDecisionsOptions {
+  since?: Date;
+  decision?: string;
+  policyId?: string;
+  toolSignature?: string;
+  limit?: number;
+}

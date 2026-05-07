@@ -1,10 +1,12 @@
 /**
- * Tests for decisions.explain (ADR-043) + audit search filter parity (ADR-042).
+ * Tests for decisions.explain (ADR-043) + decisions.list (Session γ #1982)
+ * + audit search filter parity (ADR-042).
  */
 
-import { AxonFlow } from '../src/client';
+import { AxonFlow, buildListDecisionsQuery } from '../src/client';
+import { RateLimitError, APIError, AuthenticationError } from '../src/errors';
 import type { AuditSearchRequest } from '../src/types/gateway';
-import type { DecisionExplanation } from '../src/types/decisions';
+import type { DecisionExplanation, ListDecisionsOptions } from '../src/types/decisions';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
@@ -183,5 +185,217 @@ describe('Decision Explainability (ADR-043)', () => {
       expect(body.policy_name).toBeUndefined();
       expect(body.override_id).toBeUndefined();
     });
+  });
+});
+
+// ============================================================================
+// listDecisions — Session γ contract tests (#1982)
+// ============================================================================
+
+describe('listDecisions (Session γ #1982)', () => {
+  let client: AxonFlow;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    client = new AxonFlow({
+      endpoint: 'http://localhost:8080',
+      clientId: 'test-client',
+      clientSecret: 'test-secret',
+      tenant: 'test-tenant',
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  const ok = (data: unknown) =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: () => Promise.resolve(data),
+      text: () => Promise.resolve(JSON.stringify(data)),
+    });
+
+  const status = (status: number, statusText: string, data: unknown) =>
+    Promise.resolve({
+      ok: false,
+      status,
+      statusText,
+      json: () => Promise.resolve(data),
+      text: () => Promise.resolve(typeof data === 'string' ? data : JSON.stringify(data)),
+    });
+
+  it('happy path — parses 3-row payload', async () => {
+    mockFetch.mockReturnValueOnce(
+      ok({
+        decisions: [
+          {
+            decision_id: 'dec-1',
+            timestamp: '2026-05-07T12:00:00Z',
+            decision: 'deny',
+            policy_id: 'pol-sqli',
+            tool_signature: 'postgres.query',
+          },
+          {
+            decision_id: 'dec-2',
+            timestamp: '2026-05-07T11:00:00Z',
+            decision: 'allow',
+            policy_id: 'pol-default',
+            tool_signature: 'github.status',
+          },
+          {
+            decision_id: 'dec-3',
+            timestamp: '2026-05-07T10:00:00Z',
+            decision: 'require_approval',
+            policy_id: 'pol-amount',
+            tool_signature: 'stripe.charge',
+          },
+        ],
+      })
+    );
+
+    const got = await client.listDecisions();
+    expect(got).toHaveLength(3);
+    expect(got[0].decisionId).toBe('dec-1');
+    expect(got[0].decision).toBe('deny');
+    expect(got[0].policyId).toBe('pol-sqli');
+    expect(got[0].toolSignature).toBe('postgres.query');
+    expect(got[2].decision).toBe('require_approval');
+  });
+
+  it('serializes every filter into the URL', async () => {
+    mockFetch.mockReturnValueOnce(ok({ decisions: [] }));
+    const opts: ListDecisionsOptions = {
+      since: new Date('2026-05-07T00:00:00Z'),
+      decision: 'deny',
+      policyId: 'pol-sqli',
+      toolSignature: 'postgres.query',
+      limit: 25,
+    };
+    await client.listDecisions(opts);
+
+    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    expect(calledUrl).toContain('since=2026-05-07T00%3A00%3A00Z');
+    expect(calledUrl).toContain('decision=deny');
+    expect(calledUrl).toContain('policy_id=pol-sqli');
+    expect(calledUrl).toContain('tool_signature=postgres.query');
+    expect(calledUrl).toContain('limit=25');
+  });
+
+  it('omits unset filters from the URL', async () => {
+    mockFetch.mockReturnValueOnce(ok({ decisions: [] }));
+    await client.listDecisions({ decision: 'deny' });
+
+    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    expect(calledUrl).toContain('?decision=deny');
+    expect(calledUrl).not.toContain('since=');
+    expect(calledUrl).not.toContain('policy_id=');
+    expect(calledUrl).not.toContain('tool_signature=');
+    expect(calledUrl).not.toContain('limit=');
+  });
+
+  it('429 surfaces typed RateLimitError with upgrade envelope', async () => {
+    mockFetch.mockReturnValueOnce(
+      status(429, 'Too Many Requests', {
+        error:
+          'Free tier shows the last 5 decisions in 24h. Pro raises this to 100 decisions in the last 30 days.',
+        limit_type: 'decision_list_size',
+        tier: 'Community',
+        limit: 5,
+        remaining: 0,
+        upgrade: {
+          tier: 'Pro',
+          wording:
+            'Free tier shows the last 5 decisions in 24h. Pro raises this to 100 decisions in the last 30 days.',
+          compare_url: 'https://getaxonflow.com/pricing/',
+          buy_url: 'https://buy.stripe.com/bJe28qbztcdVchjdkw8k800',
+        },
+      })
+    );
+
+    let caught: unknown;
+    try {
+      await client.listDecisions({ limit: 10 });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(RateLimitError);
+    const rle = caught as RateLimitError;
+    expect(rle.tier).toBe('Community');
+    expect(rle.limitType).toBe('decision_list_size');
+    expect(rle.limit).toBe(5);
+    expect(rle.upgrade).toBeDefined();
+    expect(rle.upgrade!.tier).toBe('Pro');
+    expect(rle.upgrade!.compareUrl).toBe('https://getaxonflow.com/pricing/');
+    expect(rle.upgrade!.buyUrl).toBe('https://buy.stripe.com/bJe28qbztcdVchjdkw8k800');
+  });
+
+  it('429 with malformed body falls back to APIError(429) — never silently OK', async () => {
+    mockFetch.mockReturnValueOnce(status(429, 'Too Many Requests', 'not a json envelope'));
+
+    let caught: unknown;
+    try {
+      await client.listDecisions();
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(APIError);
+    expect(caught).not.toBeInstanceOf(RateLimitError);
+    expect((caught as APIError).statusCode).toBe(429);
+  });
+
+  it('401 surfaces as AuthenticationError', async () => {
+    mockFetch.mockReturnValueOnce(
+      status(401, 'Unauthorized', { error: 'X-Tenant-ID header is required' })
+    );
+    await expect(client.listDecisions()).rejects.toBeInstanceOf(AuthenticationError);
+  });
+
+  it('forward-compat — additive unknown fields ignored', async () => {
+    mockFetch.mockReturnValueOnce(
+      ok({
+        decisions: [
+          {
+            decision_id: 'dec-fwd',
+            timestamp: '2026-05-07T12:00:00Z',
+            decision: 'deny',
+            policy_id: 'pol-x',
+            tool_signature: 'tool-x',
+            policy_version: 7,
+            latest_policy_version: 9,
+            arbitrary_unknown: 'ignored',
+          },
+        ],
+        next_cursor: 'future_cursor_pagination',
+      })
+    );
+    const got = await client.listDecisions();
+    expect(got).toHaveLength(1);
+    expect(got[0].decisionId).toBe('dec-fwd');
+  });
+
+  it('parses summaries that omit policy_id + tool_signature (dynamic-only blocks)', async () => {
+    mockFetch.mockReturnValueOnce(
+      ok({
+        decisions: [{ decision_id: 'dec-min', timestamp: '2026-05-07T12:00:00Z', decision: 'deny' }],
+      })
+    );
+    const got = await client.listDecisions();
+    expect(got[0].policyId).toBeUndefined();
+    expect(got[0].toolSignature).toBeUndefined();
+  });
+});
+
+describe('buildListDecisionsQuery (#1982)', () => {
+  it('returns empty when opts is undefined or empty', () => {
+    expect(buildListDecisionsQuery(undefined)).toBe('');
+    expect(buildListDecisionsQuery({})).toBe('');
+  });
+
+  it('omits unset fields and emits stable order', () => {
+    const qs = buildListDecisionsQuery({ decision: 'deny', limit: 7 });
+    expect(qs).toBe('decision=deny&limit=7');
   });
 });

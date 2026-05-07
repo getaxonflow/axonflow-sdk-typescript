@@ -153,12 +153,40 @@ export class AuthenticationError extends AxonFlowError {
  * throw new RateLimitError(100, 0, new Date('2024-01-01T12:00:00Z'));
  * ```
  */
+/**
+ * Pricing-tier upgrade context emitted in a V1 429 envelope.
+ * Mirrors the platform-side
+ * feedback_429_no_upgrade_hint_is_conversion_gap.md contract.
+ *
+ * Cross-SDK parity:
+ *   Go:     axonflow-sdk-go/decisions.go (UpgradeInfo)
+ *   Python: axonflow-sdk-python/axonflow/exceptions.py (UpgradeInfo)
+ *   Java:   .../sdk/types/UpgradeInfo.java
+ *   Rust:   axonflow-sdk-rust/src/types/decisions.rs (UpgradeInfo)
+ */
+export interface UpgradeInfo {
+  tier: string;
+  wording: string;
+  compareUrl: string;
+  buyUrl: string;
+}
+
 export class RateLimitError extends AxonFlowError {
   public readonly limit: number;
   public readonly remaining: number;
   public readonly resetAt: Date;
+  /** Tier-cap context — populated when the 429 came from a V1 envelope
+   *  (e.g. `list_decisions` page-size cap). `undefined` for legacy 429s. */
+  public readonly limitType?: string;
+  public readonly tier?: string;
+  public readonly upgrade?: UpgradeInfo;
 
-  constructor(limit: number, remaining: number, resetAt: Date) {
+  constructor(
+    limit: number,
+    remaining: number,
+    resetAt: Date,
+    extras?: { limitType?: string; tier?: string; upgrade?: UpgradeInfo }
+  ) {
     super(
       `Rate limit exceeded: ${remaining}/${limit} remaining, resets at ${resetAt.toISOString()}`,
       { limit, remaining, resetAt: resetAt.toISOString() }
@@ -167,7 +195,52 @@ export class RateLimitError extends AxonFlowError {
     this.limit = limit;
     this.remaining = remaining;
     this.resetAt = resetAt;
+    this.limitType = extras?.limitType;
+    this.tier = extras?.tier;
+    this.upgrade = extras?.upgrade;
     Object.setPrototypeOf(this, RateLimitError.prototype);
+  }
+
+  /**
+   * Build a RateLimitError from a parsed V1 429 envelope.
+   * Mirrors the platform-side response shape:
+   *   { error, limit_type, tier, limit, remaining, upgrade: {...} }
+   * Forward-only — pre-V1 429s land via the legacy positional constructor.
+   */
+  static fromTierEnvelope(envelope: {
+    error?: string;
+    limit_type?: string;
+    tier?: string;
+    limit?: number;
+    remaining?: number;
+    upgrade?: {
+      tier?: string;
+      wording?: string;
+      compare_url?: string;
+      buy_url?: string;
+    };
+  }): RateLimitError {
+    const upgrade: UpgradeInfo | undefined = envelope.upgrade
+      ? {
+          tier: envelope.upgrade.tier ?? '',
+          wording: envelope.upgrade.wording ?? '',
+          compareUrl: envelope.upgrade.compare_url ?? '',
+          buyUrl: envelope.upgrade.buy_url ?? '',
+        }
+      : undefined;
+    const err = new RateLimitError(
+      envelope.limit ?? 0,
+      envelope.remaining ?? 0,
+      new Date(),
+      { limitType: envelope.limit_type, tier: envelope.tier, upgrade }
+    );
+    if (envelope.error) {
+      // Override the auto-generated message with the platform's
+      // human-readable wording so callers see the same string the
+      // platform returned.
+      (err as { message: string }).message = envelope.error;
+    }
+    return err;
   }
 }
 
