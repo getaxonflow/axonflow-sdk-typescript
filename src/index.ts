@@ -96,6 +96,7 @@ export {
   IdempotencyKeyMismatchError,
   APIError,
 } from './errors';
+export type { UpgradeInfo } from './errors';
 
 // Export types for TypeScript users
 export type {
@@ -141,6 +142,12 @@ export type {
   HealthStatus,
   PlatformCapability,
   SDKCompatibility,
+  // ADR-043 explainability + Session γ list_decisions (#1982)
+  DecisionExplanation,
+  ExplainPolicy,
+  ExplainRule,
+  DecisionSummary,
+  ListDecisionsOptions,
 } from './types';
 
 // Export policy types
