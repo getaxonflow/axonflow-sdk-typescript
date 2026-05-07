@@ -228,12 +228,11 @@ export class RateLimitError extends AxonFlowError {
           buyUrl: envelope.upgrade.buy_url ?? '',
         }
       : undefined;
-    const err = new RateLimitError(
-      envelope.limit ?? 0,
-      envelope.remaining ?? 0,
-      new Date(),
-      { limitType: envelope.limit_type, tier: envelope.tier, upgrade }
-    );
+    const err = new RateLimitError(envelope.limit ?? 0, envelope.remaining ?? 0, new Date(), {
+      limitType: envelope.limit_type,
+      tier: envelope.tier,
+      upgrade,
+    });
     if (envelope.error) {
       // Override the auto-generated message with the platform's
       // human-readable wording so callers see the same string the

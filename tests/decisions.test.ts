@@ -379,7 +379,9 @@ describe('listDecisions (Session γ #1982)', () => {
   it('parses summaries that omit policy_id + tool_signature (dynamic-only blocks)', async () => {
     mockFetch.mockReturnValueOnce(
       ok({
-        decisions: [{ decision_id: 'dec-min', timestamp: '2026-05-07T12:00:00Z', decision: 'deny' }],
+        decisions: [
+          { decision_id: 'dec-min', timestamp: '2026-05-07T12:00:00Z', decision: 'deny' },
+        ],
       })
     );
     const got = await client.listDecisions();
