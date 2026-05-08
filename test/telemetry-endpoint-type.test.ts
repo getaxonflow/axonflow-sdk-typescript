@@ -125,13 +125,15 @@ describe('classifyEndpoint', () => {
 describe('TelemetryPayload shape', () => {
   it('type includes endpoint_type', () => {
     const p: TelemetryPayload = {
+      telemetry_type: 'sdk',
       sdk: 'typescript',
       sdk_version: '5.3.0',
       platform_version: null,
       os: 'linux',
       arch: 'x64',
       runtime_version: '20',
-      deployment_mode: 'production',
+      deployment_mode: 'self_hosted',
+      profile: 'unknown',
       endpoint_type: 'localhost',
       features: [],
       instance_id: 'test',
@@ -148,13 +150,15 @@ describe('TelemetryPayload shape', () => {
     expect(endpointType).toBe('remote');
 
     const payload: TelemetryPayload = {
+      telemetry_type: 'sdk',
       sdk: 'typescript',
       sdk_version: '5.3.0',
       platform_version: null,
       os: 'linux',
       arch: 'x64',
       runtime_version: '20',
-      deployment_mode: 'production',
+      deployment_mode: 'self_hosted',
+      profile: 'unknown',
       endpoint_type: endpointType,
       features: [],
       instance_id: 'leak-test',
