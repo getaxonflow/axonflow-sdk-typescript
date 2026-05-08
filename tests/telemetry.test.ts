@@ -194,7 +194,9 @@ describe('sendTelemetryPing', () => {
       expect(postCall).toBeDefined();
       const payload: TelemetryPayload = JSON.parse(postCall![1].body);
       expect(payload.stream).toBe('sandbox');
-      expect(payload.deployment_mode).toBe('sandbox');
+      // v1 schema: deployment_mode classifies from endpoint host (self_hosted),
+      // NOT from config.Mode. The sandbox marker lives on `stream`.
+      expect(payload.deployment_mode).toBe('self_hosted');
     });
 
     it('should omit the stream field for production mode', async () => {
@@ -299,20 +301,23 @@ describe('sendTelemetryPing', () => {
       expect(options.headers).toEqual({ 'Content-Type': 'application/json' });
 
       const payload: TelemetryPayload = JSON.parse(options.body);
+      expect(payload.telemetry_type).toBe('sdk');
       expect(payload.sdk).toBe('typescript');
       expect(payload.sdk_version).toBe(VERSION);
       expect(payload.platform_version).toBe('5.1.0');
       expect(payload.os).toBe(process.platform);
       expect(payload.arch).toBe(process.arch);
       expect(payload.runtime_version).toBe(process.version.replace(/^v/, ''));
-      expect(payload.deployment_mode).toBe('production');
+      // v1 schema: deployment_mode derives from endpoint host.
+      expect(payload.deployment_mode).toBe('self_hosted');
+      expect(payload.profile).toBe('unknown');
       expect(payload.features).toEqual([]);
       expect(payload.instance_id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
       );
     });
 
-    it('should include deployment_mode matching the mode option', async () => {
+    it('should classify deployment_mode from the endpoint (v1 schema)', async () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
@@ -322,7 +327,7 @@ describe('sendTelemetryPing', () => {
 
       // Index 1 = checkpoint POST (index 0 = health GET)
       const payload: TelemetryPayload = JSON.parse(mockFetch.mock.calls[1][1].body);
-      expect(payload.deployment_mode).toBe('production');
+      expect(payload.deployment_mode).toBe('self_hosted');
     });
 
     it('should generate unique instance_id per call', async () => {

@@ -98,13 +98,24 @@ function shouldSendTelemetry(): boolean {
 }
 
 export interface TelemetryPayload {
+  /**
+   * v1 telemetry-schema discriminator (axonflow-enterprise#2008). Always
+   * `"sdk"` for clients of this package — the receiver routes SDK pings
+   * vs plugin / platform / synthetic on this field.
+   */
+  telemetry_type: string;
   sdk: string;
   sdk_version: string;
   platform_version: string | null;
   os: string;
   arch: string;
   runtime_version: string;
-  deployment_mode: string;
+  /**
+   * v1 schema deployment-mode allowlist: `self_hosted | community_saas |
+   * unknown`. Derived from the configured endpoint host plus
+   * `AXONFLOW_TRY=1`; see `classifyDeploymentMode`.
+   */
+  deployment_mode: DeploymentMode;
   /**
    * Classification of the configured AxonFlow endpoint URL, derived on the
    * SDK side. One of: "localhost", "private_network", "remote", "unknown".
@@ -113,6 +124,12 @@ export interface TelemetryPayload {
   endpoint_type: EndpointType;
   features: string[];
   instance_id: string;
+  /**
+   * Free-form deployment profile (`production`, `staging`, `dev`, etc.)
+   * sourced from `AXONFLOW_PROFILE`; reports `"unknown"` when unset.
+   * Analytics dimension only; no behavioural effect.
+   */
+  profile: string;
   /**
    * Heartbeat sub-stream classifier. Sandbox-mode clients emit `"sandbox"`
    * so analytics can distinguish dev/test pings from production heartbeat;
@@ -127,8 +144,36 @@ export type EndpointType =
   | 'localhost'
   | 'private_network'
   | 'remote'
-  | 'unknown'
-  | 'community-saas';
+  | 'unknown';
+
+export type DeploymentMode = 'self_hosted' | 'community_saas' | 'unknown';
+
+/**
+ * Classify the configured AxonFlow endpoint into the v1 deployment-mode
+ * allowlist (`self_hosted | community_saas | unknown`). Community-SaaS
+ * fires on either an `*.try.getaxonflow.com` host or `AXONFLOW_TRY=1`
+ * (the explicit override path for tenants behind a custom hostname
+ * proxying try.getaxonflow.com). Empty/unparseable endpoints resolve to
+ * `"unknown"` rather than defaulting to `"self_hosted"` — keeps the
+ * self-hosted bucket clean of config gaps.
+ */
+export function classifyDeploymentMode(url: string | null | undefined): DeploymentMode {
+  if (process.env.AXONFLOW_TRY === '1') {
+    return 'community_saas';
+  }
+  if (!url) return 'unknown';
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return 'unknown';
+  }
+  if (!host) return 'unknown';
+  if (host === 'try.getaxonflow.com' || host.endsWith('.try.getaxonflow.com')) {
+    return 'community_saas';
+  }
+  return 'self_hosted';
+}
 
 /**
  * Classify the configured AxonFlow endpoint URL for analytics (#1525).
@@ -149,11 +194,12 @@ export type EndpointType =
  * the Python and Go SDK classifiers. Previously IPv6 private addresses like
  * http://[fd00::1]:8080 fell through to "remote" (review finding P3).
  */
+/**
+ * As of v8.0 the legacy `"community-saas"` return value is removed —
+ * deployment topology lives on `deployment_mode` (see
+ * `classifyDeploymentMode`) per the v1 schema (axonflow-enterprise#2008).
+ */
 export function classifyEndpoint(url: string | null | undefined): EndpointType {
-  if (process.env.AXONFLOW_TRY === '1') {
-    return 'community-saas';
-  }
-
   if (!url) return 'unknown';
 
   let host: string;
@@ -296,17 +342,24 @@ export async function sendTelemetryPingNow(options: {
   // omit the field entirely and the server defaults to "heartbeat". The
   // optional-property pattern preserves byte-identical wire shape for the
   // production case relative to v7.x.
+  // v1 telemetry-schema (axonflow-enterprise#2008): profile from AXONFLOW_PROFILE
+  // ("unknown" when unset) + deployment_mode classified from endpoint host
+  // (prior config.Mode-based dimension removed; now reflects topology only).
+  const profile = (process.env.AXONFLOW_PROFILE ?? '').trim() || 'unknown';
+
   const payload: TelemetryPayload = {
+    telemetry_type: 'sdk',
     sdk: 'typescript',
     sdk_version: VERSION,
     platform_version: null,
     os: typeof process !== 'undefined' ? process.platform : 'unknown',
     arch: typeof process !== 'undefined' ? process.arch : 'unknown',
     runtime_version: typeof process !== 'undefined' ? process.version.replace(/^v/, '') : 'unknown',
-    deployment_mode: options.mode,
+    deployment_mode: classifyDeploymentMode(options.endpoint),
     endpoint_type: classifyEndpoint(options.endpoint),
     features: [],
     instance_id: generateInstanceId(),
+    profile,
     ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
   };
 
@@ -387,17 +440,24 @@ export function sendTelemetryPing(options: {
   // Stream classifier: sandbox-mode clients self-tag so analytics can
   // distinguish dev/test pings from production. Production-mode clients
   // omit the field entirely and the server defaults to "heartbeat".
+  // v1 telemetry-schema (axonflow-enterprise#2008): profile from AXONFLOW_PROFILE
+  // ("unknown" when unset) + deployment_mode classified from endpoint host
+  // (prior config.Mode-based dimension removed; now reflects topology only).
+  const profile = (process.env.AXONFLOW_PROFILE ?? '').trim() || 'unknown';
+
   const payload: TelemetryPayload = {
+    telemetry_type: 'sdk',
     sdk: 'typescript',
     sdk_version: VERSION,
     platform_version: null,
     os: typeof process !== 'undefined' ? process.platform : 'unknown',
     arch: typeof process !== 'undefined' ? process.arch : 'unknown',
     runtime_version: typeof process !== 'undefined' ? process.version.replace(/^v/, '') : 'unknown',
-    deployment_mode: options.mode,
+    deployment_mode: classifyDeploymentMode(options.endpoint),
     endpoint_type: classifyEndpoint(options.endpoint),
     features: [],
     instance_id: generateInstanceId(),
+    profile,
     ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
   };
 
