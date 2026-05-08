@@ -296,12 +296,10 @@ export class AxonFlow {
     retry: { enabled: boolean; maxAttempts: number; delay: number };
     cache: { enabled: boolean; ttl: number };
   };
-  // Stores the explicit telemetry override (true / false / undefined) and the
-  // user's original `mode` so the heartbeat gate's _preRequestHook can match
-  // the legacy `sendTelemetryPing` gating semantics. Auto-detected sandbox
-  // (when explicitMode is undefined) leaves telemetry on at the default.
-  private telemetryEnabled: boolean | undefined;
-  private explicitMode: string | undefined;
+  // v8.0: telemetry is gated solely by the AXONFLOW_TELEMETRY env var
+  // (re-evaluated inside maybeSendHeartbeat on every gate run). The v7.x
+  // `telemetryEnabled` field + `explicitMode` capture used to feed the
+  // mode-based default-suppression rule are gone.
   private interceptors: {
     canHandle(aiCall: any): boolean;
     extractRequest(aiCall: any): AIRequest;
@@ -372,10 +370,6 @@ export class AxonFlow {
     // Interceptors removed in v3.0.0 (deprecated wrapOpenAIClient/wrapAnthropicClient)
     this.interceptors = [];
 
-    // Capture for the heartbeat gate (see _preRequestHook).
-    this.telemetryEnabled = config.telemetry;
-    this.explicitMode = config.mode;
-
     if (this.config.debug) {
       // Determine auth method for logging
       const authMethod = hasCredentials ? 'client-credentials' : 'community (no auth)';
@@ -415,20 +409,13 @@ export class AxonFlow {
    * asynchronously so user API calls are never delayed by telemetry.
    */
   private async _preRequestHook(): Promise<void> {
-    // Replicate the legacy sendTelemetryPing gating decision precisely:
-    //   - explicit telemetry === false → off
-    //   - explicit telemetry === true  → on
-    //   - explicit explicitMode === 'sandbox' (user-provided) → off
-    //   - undefined explicitMode (auto-detected) → on regardless of mode
-    let enabled: boolean;
-    if (this.telemetryEnabled === false) {
-      enabled = false;
-    } else if (this.telemetryEnabled === true) {
-      enabled = true;
-    } else {
-      enabled = this.explicitMode !== 'sandbox';
-    }
-    await maybeSendHeartbeat(enabled, () =>
+    // v8.0: telemetry is ON by default for every mode. The v7.x
+    // mode-based default-suppression and telemetryEnabled-config-override
+    // levers were removed. AXONFLOW_TELEMETRY=off (re-checked inside
+    // maybeSendHeartbeat on every call) is the sole opt-out path.
+    // Sandbox-mode pings still fire and are tagged stream="sandbox" in
+    // the payload — see telemetry.ts sendTelemetryPingNow.
+    await maybeSendHeartbeat(true, () =>
       sendTelemetryPingNow({
         mode: this.config.mode,
         endpoint: this.config.endpoint,

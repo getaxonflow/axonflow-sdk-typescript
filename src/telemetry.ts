@@ -80,25 +80,21 @@ function resolveCheckpointUrl(): string {
 }
 
 /**
- * Determine whether telemetry should be sent based on mode and explicit config.
+ * Determine whether telemetry should be sent.
  *
- * Default behavior:
- * - explicitly-set sandbox mode: OFF
- * - all other modes: ON
+ * `AXONFLOW_TELEMETRY=off` in the environment is the SOLE opt-out path.
+ * Telemetry is otherwise ON by default, regardless of mode (sandbox / production
+ * / anything else). Sandbox-mode pings are tagged `stream="sandbox"` in the
+ * payload so analytics can still distinguish them — see TelemetryPayload.stream.
  *
- * The explicit `telemetryEnabled` config field overrides the default when defined.
+ * Historical context: v7.x supported a `telemetry?: boolean` config field
+ * and a `mode !== 'sandbox'` default-suppression rule. Both were removed in
+ * v8.0 to leave a single, ops-controlled opt-out lever and avoid silent
+ * suppression that masks real adoption signal. See CHANGELOG v8.0.0.
  */
-function shouldSendTelemetry(
-  explicitMode: string | undefined,
-  telemetryEnabled?: boolean
-): boolean {
-  // Explicit config override takes priority
-  if (telemetryEnabled !== undefined) {
-    return telemetryEnabled;
-  }
-
-  // Default: ON everywhere except explicitly-set sandbox mode.
-  return explicitMode !== 'sandbox';
+function shouldSendTelemetry(): boolean {
+  // AXONFLOW_TELEMETRY=off is the SOLE opt-out path.
+  return process.env.AXONFLOW_TELEMETRY?.trim().toLowerCase() !== 'off';
 }
 
 export interface TelemetryPayload {
@@ -117,6 +113,14 @@ export interface TelemetryPayload {
   endpoint_type: EndpointType;
   features: string[];
   instance_id: string;
+  /**
+   * Heartbeat sub-stream classifier. Sandbox-mode clients emit `"sandbox"`
+   * so analytics can distinguish dev/test pings from production heartbeat;
+   * production-mode clients omit the field and the server defaults the row
+   * to `stream="heartbeat"`. The wire-allowlist is enforced server-side —
+   * see checkpoint-service IsValidIncomingStream.
+   */
+  stream?: string;
 }
 
 export type EndpointType =
@@ -287,6 +291,11 @@ export async function sendTelemetryPingNow(options: {
 }): Promise<boolean> {
   const checkpointUrl = resolveCheckpointUrl();
 
+  // Stream classifier: sandbox-mode clients self-tag so analytics can
+  // distinguish dev/test pings from production. Production-mode clients
+  // omit the field entirely and the server defaults to "heartbeat". The
+  // optional-property pattern preserves byte-identical wire shape for the
+  // production case relative to v7.x.
   const payload: TelemetryPayload = {
     sdk: 'typescript',
     sdk_version: VERSION,
@@ -298,6 +307,7 @@ export async function sendTelemetryPingNow(options: {
     endpoint_type: classifyEndpoint(options.endpoint),
     features: [],
     instance_id: generateInstanceId(),
+    ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
   };
 
   try {
@@ -346,12 +356,15 @@ export async function sendTelemetryPingNow(options: {
  * Kept for the existing test surface. Production code goes through
  * `maybeSendHeartbeat` in heartbeat.ts instead. This shim performs the
  * gating + fire-and-forget POST without consulting the 7-day stamp file.
+ *
+ * v8.0: `AXONFLOW_TELEMETRY=off` is the sole gate. The v7.x `explicitMode`
+ * and `telemetryEnabled` parameters were removed — the latter together with
+ * the `AxonFlowConfig.telemetry` field, the former together with the
+ * mode-based default-suppression rule.
  */
 export function sendTelemetryPing(options: {
   mode: string;
-  explicitMode?: string;
   endpoint: string;
-  telemetryEnabled?: boolean;
   debug?: boolean;
 }): void {
   // Check env-level opt-out first
@@ -359,9 +372,7 @@ export function sendTelemetryPing(options: {
     return;
   }
 
-  // Check mode-based default and config override.
-  // Use explicitMode (user's original input) so auto-detected sandbox doesn't disable telemetry.
-  if (!shouldSendTelemetry(options.explicitMode, options.telemetryEnabled)) {
+  if (!shouldSendTelemetry()) {
     return;
   }
 
@@ -373,6 +384,9 @@ export function sendTelemetryPing(options: {
 
   const checkpointUrl = resolveCheckpointUrl();
 
+  // Stream classifier: sandbox-mode clients self-tag so analytics can
+  // distinguish dev/test pings from production. Production-mode clients
+  // omit the field entirely and the server defaults to "heartbeat".
   const payload: TelemetryPayload = {
     sdk: 'typescript',
     sdk_version: VERSION,
@@ -384,6 +398,7 @@ export function sendTelemetryPing(options: {
     endpoint_type: classifyEndpoint(options.endpoint),
     features: [],
     instance_id: generateInstanceId(),
+    ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
   };
 
   // Fire-and-forget: detect platform version then send ping.

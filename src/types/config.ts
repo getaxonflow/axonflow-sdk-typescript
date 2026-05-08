@@ -78,17 +78,6 @@ export interface AxonFlowConfig {
     enabled: boolean;
     ttl?: number; // Time to live in milliseconds
   };
-
-  /**
-   * Enable or disable anonymous usage telemetry.
-   *
-   * When undefined, defaults to ON for production mode and OFF for sandbox mode.
-   * Set explicitly to `true` or `false` to override the default.
-   *
-   * Telemetry can also be disabled globally via the
-   * `AXONFLOW_TELEMETRY=off` environment variable.
-   */
-  telemetry?: boolean;
 }
 
 export interface RetryConfig {

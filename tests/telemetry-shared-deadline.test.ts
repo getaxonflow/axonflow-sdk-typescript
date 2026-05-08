@@ -90,9 +90,7 @@ describe('telemetry — shared deadline (regression for #1707)', () => {
     const start = Date.now();
     sendTelemetryPing({
       mode: 'production',
-      explicitMode: 'production',
       endpoint: 'http://127.0.0.1:1', // would be unreachable in reality; mock swaps the behavior
-      telemetryEnabled: true,
       debug: false,
     });
 
