@@ -140,11 +140,7 @@ export interface TelemetryPayload {
   stream?: string;
 }
 
-export type EndpointType =
-  | 'localhost'
-  | 'private_network'
-  | 'remote'
-  | 'unknown';
+export type EndpointType = 'localhost' | 'private_network' | 'remote' | 'unknown';
 
 export type DeploymentMode = 'self_hosted' | 'community_saas' | 'unknown';
 
