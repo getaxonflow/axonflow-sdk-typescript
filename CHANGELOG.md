@@ -5,6 +5,21 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.0.1] - 2026-05-08 — Drop telemetry `profile` field (env-var collision)
+
+### Removed
+
+- **`profile` field on the v1 telemetry payload** and the
+  `process.env.AXONFLOW_PROFILE` read that backed it. The env var name
+  collides with the existing governance `AXONFLOW_PROFILE`
+  (`dev | default | strict | compliance`), so populating the telemetry
+  field from it produced rejected pings whenever a customer had
+  governance set to `strict` / `compliance` / etc.
+  Topology classification continues to ride on the `deployment_mode`
+  field (unchanged). No migration needed — clients that did not set
+  `AXONFLOW_PROFILE` for telemetry purposes see no behaviour change;
+  clients that did can stop setting it.
+
 ## [8.0.0] - 2026-05-08 — Decision history API + telemetry simplification
 
 **Major release.** The headline feature is the new decision-history client API:
