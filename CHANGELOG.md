@@ -5,21 +5,6 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [8.0.1] - 2026-05-08 — Drop telemetry `profile` field (env-var collision)
-
-### Removed
-
-- **`profile` field on the v1 telemetry payload** and the
-  `process.env.AXONFLOW_PROFILE` read that backed it. The env var name
-  collides with the existing governance `AXONFLOW_PROFILE`
-  (`dev | default | strict | compliance`), so populating the telemetry
-  field from it produced rejected pings whenever a customer had
-  governance set to `strict` / `compliance` / etc.
-  Topology classification continues to ride on the `deployment_mode`
-  field (unchanged). No migration needed — clients that did not set
-  `AXONFLOW_PROFILE` for telemetry purposes see no behaviour change;
-  clients that did can stop setting it.
-
 ## [8.0.0] - 2026-05-08 — Decision history API + telemetry simplification
 
 **Major release.** The headline feature is the new decision-history client API:
@@ -75,7 +60,7 @@ the bottom of this entry for that.
 
 ### Telemetry payload (v1 schema, axonflow-enterprise#2008)
 
-- New heartbeat fields: `telemetry_type: "sdk"`, `profile` (from `AXONFLOW_PROFILE`, `unknown` when unset), `deployment_mode` aligned to `self_hosted | community_saas | unknown` via the new `classifyDeploymentMode` (host + `AXONFLOW_TRY=1` override).
+- New heartbeat fields: `telemetry_type: "sdk"`, `deployment_mode` aligned to `self_hosted | community_saas | unknown` via the new `classifyDeploymentMode` (host + `AXONFLOW_TRY=1` override).
 - `classifyEndpoint` no longer returns `community-saas` — that value moved off endpoint_type onto deployment_mode; analytics queries on the legacy value must update.
 
 ## [7.1.0] - 2026-05-06 — X-Axonflow-Client header + scope-aware license validation
