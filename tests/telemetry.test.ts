@@ -1,13 +1,18 @@
 /**
  * Telemetry Module Tests
  *
- * Verifies the anonymous usage telemetry ping behavior:
- * - Opt-out via AXONFLOW_TELEMETRY=off env var (DO_NOT_TRACK is no longer honored)
- * - Default ON for all modes except sandbox
- * - Config-level override of defaults
+ * Verifies the anonymous usage telemetry ping behavior under the v8 contract:
+ * - Opt-out via AXONFLOW_TELEMETRY=off env var (DO_NOT_TRACK is not honored)
+ * - Default ON for every mode (mode-based suppression removed in v8.0)
+ * - Sandbox-mode pings tagged stream="sandbox"; other modes omit the field
  * - Payload format correctness
  * - Silent failure on network errors
  * - Custom endpoint via AXONFLOW_CHECKPOINT_URL
+ *
+ * Note: jest.setup.ts sets AXONFLOW_TELEMETRY=off process-wide so unrelated
+ * test files don't accidentally fire pings to checkpoint.getaxonflow.com.
+ * Tests in this file that exercise the gate clear the env var in beforeEach
+ * via `delete process.env.AXONFLOW_TELEMETRY`.
  */
 
 import { sendTelemetryPing, TelemetryPayload } from '../src/telemetry';
@@ -151,22 +156,29 @@ describe('sendTelemetryPing', () => {
   });
 
   // ============================================================
-  // Default mode-based behavior
+  // Default mode-based behavior (v8: ON for every mode)
   // ============================================================
   describe('default mode-based behavior', () => {
-    it('should NOT send when user explicitly sets sandbox mode', () => {
-      sendTelemetryPing({
-        mode: 'sandbox',
-        explicitMode: 'sandbox',
-        endpoint: 'https://api.axonflow.com',
-      });
+    // v8: telemetry is ON for every mode. The mode-based suppression that
+    // used to disable sandbox-mode pings was removed — sandbox-mode pings
+    // now fire and are tagged stream="sandbox" in the payload so analytics
+    // can distinguish them server-side. See CHANGELOG v8.0.0 → Removed.
+    const modes = ['sandbox', 'production', 'staging', 'development'];
 
-      expect(mockFetch).not.toHaveBeenCalled();
+    modes.forEach(mode => {
+      it(`should fire ping for mode=${mode}`, async () => {
+        sendTelemetryPing({
+          mode,
+          endpoint: 'https://api.axonflow.com',
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
+      });
     });
 
-    it('should send when sandbox is auto-detected (no explicitMode)', async () => {
-      // This covers the case where TS SDK auto-selects sandbox because no credentials.
-      // Only explicitly-set sandbox should disable telemetry.
+    it('should fire ping with stream=sandbox in sandbox mode', async () => {
       sendTelemetryPing({
         mode: 'sandbox',
         endpoint: 'https://api.axonflow.com',
@@ -174,10 +186,18 @@ describe('sendTelemetryPing', () => {
 
       await new Promise(resolve => setTimeout(resolve, 50));
 
+      // Both: ping fires AND payload carries stream="sandbox".
       expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
+      const postCall = mockFetch.mock.calls.find(
+        (call: [string, { method?: string }]) => call[1]?.method === 'POST'
+      );
+      expect(postCall).toBeDefined();
+      const payload: TelemetryPayload = JSON.parse(postCall![1].body);
+      expect(payload.stream).toBe('sandbox');
+      expect(payload.deployment_mode).toBe('sandbox');
     });
 
-    it('should send by default for production mode', async () => {
+    it('should omit the stream field for production mode', async () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
@@ -185,10 +205,16 @@ describe('sendTelemetryPing', () => {
 
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
+      const postCall = mockFetch.mock.calls.find(
+        (call: [string, { method?: string }]) => call[1]?.method === 'POST'
+      );
+      expect(postCall).toBeDefined();
+      const payload: TelemetryPayload = JSON.parse(postCall![1].body);
+      // omit-when-not-sandbox: server defaults absent stream → "heartbeat".
+      expect(payload.stream).toBeUndefined();
     });
 
-    it('should send by default for staging mode', async () => {
+    it('should omit the stream field for staging mode', async () => {
       sendTelemetryPing({
         mode: 'staging',
         endpoint: 'https://api.axonflow.com',
@@ -196,18 +222,11 @@ describe('sendTelemetryPing', () => {
 
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
-    });
-
-    it('should send by default for development mode', async () => {
-      sendTelemetryPing({
-        mode: 'development',
-        endpoint: 'https://api.axonflow.com',
-      });
-
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
+      const postCall = mockFetch.mock.calls.find(
+        (call: [string, { method?: string }]) => call[1]?.method === 'POST'
+      );
+      const payload: TelemetryPayload = JSON.parse(postCall![1].body);
+      expect(payload.stream).toBeUndefined();
     });
   });
 
@@ -250,67 +269,13 @@ describe('sendTelemetryPing', () => {
   });
 
   // ============================================================
-  // Config override of defaults
+  // Config override removed in v8.0
   // ============================================================
-  describe('config telemetryEnabled override', () => {
-    it('should send in explicit sandbox mode when telemetryEnabled=true', async () => {
-      sendTelemetryPing({
-        mode: 'sandbox',
-        explicitMode: 'sandbox',
-        endpoint: 'https://api.axonflow.com',
-        telemetryEnabled: true,
-      });
-
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
-    });
-
-    it('should NOT send in production mode when telemetryEnabled=false', () => {
-      sendTelemetryPing({
-        mode: 'production',
-        endpoint: 'https://api.axonflow.com',
-        telemetryEnabled: false,
-      });
-
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it('DNT=1 alone does NOT override telemetryEnabled=true (DNT no longer honored)', async () => {
-      process.env.DO_NOT_TRACK = '1';
-
-      sendTelemetryPing({
-        mode: 'production',
-        endpoint: 'https://api.axonflow.com',
-        telemetryEnabled: true,
-      });
-
-      await new Promise(resolve => setTimeout(resolve, 50));
-      expect(mockFetch).toHaveBeenCalledTimes(2); // health + checkpoint
-    });
-
-    it('AXONFLOW_TELEMETRY=off takes priority over telemetryEnabled=true', () => {
-      process.env.AXONFLOW_TELEMETRY = 'off';
-
-      sendTelemetryPing({
-        mode: 'production',
-        endpoint: 'https://api.axonflow.com',
-        telemetryEnabled: true,
-      });
-
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it('config override false skips regardless of mode', () => {
-      sendTelemetryPing({
-        mode: 'production',
-        endpoint: 'https://api.axonflow.com',
-        telemetryEnabled: false,
-      });
-
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-  });
+  // The `telemetryEnabled` config field was removed in v8.0 along with the
+  // mode-based default-suppression rule. AXONFLOW_TELEMETRY=off is the SOLE
+  // opt-out path; programmatic suppression is no longer supported. The v7.x
+  // `describe('config telemetryEnabled override')` block was removed with the
+  // field. See CHANGELOG v8.0.0 → Removed.
 
   // ============================================================
   // Payload format
@@ -351,7 +316,6 @@ describe('sendTelemetryPing', () => {
       sendTelemetryPing({
         mode: 'production',
         endpoint: 'https://api.axonflow.com',
-        telemetryEnabled: true,
       });
 
       await new Promise(resolve => setTimeout(resolve, 50));

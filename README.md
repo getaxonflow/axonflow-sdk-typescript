@@ -511,10 +511,12 @@ const axonflow = new AxonFlow({
 
 **Note:** VPC endpoints require AWS VPC peering setup with AxonFlow infrastructure.
 
-## Sandbox Mode (Testing)
+## Sandbox Mode (Local Testing)
 
 ```typescript
-// Use sandbox mode for testing without affecting production
+// Quick sandbox client pointed at the local docker-compose default
+// (http://localhost:8080). Use a custom endpoint if you need to point
+// sandbox at a hosted environment.
 const axonflow = AxonFlow.sandbox('demo-client', 'demo-secret');
 
 // Test with PII detection (will be blocked)
@@ -529,6 +531,13 @@ try {
   console.log('Correctly blocked:', error.message);
 }
 ```
+
+> Sandbox-mode clients fire telemetry like every other client — anonymous SDK
+> heartbeat, classification-only payload, opt-out via `AXONFLOW_TELEMETRY=off`.
+> Pings are tagged `stream="sandbox"` server-side so dev/test usage is
+> distinguishable from production heartbeat. Pre-v8 sandbox mode silently
+> suppressed pings; that suppression was removed in v8.0 to leave a single,
+> ops-controlled opt-out lever.
 
 ## What Gets Protected?
 
@@ -1003,6 +1012,12 @@ const axonflow = new AxonFlow({
 
 This SDK sends anonymous usage telemetry (SDK version, OS, enabled features) to help improve AxonFlow.
 No prompts, payloads, or PII are ever collected. Opt out: `AXONFLOW_TELEMETRY=off`.
+
+`AXONFLOW_TELEMETRY=off` is the **sole opt-out lever** as of v8.0. The
+v7.x `telemetry` config field has been removed; the previous silent
+suppression of sandbox-mode pings has also been removed (sandbox-mode
+pings now fire and are tagged `stream="sandbox"` so they're
+distinguishable from production heartbeat).
 
 ### Scope of `AXONFLOW_TELEMETRY=off`
 

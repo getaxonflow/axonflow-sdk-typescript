@@ -5,6 +5,59 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.0.0] - 2026-05-08 — Decision history API + telemetry simplification
+
+**Major release.** The headline feature is the new decision-history client API:
+`listDecisions` for paging through recorded decisions, plus a runnable example
+showing the full record → list → explain audit flow. Bundled into a major
+because the v8 line also tightens the telemetry contract — see `Removed` at
+the bottom of this entry for that.
+
+### Added
+
+- **`listDecisions(opts?: ListDecisionsOptions)` client method.** Pages over
+  recorded decision history from the orchestrator, mirroring `GET
+  /api/v1/decisions`. Companion to the v7.4.0 `explainDecision` method —
+  callers can now both list and drill in. Returns `DecisionSummary[]`.
+  See `examples/list-decisions/`.
+- **`examples/explain-decision/`** end-to-end runnable example covering
+  the full decision audit flow: record → list → explain.
+- **Typed `RateLimitError` envelope** on `listDecisions` 429 responses.
+  `RateLimitError.fromTierEnvelope()` parses the V1 limit/tier/upgrade
+  envelope (`limitType`, `tier`, `upgrade.{wording,compareUrl,buyUrl}`)
+  so callers can route Free → Pro upgrade hints. Backward-compatible —
+  the existing daily-quota positional constructor still works.
+- **Public re-exports.** `ListDecisionsOptions`, `DecisionSummary`,
+  `UpgradeInfo`, `ExplainPolicy`, `ExplainRule` are now exported from
+  the package public surface (`@axonflow/sdk`).
+
+### Migration guide (v7 → v8)
+
+- **`AxonFlowConfig.telemetry` field removed.** TypeScript code referencing
+  this field will fail to typecheck. Migration: remove the field from your
+  `AxonFlowConfig` literal. If you were using it to disable telemetry,
+  set `AXONFLOW_TELEMETRY=off` in the environment instead — that's the
+  sole opt-out lever as of v8. If you were using it to force-enable, the
+  default is now ON for every mode so the field is no longer needed.
+- **No public method-signature changes** beyond the field removal above.
+  `npm install @axonflow/sdk@^8.0.0` and rebuild against v8 with no other
+  source changes.
+
+### Removed
+
+- **`AxonFlowConfig.telemetry` field** (was `boolean | undefined`).
+  `AXONFLOW_TELEMETRY=off` is now the sole opt-out path. Tests that need
+  to defend against contaminated dev environments should clear the env
+  var with `delete process.env.AXONFLOW_TELEMETRY` (or assignment of `''`)
+  in their `beforeEach`.
+- **Sandbox-mode silent telemetry suppression.** Sandbox-mode clients
+  (constructed via `AxonFlow.sandbox(...)` or `mode: 'sandbox'`) now fire
+  telemetry on the same heartbeat schedule as production-mode clients.
+  Pings are tagged `stream="sandbox"` in the payload so analytics can
+  distinguish dev pings from production heartbeat — see the
+  checkpoint-service `IsValidIncomingStream` allowlist for the wire-side
+  gate.
+
 ## [7.1.0] - 2026-05-06 — X-Axonflow-Client header + scope-aware license validation
 
 **Companion release to platform v7.7.0.** The TypeScript SDK now sends an
