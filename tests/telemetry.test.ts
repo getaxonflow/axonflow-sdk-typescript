@@ -310,7 +310,6 @@ describe('sendTelemetryPing', () => {
       expect(payload.runtime_version).toBe(process.version.replace(/^v/, ''));
       // v1 schema: deployment_mode derives from endpoint host.
       expect(payload.deployment_mode).toBe('self_hosted');
-      expect(payload.profile).toBe('unknown');
       expect(payload.features).toEqual([]);
       expect(payload.instance_id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/

@@ -125,12 +125,6 @@ export interface TelemetryPayload {
   features: string[];
   instance_id: string;
   /**
-   * Free-form deployment profile (`production`, `staging`, `dev`, etc.)
-   * sourced from `AXONFLOW_PROFILE`; reports `"unknown"` when unset.
-   * Analytics dimension only; no behavioural effect.
-   */
-  profile: string;
-  /**
    * Heartbeat sub-stream classifier. Sandbox-mode clients emit `"sandbox"`
    * so analytics can distinguish dev/test pings from production heartbeat;
    * production-mode clients omit the field and the server defaults the row
@@ -338,11 +332,9 @@ export async function sendTelemetryPingNow(options: {
   // omit the field entirely and the server defaults to "heartbeat". The
   // optional-property pattern preserves byte-identical wire shape for the
   // production case relative to v7.x.
-  // v1 telemetry-schema (axonflow-enterprise#2008): profile from AXONFLOW_PROFILE
-  // ("unknown" when unset) + deployment_mode classified from endpoint host
-  // (prior config.Mode-based dimension removed; now reflects topology only).
-  const profile = (process.env.AXONFLOW_PROFILE ?? '').trim() || 'unknown';
-
+  // v1 telemetry-schema (axonflow-enterprise#2008): deployment_mode classified
+  // from endpoint host (prior config.Mode-based dimension removed; now
+  // reflects topology only).
   const payload: TelemetryPayload = {
     telemetry_type: 'sdk',
     sdk: 'typescript',
@@ -355,7 +347,6 @@ export async function sendTelemetryPingNow(options: {
     endpoint_type: classifyEndpoint(options.endpoint),
     features: [],
     instance_id: generateInstanceId(),
-    profile,
     ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
   };
 
@@ -436,11 +427,9 @@ export function sendTelemetryPing(options: {
   // Stream classifier: sandbox-mode clients self-tag so analytics can
   // distinguish dev/test pings from production. Production-mode clients
   // omit the field entirely and the server defaults to "heartbeat".
-  // v1 telemetry-schema (axonflow-enterprise#2008): profile from AXONFLOW_PROFILE
-  // ("unknown" when unset) + deployment_mode classified from endpoint host
-  // (prior config.Mode-based dimension removed; now reflects topology only).
-  const profile = (process.env.AXONFLOW_PROFILE ?? '').trim() || 'unknown';
-
+  // v1 telemetry-schema (axonflow-enterprise#2008): deployment_mode classified
+  // from endpoint host (prior config.Mode-based dimension removed; now
+  // reflects topology only).
   const payload: TelemetryPayload = {
     telemetry_type: 'sdk',
     sdk: 'typescript',
@@ -453,7 +442,6 @@ export function sendTelemetryPing(options: {
     endpoint_type: classifyEndpoint(options.endpoint),
     features: [],
     instance_id: generateInstanceId(),
-    profile,
     ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
   };
 
