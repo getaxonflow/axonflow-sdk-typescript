@@ -41,7 +41,9 @@ jobs:
   test:
     name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
-    needs: lint
+    # No `needs: lint` — lint and test are independent gates; running them in
+    # parallel cuts PR feedback by ~lint-job-duration (~30-60s) at no quality
+    # cost. Required-status-check rules treat each as separate.
 
     strategy:
       # PR runs only Node 20.x (current LTS / release toolchain). Push to
