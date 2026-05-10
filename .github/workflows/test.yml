@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   AXONFLOW_TELEMETRY: 'off'
 
@@ -40,8 +44,11 @@ jobs:
     needs: lint
 
     strategy:
+      # PR runs only Node 20.x (current LTS / release toolchain). Push to
+      # main and workflow_dispatch run the full matrix to catch
+      # version-specific drift.
       matrix:
-        node-version: [18.x, 20.x, 22.x]
+        node-version: ${{ fromJson(github.event_name == 'pull_request' && '["20.x"]' || '["18.x", "20.x", "22.x"]') }}
       fail-fast: false
 
     steps:
