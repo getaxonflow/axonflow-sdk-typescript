@@ -469,6 +469,12 @@ export class AxonFlow {
     // doesn't get to spoof its own client identity to the agent).
     headers['X-Axonflow-Client'] = `sdk-typescript/${VERSION}`;
 
+    // X-Client-ID (v9): server-side identity decisions don't have to
+    // re-decode Basic auth. The agent's apiAuthMiddleware overwrites
+    // the header with its auth-derived value, so caller-supplied
+    // values are harmless (no spoofing surface).
+    headers['X-Client-ID'] = effectiveClientId;
+
     return headers;
   }
 
