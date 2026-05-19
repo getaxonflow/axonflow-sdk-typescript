@@ -34,12 +34,18 @@ export interface AxonFlowConfig {
 
   /**
    * Tenant identifier for multi-tenant deployments.
-   * This specifies WHICH organization context.
-   * Separate from authentication identity (clientId).
    *
-   * @deprecated Using tenant without clientId is deprecated.
-   * For authentication, use clientId/clientSecret instead.
-   * Keep tenant only for multi-tenant routing context.
+   * @deprecated Since v8.1.0 (v9 identity cleanup, Epic
+   * getaxonflow/axonflow-enterprise#2230). Use `clientId` for both
+   * authentication identity and tenant routing — the platform now
+   * derives tenant scope from the authenticated client_id rather than
+   * a separate tenant field. The `tenant` field is preserved for
+   * back-compat through the v8.x line and will be REMOVED in v10.
+   *
+   * Migration: replace `tenant: "your-tenant"` with
+   * `clientId: "your-tenant"` (or, if you also have credentials,
+   * `clientId: "your-tenant", clientSecret: "..."`). Wire-level
+   * `tenant_id` JSON fields on request payloads remain unchanged.
    */
   tenant?: string;
 
