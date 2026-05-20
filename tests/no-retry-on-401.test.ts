@@ -69,10 +69,7 @@ describe('401 is terminal — no retry on any request path (#2275)', () => {
   // away (we exercise the same public surface a customer would use).
   async function loginAndClearFetchHistory(): Promise<void> {
     const loginHeaders = new Headers();
-    loginHeaders.set(
-      'set-cookie',
-      'axonflow_session=test-session-cookie; HttpOnly; Path=/'
-    );
+    loginHeaders.set('set-cookie', 'axonflow_session=test-session-cookie; HttpOnly; Path=/');
     mockFetch.mockReturnValueOnce(
       mockJsonResponse(
         {
@@ -104,12 +101,8 @@ describe('401 is terminal — no retry on any request path (#2275)', () => {
     // assertion below rather than blowing up on `response.ok` of
     // undefined — the assertion failure must point cleanly at the
     // retry contract being broken).
-    mockFetch.mockReturnValueOnce(
-      mockJsonResponse({ error: 'unauthorized' }, 401)
-    );
-    mockFetch.mockReturnValueOnce(
-      mockJsonResponse({ error: 'unauthorized' }, 401)
-    );
+    mockFetch.mockReturnValueOnce(mockJsonResponse({ error: 'unauthorized' }, 401));
+    mockFetch.mockReturnValueOnce(mockJsonResponse({ error: 'unauthorized' }, 401));
 
     // `listGitProviders` goes through `portalRequest('GET', ...)` and
     // is one of the simplest portal-path methods to exercise. The
@@ -131,12 +124,8 @@ describe('401 is terminal — no retry on any request path (#2275)', () => {
     // would still cause the storm; lock both paths. Queue a second
     // 403 so the mutation test fails specifically at the
     // call-count assertion, not at downstream `response.ok` access.
-    mockFetch.mockReturnValueOnce(
-      mockJsonResponse({ error: 'forbidden' }, 403)
-    );
-    mockFetch.mockReturnValueOnce(
-      mockJsonResponse({ error: 'forbidden' }, 403)
-    );
+    mockFetch.mockReturnValueOnce(mockJsonResponse({ error: 'forbidden' }, 403));
+    mockFetch.mockReturnValueOnce(mockJsonResponse({ error: 'forbidden' }, 403));
 
     await expect(client.listGitProviders()).rejects.toThrow(AuthenticationError);
     expect(mockFetch).toHaveBeenCalledTimes(1);
