@@ -217,18 +217,24 @@ class SDKError extends Error {
 
 ### Retry Strategy
 
-```typescript
-interface RetryConfig {
-  maxAttempts: 3;
-  backoffMultiplier: 2;
-  initialDelay: 100;      // ms
-  maxDelay: 5000;        // ms
-  retryableErrors: [
-    'NETWORK_ERROR',
-    'TIMEOUT'
-  ];
-}
-```
+The SDK does **not** wrap HTTP calls in an internal retry loop. Each
+outbound request is issued exactly once and the response (or thrown
+error) is surfaced to the caller. In particular, **`401 Unauthorized`
+is terminal** — the SDK throws `AuthenticationError` and does not
+retry, because retrying a 401 with the same credential just compounds
+load on the agent
+(see [getaxonflow/axonflow-enterprise#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)).
+
+If you need retries for transient infra errors (5xx, network), wrap
+the SDK call in your own retry helper but **do not retry on
+`AuthenticationError`**. For the authoritative caller-side guidance,
+see the "A note on HTTP retries" callout in the main README.
+
+The `AxonFlowConfig.retry` field (and the exported `RetryConfig`
+interface) is preserved as a deprecated, silently-ignored shape for
+backward compatibility and will be removed in v10. The earlier
+`backoffMultiplier` / `initialDelay` / `retryableErrors` design was
+never implemented.
 
 ## Deployment Modes
 

@@ -69,7 +69,12 @@ export interface AxonFlowConfig {
   mapTimeout?: number;
 
   /**
-   * Retry configuration
+   * @deprecated The SDK does not implement HTTP retries. This field is accepted
+   * for backward compatibility and silently ignored. If you need retries for
+   * transient infra errors (5xx, network), wrap the SDK call in your own retry
+   * helper — but do NOT retry on `AuthenticationError`
+   * (see [getaxonflow/axonflow-enterprise#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)).
+   * This field will be removed in v10.
    */
   retry?: {
     enabled: boolean;
@@ -86,6 +91,15 @@ export interface AxonFlowConfig {
   };
 }
 
+/**
+ * @deprecated The SDK does not implement HTTP retries. This type is exported
+ * for backward compatibility with code that imports it; configuring it on
+ * `AxonFlowConfig.retry` has no effect at runtime. If you need retries for
+ * transient infra errors (5xx, network), wrap the SDK call in your own retry
+ * helper — but do NOT retry on `AuthenticationError`
+ * (see [getaxonflow/axonflow-enterprise#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)).
+ * This type will be removed in v10.
+ */
 export interface RetryConfig {
   enabled: boolean;
   maxAttempts: number;
