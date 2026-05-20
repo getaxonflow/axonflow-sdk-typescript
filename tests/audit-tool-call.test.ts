@@ -132,6 +132,27 @@ describe('auditToolCall', () => {
     await expect(client.auditToolCall({ toolName: 'search_database' })).rejects.toThrow();
   });
 
+  // Regression test for getaxonflow/axonflow-enterprise#2275: 401 must be
+  // terminal — the SDK MUST NOT retry an auth failure, because retrying
+  // with the same invalid token just compounds the storm on the agent
+  // (716 × 401 / 24h observed from one source IP against community-saas
+  // on 2026-05-19, ~30/hour, not human pacing).
+  //
+  // TypeScript SDK is structurally safe: `orchestratorRequest` calls
+  // `_fetch` exactly once and throws `AuthenticationError` on 401 or 403
+  // without a retry loop. This test makes the contract explicit by
+  // asserting `mockFetch` was invoked exactly once.
+  it('must not retry on 401 — regression for issue #2275', async () => {
+    mockFetch.mockReturnValueOnce(mockResponse({ error: 'unauthorized' }, 401));
+
+    await expect(client.auditToolCall({ toolName: 'search_database' })).rejects.toThrow();
+
+    // Exactly one outbound fetch — no retry. If a future change to
+    // `orchestratorRequest` or `_fetch` adds status-code-based retry
+    // that includes 401, this assertion fails.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it('should include error_message for failed tool calls', async () => {
     mockFetch.mockReturnValueOnce(
       mockResponse({
