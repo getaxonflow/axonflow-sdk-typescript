@@ -475,13 +475,6 @@ const axonflow = new AxonFlow({
   tenant: 'your-tenant-id',         // For multi-tenant setups
   debug: true,                       // Enable debug logging
 
-  // Retry configuration
-  retry: {
-    enabled: true,
-    maxAttempts: 3,
-    delay: 1000
-  },
-
   // Cache configuration
   cache: {
     enabled: true,
@@ -489,6 +482,18 @@ const axonflow = new AxonFlow({
   }
 });
 ```
+
+> **A note on HTTP retries.** The TypeScript SDK does **not** wrap its
+> HTTP calls in an internal retry loop. Each `auditToolCall`,
+> `proxyLLMCall`, `mcpCheckInput`, etc. issues exactly one outbound
+> request and surfaces the response (or throws on error) to the caller.
+>
+> In particular, **401 Unauthorized is terminal** — the SDK throws
+> `AuthenticationError` and does not retry. Retrying a 401 with the
+> same credential just compounds load on the agent; refresh the token
+> via the customer portal and reconfigure the SDK instead. If you need
+> retries for transient infra errors (5xx, network), wrap the SDK call
+> in your own retry helper but **do not retry on `AuthenticationError`**.
 
 ### VPC Private Endpoint (Low-Latency)
 

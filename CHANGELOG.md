@@ -5,6 +5,33 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`must not retry on 401 — regression for issue #2275`** test in
+ `tests/audit-tool-call.test.ts` — locks in that the TypeScript SDK
+ issues exactly one outbound `fetch` per `auditToolCall` and never
+ retries on HTTP 401. Backstops
+ [getaxonflow/axonflow-enterprise#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)
+ where a customer's misconfigured deployment caused a tight 401 retry
+ loop against `community-saas` (~30 401/hour from a single source IP).
+ Mutation-tested: injecting a 2-attempt retry into `orchestratorRequest`
+ makes the assertion fail, confirming the test isn't tautological.
+
+### Changed
+
+- **README "A note on HTTP retries"** clarifies that the SDK does not
+ wrap HTTP calls in an internal retry loop, 401 is terminal, and any
+ caller-side retry wrapper MUST exclude `AuthenticationError`. The
+ previous example block in "Configuration Options" showed a `retry:
+ { enabled, maxAttempts, delay }` config that the SDK accepts on the
+ constructor but never wires into `_fetch` / `orchestratorRequest` —
+ removed from the example so customers don't write retry-storm code
+ against a config that does nothing. The config type
+ (`AxonFlowConfig.retry`) is retained for backward compatibility; it
+ is silently ignored.
+
 ## [8.1.0] - 2026-05-19 — `X-Client-ID` header on every outbound request (v9 identity)
 
 **Companion release to the v9 identity cleanup on the platform (Epic #2230).**
