@@ -42,7 +42,6 @@ const response = await af.protect(() => openai.complete(prompt));
 │   │   ├── policy.ts      # Policy types
 │   │   └── response.ts    # Response types
 │   ├── utils/
-│   │   ├── retry.ts       # Retry logic
 │   │   ├── cache.ts       # Response caching
 │   │   └── logger.ts      # Debug logging
 │   └── constants.ts       # SDK constants
@@ -94,11 +93,21 @@ interface AxonFlowConfig {
   endpoint?: string;
   mode?: 'sandbox' | 'production';
   tenant?: string;
-  retry?: RetryConfig;
   cache?: CacheConfig;
   debug?: boolean;
 }
 ```
+
+> **A note on HTTP retries.** The SDK does not wrap HTTP calls in an
+> internal retry loop. Each outbound request is issued exactly once,
+> and `401 Unauthorized` is terminal — the SDK throws
+> `AuthenticationError` and does not retry. If you need retries for
+> transient infra errors (5xx, network), wrap the SDK call in your
+> own retry helper but **do not retry on `AuthenticationError`**. See
+> [getaxonflow/axonflow-enterprise#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)
+> and the "A note on HTTP retries" callout in the main README.
+> `AxonFlowConfig.retry` is preserved as a deprecated, silently-ignored
+> field for backward compatibility and will be removed in v10.
 
 ## Implementation Plan
 

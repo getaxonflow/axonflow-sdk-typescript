@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  Mutation-tested: injecting a 2-attempt retry into `orchestratorRequest`
  makes the assertion fail, confirming the test isn't tautological.
 
+- **`tests/no-retry-on-401.test.ts`** extends the #2275 contract to
+ the SECOND HTTP path in the SDK — `portalRequest` (used by
+ `listGitProviders`, `loginToPortal`-gated portal calls, etc.). Covers
+ both 401 and 403 terminal-class responses. Mutation-tested: injecting
+ a 2-attempt retry into `portalRequest` makes both assertions fail at
+ `Expected: 1, Received: 2`, confirming the test specifically guards
+ the call-count contract rather than incidentally passing through
+ throw-shape assertions.
+
 ### Changed
 
 - **README "A note on HTTP retries"** clarifies that the SDK does not
@@ -31,6 +40,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  against a config that does nothing. The config type
  (`AxonFlowConfig.retry`) is retained for backward compatibility; it
  is silently ignored.
+
+- **`AxonFlowConfig.retry` field and `RetryConfig` interface marked
+ `@deprecated`** in `src/types/config.ts`. IDE hover / IntelliSense
+ was the last surface still presenting "Retry configuration" with
+ three working-looking fields — a hostile review of PR #228 surfaced
+ that the README cleanup was incomplete because typed-API customers
+ read JSDoc, not just the README. Verified `@deprecated` renders in
+ emitted `dist/cjs/types/config.d.ts`. Slated for removal in v10.
+
+- **`SDK_ARCHITECTURE.md`** — removed the non-existent
+ `src/utils/retry.ts` package-structure entry, removed
+ `retry?: RetryConfig` from the canonical `AxonFlowConfig` example,
+ and added the same "A note on HTTP retries" callout as the README.
+
+- **`TECHNICAL_SPECIFICATION.md` § Retry Strategy** — replaced the
+ fabricated `RetryConfig { maxAttempts: 3, backoffMultiplier: 2,
+ initialDelay: 100, maxDelay: 5000, retryableErrors: ['NETWORK_ERROR',
+ 'TIMEOUT'] }` interface (none of those fields exist in the SDK) with
+ honest prose pointing readers at the README callout and #2275. The
+ section header is retained so readers searching for "retry" in the
+ spec land on the negation rather than nothing.
+
+- **`TEST_PLAN.md` § Reliability** — replaced the "✅ Automatic retry
+ with exponential backoff" line (never implemented) with "✅
+ Single-attempt HTTP semantics" plus link to README + #2275.
 
 ## [8.1.0] - 2026-05-19 — `X-Client-ID` header on every outbound request (v9 identity)
 

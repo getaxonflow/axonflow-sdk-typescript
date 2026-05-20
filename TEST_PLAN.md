@@ -600,7 +600,10 @@ npm run test:load:stress
 ### Reliability
 - ✅ 99.99% availability
 - ✅ Graceful degradation when service unavailable
-- ✅ Automatic retry with exponential backoff
+- ✅ Single-attempt HTTP semantics (no internal retry loop;
+  `401 Unauthorized` is terminal — see the "A note on HTTP retries"
+  callout in the main README and
+  [getaxonflow/axonflow-enterprise#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275))
 - ✅ Circuit breaker pattern implementation
 
 ### Security
