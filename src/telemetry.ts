@@ -132,6 +132,34 @@ export interface TelemetryPayload {
    * see checkpoint-service IsValidIncomingStream.
    */
   stream?: string;
+  /**
+   * Deployment-organization identifier (#2277). Two sources, precedence
+   * order: the `ORG_ID` env var when set (the operator's explicit
+   * configuration on self-hosted deployments, or the `cs_<uuid>` tenant
+   * identifier on Community SaaS); otherwise the `"local-dev-org"`
+   * sentinel. Always emitted. See
+   * axonflow-landing/content/privacy.html for the customer-facing
+   * commitment that covers this field.
+   */
+  org_id: string;
+}
+
+/**
+ * Sentinel emitted on the telemetry wire when `ORG_ID` is unset — the
+ * default-config Community-mode developer case. See #2277.
+ */
+export const ORG_ID_LOCAL_DEV_SENTINEL = 'local-dev-org';
+
+/**
+ * Return the `org_id` value to emit on the next telemetry ping. Reads
+ * `ORG_ID` from the environment (the operator's explicit configuration
+ * for self-hosted deployments, or the `cs_<uuid>` tenant identifier on
+ * Community SaaS) and falls back to `ORG_ID_LOCAL_DEV_SENTINEL` when
+ * unset. Always returns a non-empty string. See #2277.
+ */
+export function telemetryOrgID(): string {
+  const value = typeof process !== 'undefined' ? (process.env.ORG_ID ?? '') : '';
+  return value === '' ? ORG_ID_LOCAL_DEV_SENTINEL : value;
 }
 
 export type EndpointType = 'localhost' | 'private_network' | 'remote' | 'unknown';
@@ -308,7 +336,7 @@ function expandIPv6(addr: string): string {
 }
 
 /**
- * Send an anonymous telemetry ping and return whether it landed.
+ * Send a telemetry ping and return whether it landed.
  *
  * Returns `true` only when the POST received a 2xx response. Network
  * failures, timeouts, and non-2xx responses all return `false`. Used by
@@ -347,6 +375,7 @@ export async function sendTelemetryPingNow(options: {
     endpoint_type: classifyEndpoint(options.endpoint),
     features: [],
     instance_id: generateInstanceId(),
+    org_id: telemetryOrgID(),
     ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
   };
 
@@ -391,7 +420,7 @@ export async function sendTelemetryPingNow(options: {
 }
 
 /**
- * Send an anonymous telemetry ping on client initialization (compat shim).
+ * Send a telemetry ping on client initialization (compat shim).
  *
  * Kept for the existing test surface. Production code goes through
  * `maybeSendHeartbeat` in heartbeat.ts instead. This shim performs the
@@ -418,7 +447,7 @@ export function sendTelemetryPing(options: {
 
   if (typeof console !== 'undefined') {
     console.debug(
-      '[AxonFlow] Anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/docs/telemetry'
+      '[AxonFlow] Telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/docs/telemetry'
     );
   }
 
@@ -442,6 +471,7 @@ export function sendTelemetryPing(options: {
     endpoint_type: classifyEndpoint(options.endpoint),
     features: [],
     instance_id: generateInstanceId(),
+    org_id: telemetryOrgID(),
     ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
   };
 

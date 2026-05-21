@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`org_id` field in the telemetry heartbeat body (v9.1 preflight, #2277).**
+ Brings TypeScript SDK telemetry up to parity with the platform's
+ `startup_telemetry.go` emitter — every heartbeat now identifies which
+ deployment-organization emitted it. Two sources in precedence order:
+ 1. The `ORG_ID` env var when set (the operator's explicit configuration on
+    self-hosted deployments, or the `cs_<uuid>` tenant identifier on
+    Community SaaS).
+ 2. Otherwise the `local-dev-org` sentinel (default-config Community-mode
+    developers).
+ Exported as `telemetryOrgID()` + `ORG_ID_LOCAL_DEV_SENTINEL`. The
+ receiver (`ee/platform/checkpoint-service/pkg/telemetry/telemetry.go`)
+ already accepts the field with `omitempty` for backward compat with
+ pre-v8.1 SDKs that don't send it. New SDKs always send it. Honors
+ `AXONFLOW_TELEMETRY=off` like every other heartbeat field. See
+ `axonflow-landing/content/privacy.html` for the customer-facing
+ commitment that covers this field.
+
 - **`must not retry on 401 — regression for issue #2275`** test in
  `tests/audit-tool-call.test.ts` — locks in that the TypeScript SDK
  issues exactly one outbound `fetch` per `auditToolCall` and never
@@ -29,6 +46,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  throw-shape assertions.
 
 ### Changed
+
+- **Telemetry-enabled log line** softened from "Anonymous telemetry enabled"
+ to "Telemetry enabled" to stay coherent with the v9.1 `org_id` addition
+ (the operator-supplied `ORG_ID` on self-hosted is not anonymized; only
+ the `instance_id` and `cs_<uuid>` Community SaaS identifier remain
+ anonymous-by-design). Heartbeat module + `sendTelemetryPing` docstrings
+ updated similarly.
 
 - **README "A note on HTTP retries"** clarifies that the SDK does not
  wrap HTTP calls in an internal retry loop, 401 is terminal, and any

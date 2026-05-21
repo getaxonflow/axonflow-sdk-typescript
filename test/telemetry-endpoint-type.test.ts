@@ -136,6 +136,7 @@ describe('TelemetryPayload shape', () => {
       endpoint_type: 'localhost',
       features: [],
       instance_id: 'test',
+      org_id: 'local-dev-org',
     };
     expect(p.endpoint_type).toBe('localhost');
   });
@@ -160,6 +161,7 @@ describe('TelemetryPayload shape', () => {
       endpoint_type: endpointType,
       features: [],
       instance_id: 'leak-test',
+      org_id: 'local-dev-org',
     };
     const json = JSON.stringify(payload);
     for (const fragment of [
