@@ -15,7 +15,12 @@
  * via `delete process.env.AXONFLOW_TELEMETRY`.
  */
 
-import { sendTelemetryPing, TelemetryPayload } from '../src/telemetry';
+import {
+  ORG_ID_LOCAL_DEV_SENTINEL,
+  sendTelemetryPing,
+  telemetryOrgID,
+  TelemetryPayload,
+} from '../src/telemetry';
 import { VERSION } from '../src/version';
 
 // Save original env
@@ -501,6 +506,178 @@ describe('sendTelemetryPing', () => {
       const [, options] = mockFetch.mock.calls[1];
       expect(options.signal).toBeDefined();
       expect(options.signal).toBeInstanceOf(AbortSignal);
+    });
+  });
+
+  // ============================================================
+  // org_id field (v9.1 preflight, issue #2277)
+  // ============================================================
+  describe('org_id (v9.1)', () => {
+    describe('telemetryOrgID helper', () => {
+      it('returns ORG_ID env when set (operator-supplied self-hosted)', () => {
+        process.env.ORG_ID = 'acme-corp';
+        expect(telemetryOrgID()).toBe('acme-corp');
+      });
+
+      it('returns local-dev-org sentinel when ORG_ID unset', () => {
+        delete process.env.ORG_ID;
+        expect(telemetryOrgID()).toBe(ORG_ID_LOCAL_DEV_SENTINEL);
+        expect(ORG_ID_LOCAL_DEV_SENTINEL).toBe('local-dev-org'); // wire-value lock
+      });
+
+      it('treats empty ORG_ID as unset (sentinel)', () => {
+        process.env.ORG_ID = '';
+        expect(telemetryOrgID()).toBe(ORG_ID_LOCAL_DEV_SENTINEL);
+      });
+
+      it('passes through cs_<uuid> Community SaaS tenant identifier', () => {
+        const csId = 'cs_e3a4b5c6-d7e8-4f90-a1b2-c3d4e5f6a7b8';
+        process.env.ORG_ID = csId;
+        expect(telemetryOrgID()).toBe(csId);
+      });
+    });
+
+    describe('wire payload always carries org_id', () => {
+      it('includes operator-supplied ORG_ID in posted body', async () => {
+        process.env.ORG_ID = 'acme-corp';
+        sendTelemetryPing({
+          mode: 'production',
+          endpoint: 'https://api.axonflow.com',
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+        const postCall = mockFetch.mock.calls.find(
+          (call: [string, { method?: string; body?: string }]) => call[1]?.method === 'POST'
+        );
+        expect(postCall).toBeDefined();
+        const rawBody = postCall![1].body as string;
+        // Decoded shape AND wire-literal substring — wire-literal defends
+        // against tag-removal mutations that JSON.stringify would silently
+        // round-trip through a struct decode.
+        const payload: TelemetryPayload = JSON.parse(rawBody);
+        expect(payload.org_id).toBe('acme-corp');
+        expect(rawBody).toContain('"org_id":"acme-corp"');
+      });
+
+      it('includes local-dev-org sentinel when ORG_ID unset', async () => {
+        delete process.env.ORG_ID;
+        sendTelemetryPing({
+          mode: 'production',
+          endpoint: 'https://api.axonflow.com',
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const postCall = mockFetch.mock.calls.find(
+          (call: [string, { method?: string; body?: string }]) => call[1]?.method === 'POST'
+        );
+        const rawBody = postCall![1].body as string;
+        const payload: TelemetryPayload = JSON.parse(rawBody);
+        expect(payload.org_id).toBe('local-dev-org');
+        expect(rawBody).toContain('"org_id":"local-dev-org"');
+      });
+
+      it('passes through cs_<uuid> on wire', async () => {
+        const csId = 'cs_f29e9c5c-5c5b-4e0d-8e0d-aabbccddeeff';
+        process.env.ORG_ID = csId;
+        sendTelemetryPing({
+          mode: 'production',
+          endpoint: 'https://api.axonflow.com',
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const postCall = mockFetch.mock.calls.find(
+          (call: [string, { method?: string; body?: string }]) => call[1]?.method === 'POST'
+        );
+        const rawBody = postCall![1].body as string;
+        const payload: TelemetryPayload = JSON.parse(rawBody);
+        expect(payload.org_id).toBe(csId);
+        expect(rawBody).toContain(`"org_id":"${csId}"`);
+      });
+    });
+
+    describe('wire payload always carries org_id (real-network E2E)', () => {
+      // Real http.createServer-based E2E test — captures the wire body
+      // for real bytes-on-the-socket proof. Restores real fetch for the
+      // duration of this test only; the rest of the file uses mockFetch.
+      const realFetch = globalThis.fetch;
+
+      const runWithRealServer = async (
+        orgIdValue: string | undefined
+      ): Promise<{ body: string; parsed: TelemetryPayload }> => {
+        const http = require('http') as typeof import('http');
+        let capturedBody = '';
+
+        const server = http.createServer((req, res) => {
+          if (req.method === 'POST') {
+            const chunks: Buffer[] = [];
+            req.on('data', (chunk: Buffer) => chunks.push(chunk));
+            req.on('end', () => {
+              capturedBody = Buffer.concat(chunks).toString('utf-8');
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ latest_version: null, alerts: [] }));
+            });
+          } else {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ version: '8.0.0-test' }));
+          }
+        });
+
+        await new Promise<void>(resolve => server.listen(0, '127.0.0.1', () => resolve()));
+        const addr = server.address();
+        if (!addr || typeof addr === 'string') throw new Error('listen failed');
+        const port = addr.port;
+
+        // Restore the real fetch for the local capture; the test body MUST
+        // restore the mock at the end so neighboring tests stay isolated.
+        global.fetch = realFetch as typeof fetch;
+
+        if (orgIdValue === undefined) {
+          delete process.env.ORG_ID;
+        } else {
+          process.env.ORG_ID = orgIdValue;
+        }
+        process.env.AXONFLOW_CHECKPOINT_URL = `http://127.0.0.1:${port}/v1/ping`;
+
+        try {
+          sendTelemetryPing({
+            mode: 'production',
+            endpoint: `http://127.0.0.1:${port}`,
+          });
+          // Wait long enough for: health probe + checkpoint POST to complete.
+          for (let i = 0; i < 50 && !capturedBody; i += 1) {
+            await new Promise(r => setTimeout(r, 50));
+          }
+          if (!capturedBody) throw new Error('telemetry ping never landed');
+          return { body: capturedBody, parsed: JSON.parse(capturedBody) };
+        } finally {
+          global.fetch = mockFetch as unknown as typeof fetch;
+          server.close();
+          delete process.env.AXONFLOW_CHECKPOINT_URL;
+        }
+      };
+
+      it('carries operator-supplied ORG_ID through to the receiver', async () => {
+        const { body, parsed } = await runWithRealServer('acme-corp');
+        expect(parsed.org_id).toBe('acme-corp');
+        expect(body).toContain('"org_id":"acme-corp"');
+      });
+
+      it('carries the sentinel when ORG_ID unset', async () => {
+        const { body, parsed } = await runWithRealServer(undefined);
+        expect(parsed.org_id).toBe('local-dev-org');
+        expect(body).toContain('"org_id":"local-dev-org"');
+      });
+
+      it('carries cs_<uuid> tenant identifier through to the receiver', async () => {
+        const csId = 'cs_f29e9c5c-5c5b-4e0d-8e0d-aabbccddeeff';
+        const { body, parsed } = await runWithRealServer(csId);
+        expect(parsed.org_id).toBe(csId);
+        expect(body).toContain(`"org_id":"${csId}"`);
+      });
     });
   });
 });
