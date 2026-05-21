@@ -5,95 +5,10 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [8.1.0] - 2026-05-19 — `X-Client-ID` header on every outbound request + `org_id` in telemetry heartbeat + single-attempt HTTP contract documented
 
-### Added
-
-- **`org_id` field in the telemetry heartbeat body (v9.1 preflight, #2277).**
- Brings TypeScript SDK telemetry up to parity with the platform's
- `startup_telemetry.go` emitter — every heartbeat now identifies which
- deployment-organization emitted it. Two sources in precedence order:
- 1. The `ORG_ID` env var when set (the operator's explicit configuration on
-    self-hosted deployments, or the `cs_<uuid>` tenant identifier on
-    Community SaaS).
- 2. Otherwise the `local-dev-org` sentinel (default-config Community-mode
-    developers).
- Exported as `telemetryOrgID()` + `ORG_ID_LOCAL_DEV_SENTINEL`. The
- receiver (`ee/platform/checkpoint-service/pkg/telemetry/telemetry.go`)
- already accepts the field with `omitempty` for backward compat with
- pre-v8.1 SDKs that don't send it. New SDKs always send it. Honors
- `AXONFLOW_TELEMETRY=off` like every other heartbeat field. See
- `axonflow-landing/content/privacy.html` for the customer-facing
- commitment that covers this field.
-
-- **`must not retry on 401 — regression for issue #2275`** test in
- `tests/audit-tool-call.test.ts` — locks in that the TypeScript SDK
- issues exactly one outbound `fetch` per `auditToolCall` and never
- retries on HTTP 401. Backstops
- [getaxonflow/axonflow-enterprise#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)
- where a customer's misconfigured deployment caused a tight 401 retry
- loop against `community-saas` (~30 401/hour from a single source IP).
- Mutation-tested: injecting a 2-attempt retry into `orchestratorRequest`
- makes the assertion fail, confirming the test isn't tautological.
-
-- **`tests/no-retry-on-401.test.ts`** extends the #2275 contract to
- the SECOND HTTP path in the SDK — `portalRequest` (used by
- `listGitProviders`, `loginToPortal`-gated portal calls, etc.). Covers
- both 401 and 403 terminal-class responses. Mutation-tested: injecting
- a 2-attempt retry into `portalRequest` makes both assertions fail at
- `Expected: 1, Received: 2`, confirming the test specifically guards
- the call-count contract rather than incidentally passing through
- throw-shape assertions.
-
-### Changed
-
-- **Telemetry-enabled log line** softened from "Anonymous telemetry enabled"
- to "Telemetry enabled" to stay coherent with the v9.1 `org_id` addition
- (the operator-supplied `ORG_ID` on self-hosted is not anonymized; only
- the `instance_id` and `cs_<uuid>` Community SaaS identifier remain
- anonymous-by-design). Heartbeat module + `sendTelemetryPing` docstrings
- updated similarly.
-
-- **README "A note on HTTP retries"** clarifies that the SDK does not
- wrap HTTP calls in an internal retry loop, 401 is terminal, and any
- caller-side retry wrapper MUST exclude `AuthenticationError`. The
- previous example block in "Configuration Options" showed a `retry:
- { enabled, maxAttempts, delay }` config that the SDK accepts on the
- constructor but never wires into `_fetch` / `orchestratorRequest` —
- removed from the example so customers don't write retry-storm code
- against a config that does nothing. The config type
- (`AxonFlowConfig.retry`) is retained for backward compatibility; it
- is silently ignored.
-
-- **`AxonFlowConfig.retry` field and `RetryConfig` interface marked
- `@deprecated`** in `src/types/config.ts`. IDE hover / IntelliSense
- was the last surface still presenting "Retry configuration" with
- three working-looking fields — a hostile review of PR #228 surfaced
- that the README cleanup was incomplete because typed-API customers
- read JSDoc, not just the README. Verified `@deprecated` renders in
- emitted `dist/cjs/types/config.d.ts`. Slated for removal in v10.
-
-- **`SDK_ARCHITECTURE.md`** — removed the non-existent
- `src/utils/retry.ts` package-structure entry, removed
- `retry?: RetryConfig` from the canonical `AxonFlowConfig` example,
- and added the same "A note on HTTP retries" callout as the README.
-
-- **`TECHNICAL_SPECIFICATION.md` § Retry Strategy** — replaced the
- fabricated `RetryConfig { maxAttempts: 3, backoffMultiplier: 2,
- initialDelay: 100, maxDelay: 5000, retryableErrors: ['NETWORK_ERROR',
- 'TIMEOUT'] }` interface (none of those fields exist in the SDK) with
- honest prose pointing readers at the README callout and #2275. The
- section header is retained so readers searching for "retry" in the
- spec land on the negation rather than nothing.
-
-- **`TEST_PLAN.md` § Reliability** — replaced the "✅ Automatic retry
- with exponential backoff" line (never implemented) with "✅
- Single-attempt HTTP semantics" plus link to README + #2275.
-
-## [8.1.0] - 2026-05-19 — `X-Client-ID` header on every outbound request (v9 identity)
-
-**Companion release to the v9 identity cleanup on the platform (Epic #2230).**
-Every governed request now carries an `X-Client-ID: <effective_client_id>`
+Companion release to the v9 identity cleanup on the platform. Every
+governed request now carries an `X-Client-ID: <effective_client_id>`
 header alongside the existing Basic Auth + `X-Axonflow-Client` headers.
 Value matches the SDK's Basic Auth username — smart default `community`
 when no `clientId` is configured.
@@ -101,24 +16,79 @@ when no `clientId` is configured.
 ### Added
 
 - **`X-Client-ID` header on outbound HTTP requests.** Server-side identity
- decisions no longer need to re-decode Basic Auth. The agent's
- `apiAuthMiddleware` overwrites the header with its own auth-derived
- value, so caller-supplied values are harmless (no spoofing surface).
- Set in `getAuthHeaders` (`src/client.ts`).
+ decisions no longer need to re-decode Basic Auth. The platform's auth
+ middleware overwrites the header with its own auth-derived value, so
+ caller-supplied values are harmless (no spoofing surface).
+- **`org_id` field in the telemetry heartbeat body.** Brings the TypeScript
+ SDK telemetry up to parity with the platform — every heartbeat now
+ identifies which deployment-organization emitted it. Two sources in
+ precedence order:
+ 1. The `ORG_ID` env var when set (the operator's explicit configuration
+    on self-hosted deployments, or the `cs_<uuid>` tenant identifier on
+    Community SaaS).
+ 2. Otherwise the `local-dev-org` sentinel (default-config Community-mode
+    developers).
+ Exported as `telemetryOrgID()` + `ORG_ID_LOCAL_DEV_SENTINEL`. Always
+ emitted by v8.1+ SDKs; older receivers ignore the field cleanly for
+ backward compat. Honors `AXONFLOW_TELEMETRY=off` like every other
+ heartbeat field. See
+ [getaxonflow.com/privacy/](https://getaxonflow.com/privacy/) for the
+ customer-facing commitment that covers this field.
+- **Regression tests covering the single-attempt HTTP contract.** Two
+ new test files lock in that `auditToolCall` and the portal request
+ helper each issue exactly one outbound `fetch` and never retry on HTTP
+ 401 (or 403, for the portal helper) — the storm-prevention behaviour
+ customers rely on when credentials are invalid or expired.
+
+### Changed
+
+- **Telemetry-enabled log line** softened from "Anonymous telemetry
+ enabled" to "Telemetry enabled" to stay coherent with the `org_id`
+ addition — the operator-supplied `ORG_ID` on self-hosted is not
+ anonymized; only the `instance_id` and `cs_<uuid>` Community SaaS
+ identifier remain anonymous-by-design.
+- **README "A note on HTTP retries"** clarifies that the SDK does not
+ wrap HTTP calls in an internal retry loop, 401 is terminal, and any
+ caller-side retry wrapper MUST exclude `AuthenticationError`. The
+ previous example block in "Configuration Options" showed a `retry: {
+ enabled, maxAttempts, delay }` config that the SDK accepts on the
+ constructor but never wires into the underlying fetch path — removed
+ from the example so customers don't write retry-storm code against a
+ config that does nothing. The config type (`AxonFlowConfig.retry`) is
+ retained for backward compatibility; it is silently ignored.
+- **`SDK_ARCHITECTURE.md`, `TECHNICAL_SPECIFICATION.md`, `TEST_PLAN.md`
+ retry sections** corrected to reflect single-attempt semantics — the
+ prior text referenced a `RetryConfig` interface and exponential-backoff
+ behaviour that the SDK does not implement. Section headers retained so
+ readers searching for "retry" land on the negation rather than nothing.
 
 ### Deprecated
 
-- **`AxonFlowConfig.tenant` field strengthened `@deprecated`.** The field
- will be REMOVED in v10. Use `clientId` for both authentication identity
- and tenant routing — the platform derives tenant scope from the
- authenticated `client_id`. Wire-level `tenant_id` JSON fields on
+- **`AxonFlowConfig.tenant` field — `@deprecated` strengthened.** The
+ field will be REMOVED in v10. Use `clientId` for both authentication
+ identity and tenant routing — the platform derives tenant scope from
+ the authenticated `client_id`. Wire-level `tenant_id` JSON fields on
  request payloads remain unchanged.
+- **`AxonFlowConfig.retry` field and `RetryConfig` interface — marked
+ `@deprecated` in `src/types/config.ts`.** IDE hover / IntelliSense was
+ the last surface still presenting "Retry configuration" with three
+ working-looking fields. The fields had never been wired into the fetch
+ path; the deprecation aligns the type system with the documented
+ single-attempt contract. Slated for removal in v10.
 
 ### Compatibility
 
 - Backward-compatible against v8 and v9 platforms: v8 agents ignore the
  unknown header; v9 agents derive identity from Basic Auth regardless.
+- `org_id` is an additive field — older receivers ignore it cleanly,
+ legacy SDK builds keep working unchanged.
 - No removed fields. No changed defaults.
+
+### Tracking
+
+- [#2230](https://github.com/getaxonflow/axonflow-enterprise/issues/2230)
+- [#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)
+- [#2277](https://github.com/getaxonflow/axonflow-enterprise/issues/2277)
 
 ## [8.0.0] - 2026-05-09 — Decision History API + policy_version recorded on every decision + telemetry simplification
 
