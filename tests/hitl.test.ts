@@ -6,7 +6,7 @@
  */
 
 import { AxonFlow } from '../src/client';
-import { ConfigurationError } from '../src/errors';
+import { APIError, AuthenticationError, ConfigurationError } from '../src/errors';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
@@ -302,7 +302,7 @@ describe('HITL Queue Methods', () => {
       expect(result.notify_url).toBeUndefined();
     });
 
-    it('should surface a platform 400 on bad notify_url scheme as an Error from the SDK', async () => {
+    it('should surface a platform 400 on bad notify_url scheme as APIError(400)', async () => {
       // Mirrors `platform/agent/hitl/webhook.go:105 ValidateNotifyURL` —
       // the SDK is a pass-through here so a tightening of the scheme
       // allowlist on the platform doesn't require an SDK upgrade.
@@ -324,10 +324,10 @@ describe('HITL Queue Methods', () => {
           request_type: 'adk-tool',
           notify_url: 'javascript:alert(1)',
         })
-      ).rejects.toThrow();
+      ).rejects.toThrow(APIError);
     });
 
-    it('should propagate 401 as an authentication-shaped error', async () => {
+    it('should propagate 401 as AuthenticationError (orchestratorRequest 401/403 path)', async () => {
       mockFetch.mockResolvedValueOnce(
         mockResponse({ success: false, error: 'Invalid API key' }, 401)
       );
@@ -338,10 +338,14 @@ describe('HITL Queue Methods', () => {
           original_query: 'disburse $50000',
           request_type: 'adk-tool',
         })
-      ).rejects.toThrow();
+      ).rejects.toThrow(AuthenticationError);
     });
 
-    it('should propagate connect/network failure as an error', async () => {
+    it('should propagate connect/network failure as the underlying fetch TypeError', async () => {
+      // orchestratorRequest does not wrap fetch's transport-layer rejection
+      // (TypeError 'fetch failed' on Node 18+) — it surfaces unchanged so
+      // callers can branch on `.cause`. Locking the contract here means a
+      // future wrapping layer must update this test too.
       mockFetch.mockRejectedValueOnce(new TypeError('fetch failed: ECONNREFUSED'));
 
       await expect(
@@ -350,7 +354,7 @@ describe('HITL Queue Methods', () => {
           original_query: 'disburse $50000',
           request_type: 'adk-tool',
         })
-      ).rejects.toThrow();
+      ).rejects.toThrow(TypeError);
     });
 
     it('should throw ConfigurationError when client_id is missing', async () => {
