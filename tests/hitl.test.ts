@@ -207,6 +207,184 @@ describe('HITL Queue Methods', () => {
   });
 
   // ==========================================================================
+  // createHITLRequest Tests
+  // ==========================================================================
+
+  describe('createHITLRequest', () => {
+    it('should POST a full create-input and return the created record', async () => {
+      const createResponse = {
+        success: true,
+        data: {
+          request_id: 'hitl-req-new-001',
+          org_id: 'org-1',
+          tenant_id: 'tenant-1',
+          client_id: 'loan-desk',
+          user_id: 'cust-001',
+          original_query: 'disburse $50000 to cust-001',
+          request_type: 'adk-tool',
+          request_context: { tool_name: 'disburse_payment' },
+          triggered_policy_id: 'loan-amount-cap',
+          triggered_policy_name: 'Loan amount cap',
+          trigger_reason: 'Disbursement above $10k requires manager approval',
+          severity: 'high',
+          notify_url: 'https://workflows.example.com/hooks/loan-approve',
+          status: 'pending',
+          expires_at: '2026-05-23T11:00:00Z',
+          created_at: '2026-05-23T10:00:00Z',
+          updated_at: '2026-05-23T10:00:00Z',
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(createResponse, 201));
+
+      const result = await client.createHITLRequest({
+        client_id: 'loan-desk',
+        user_id: 'cust-001',
+        original_query: 'disburse $50000 to cust-001',
+        request_type: 'adk-tool',
+        request_context: { tool_name: 'disburse_payment' },
+        triggered_policy_id: 'loan-amount-cap',
+        triggered_policy_name: 'Loan amount cap',
+        trigger_reason: 'Disbursement above $10k requires manager approval',
+        severity: 'high',
+        notify_url: 'https://workflows.example.com/hooks/loan-approve',
+      });
+
+      expect(result.request_id).toBe('hitl-req-new-001');
+      expect(result.status).toBe('pending');
+      expect(result.notify_url).toBe('https://workflows.example.com/hooks/loan-approve');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v1/hitl/queue',
+        expect.objectContaining({ method: 'POST' })
+      );
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.client_id).toBe('loan-desk');
+      expect(body.original_query).toBe('disburse $50000 to cust-001');
+      expect(body.request_type).toBe('adk-tool');
+      expect(body.notify_url).toBe('https://workflows.example.com/hooks/loan-approve');
+      expect(body.severity).toBe('high');
+    });
+
+    it('should accept the minimal required-field set (client_id + original_query + request_type)', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse(
+          {
+            success: true,
+            data: {
+              request_id: 'hitl-req-minimal',
+              org_id: 'org-1',
+              tenant_id: 'tenant-1',
+              client_id: 'c1',
+              original_query: 'q',
+              request_type: 'chat',
+              triggered_policy_id: '',
+              triggered_policy_name: '',
+              trigger_reason: '',
+              severity: 'high',
+              status: 'pending',
+              expires_at: '2026-05-23T11:00:00Z',
+              created_at: '2026-05-23T10:00:00Z',
+              updated_at: '2026-05-23T10:00:00Z',
+            },
+          },
+          201
+        )
+      );
+
+      const result = await client.createHITLRequest({
+        client_id: 'c1',
+        original_query: 'q',
+        request_type: 'chat',
+      });
+      expect(result.request_id).toBe('hitl-req-minimal');
+      expect(result.notify_url).toBeUndefined();
+    });
+
+    it('should surface a platform 400 on bad notify_url scheme as an Error from the SDK', async () => {
+      // Mirrors `platform/agent/hitl/webhook.go:105 ValidateNotifyURL` —
+      // the SDK is a pass-through here so a tightening of the scheme
+      // allowlist on the platform doesn't require an SDK upgrade.
+      mockFetch.mockResolvedValueOnce(
+        mockResponse(
+          {
+            success: false,
+            error:
+              'notify_url scheme "javascript" is not allowed (use https:// or http://)',
+          },
+          400
+        )
+      );
+
+      await expect(
+        client.createHITLRequest({
+          client_id: 'loan-desk',
+          original_query: 'disburse $50000',
+          request_type: 'adk-tool',
+          notify_url: 'javascript:alert(1)',
+        })
+      ).rejects.toThrow();
+    });
+
+    it('should propagate 401 as an authentication-shaped error', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ success: false, error: 'Invalid API key' }, 401)
+      );
+
+      await expect(
+        client.createHITLRequest({
+          client_id: 'loan-desk',
+          original_query: 'disburse $50000',
+          request_type: 'adk-tool',
+        })
+      ).rejects.toThrow();
+    });
+
+    it('should propagate connect/network failure as an error', async () => {
+      mockFetch.mockRejectedValueOnce(new TypeError('fetch failed: ECONNREFUSED'));
+
+      await expect(
+        client.createHITLRequest({
+          client_id: 'loan-desk',
+          original_query: 'disburse $50000',
+          request_type: 'adk-tool',
+        })
+      ).rejects.toThrow();
+    });
+
+    it('should throw ConfigurationError when client_id is missing', async () => {
+      await expect(
+        client.createHITLRequest({
+          client_id: '',
+          original_query: 'q',
+          request_type: 'chat',
+        })
+      ).rejects.toThrow(ConfigurationError);
+    });
+
+    it('should throw ConfigurationError when original_query is missing', async () => {
+      await expect(
+        client.createHITLRequest({
+          client_id: 'c1',
+          original_query: '',
+          request_type: 'chat',
+        })
+      ).rejects.toThrow(ConfigurationError);
+    });
+
+    it('should throw ConfigurationError when request_type is missing', async () => {
+      await expect(
+        client.createHITLRequest({
+          client_id: 'c1',
+          original_query: 'q',
+          request_type: '',
+        })
+      ).rejects.toThrow(ConfigurationError);
+    });
+  });
+
+  // ==========================================================================
   // getHITLRequest Tests
   // ==========================================================================
 

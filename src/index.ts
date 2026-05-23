@@ -330,6 +330,7 @@ export type {
 // Export HITL Queue types (Enterprise)
 export type {
   HITLApprovalRequest,
+  HITLCreateInput,
   HITLQueueListOptions,
   HITLQueueListResponse,
   HITLReviewInput,

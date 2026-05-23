@@ -53,6 +53,18 @@ export interface HITLApprovalRequest {
   review_comment?: string;
   /** When the request was reviewed */
   reviewed_at?: string;
+  /**
+   * Optional outbound webhook URL associated with the request.
+   *
+   * Mirrors the value supplied on creation. Platforms that implement the
+   * outbound-webhook dispatcher (introduced in
+   * getaxonflow/axonflow-enterprise#2419) fire a signed POST to this URL
+   * after the request reaches a terminal state
+   * (approved/rejected/expired/overridden). Platforms that don't, simply
+   * round-trip the field. Enables webhook-driven resume (n8n Wait-node,
+   * ADK plugin polling-free mode).
+   */
+  notify_url?: string;
   /** When the request expires */
   expires_at: string;
   /** When the request was created */
@@ -85,6 +97,61 @@ export interface HITLQueueListResponse {
   total: number;
   /** Whether there are more items beyond the current page */
   has_more: boolean;
+}
+
+/**
+ * Input for creating an HITL approval request.
+ *
+ * Mirrors `platform/agent/hitl/handler.go:86 CreateRequestInput`. The
+ * platform's `POST /api/v1/hitl/queue` handler reads `X-Org-ID` and
+ * `X-Tenant-ID` from request headers (set by the auth middleware from
+ * the SDK client's credentials), and the JSON body must carry the
+ * fields below.
+ *
+ * Used by agent-framework plugins (ADK, n8n, OpenAI Agents SDK) that
+ * detect `require_approval` from `pre_check` / `check_tool_input` and
+ * want to enqueue the corresponding HITL row before polling the
+ * reviewer's decision (or before pivoting to webhook-driven resume via
+ * `notify_url`).
+ */
+export interface HITLCreateInput {
+  /** Client identifier that triggered the request. Required. */
+  client_id: string;
+  /** End-user identifier. Optional. */
+  user_id?: string;
+  /** Original query that triggered the gate. Required. */
+  original_query: string;
+  /** Request type (e.g. 'chat', 'tool', 'mcp'). Required. */
+  request_type: string;
+  /** Additional context propagated from the gated call. */
+  request_context?: Record<string, unknown>;
+  /** ID of the policy that fired require_approval. */
+  triggered_policy_id?: string;
+  /** Display name of the policy that fired require_approval. */
+  triggered_policy_name?: string;
+  /** Human-readable explanation of why approval is needed. */
+  trigger_reason?: string;
+  /** Severity level: 'critical' | 'high' | 'medium' | 'low'. Default 'high'. */
+  severity?: string;
+  /**
+   * Optional outbound webhook URL fired async after terminal state
+   * transition (approved/rejected/expired/overridden). Must be
+   * `https://` (or `http://` for self-hosted local-dev). Server-side
+   * validation rejects bad schemes with HTTP 400. Pair with the
+   * HMAC-SHA256 `X-AxonFlow-Signature` header on the receiver side;
+   * signing key is the deployment-configured
+   * `AXONFLOW_HITL_WEBHOOK_SIGNING_KEY`. Introduced in
+   * getaxonflow/axonflow-enterprise#2419.
+   */
+  notify_url?: string;
+  /** EU AI Act article reference (e.g. 'Article 14'). */
+  eu_ai_act_article?: string;
+  /** Compliance framework label (GDPR / HIPAA / RBI / ...). */
+  compliance_framework?: string;
+  /** Risk classification level. */
+  risk_classification?: string;
+  /** Optional override for the approval expiry window. */
+  expires_in_seconds?: number;
 }
 
 /**
