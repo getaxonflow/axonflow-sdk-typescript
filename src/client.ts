@@ -150,6 +150,7 @@ import {
   UnifiedListExecutionsResponse,
   // HITL Queue types
   HITLApprovalRequest,
+  HITLCreateInput,
   HITLQueueListOptions,
   HITLQueueListResponse,
   HITLReviewInput,
@@ -6909,6 +6910,73 @@ export class AxonFlow {
       has_more:
         (response.meta?.offset ?? 0) + (response.data?.length ?? 0) < (response.meta?.total ?? 0),
     };
+  }
+
+  /**
+   * Create a new HITL approval request via `POST /api/v1/hitl/queue`.
+   *
+   * Enterprise Feature: Requires AxonFlow Enterprise license. The
+   * platform's handler returns 403 with `ErrHITLApprovalDisabledByTier`
+   * when called against a community tier that hasn't enabled HITL, and
+   * 401 when credentials are invalid.
+   *
+   * This is the explicit row-creation step for callers that detect
+   * `require_approval` from a separate gate (`pre_check`,
+   * `check_tool_input`, MAP plan approvals) and want the row enqueued
+   * so a reviewer can act on it. After creating, either poll
+   * `getHITLRequest(returned.request_id)` until terminal state, or pass
+   * `notify_url` so the platform fires a signed webhook on the
+   * transition (n8n Wait-node "On Webhook Call" pattern; ADK plugin
+   * polling-free mode).
+   *
+   * @param input - Pre-populated {@link HITLCreateInput}. `client_id`,
+   *   `original_query`, and `request_type` are required; all other
+   *   fields are optional. Bad `notify_url` schemes are rejected by the
+   *   platform with HTTP 400; only `https://` (and `http://` for
+   *   self-hosted local-dev) are accepted.
+   * @returns The created {@link HITLApprovalRequest} with `request_id`
+   *   populated.
+   *
+   * @example
+   * ```typescript
+   * const req = await client.createHITLRequest({
+   *   client_id: 'loan-desk',
+   *   original_query: 'disburse $50000 to cust-001',
+   *   request_type: 'adk-tool',
+   *   triggered_policy_id: 'loan-amount-cap',
+   *   triggered_policy_name: 'Loan amount cap',
+   *   trigger_reason: 'Disbursement above $10k requires manager approval',
+   *   severity: 'high',
+   *   notify_url: 'https://workflows.example.com/hooks/loan-approve',
+   * });
+   * console.log(`Created HITL approval ${req.request_id}`);
+   * ```
+   */
+  async createHITLRequest(input: HITLCreateInput): Promise<HITLApprovalRequest> {
+    if (!input?.client_id) {
+      throw new ConfigurationError('client_id is required');
+    }
+    if (!input?.original_query) {
+      throw new ConfigurationError('original_query is required');
+    }
+    if (!input?.request_type) {
+      throw new ConfigurationError('request_type is required');
+    }
+
+    if (this.config.debug) {
+      debugLog('Creating HITL request', {
+        client_id: input.client_id,
+        request_type: input.request_type,
+        notify_url: input.notify_url,
+      });
+    }
+
+    const response = await this.orchestratorRequest<{
+      success: boolean;
+      data: HITLApprovalRequest;
+    }>('POST', '/api/v1/hitl/queue', input);
+
+    return response.data;
   }
 
   /**

@@ -5,6 +5,58 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.2.0] - 2026-05-23 — `createHITLRequest` for explicit HITL row creation
+
+Enables agent-framework plugins (Google ADK, n8n, OpenAI Agents SDK) to
+implement the full 4-step HITL approval flow against AxonFlow:
+
+  1. Gate evaluates `require_approval` (via `pre_check` / `checkToolInput`)
+  2. Plugin calls `client.createHITLRequest(...)` to enqueue the row
+  3. Plugin polls `client.getHITLRequest(approval_id)` until terminal state
+  4. Plugin resumes the agent or denies the call based on the decision
+
+Prior to this release the SDK exposed `getHITLRequest` /
+`approveHITLRequest` / `rejectHITLRequest` (the read + review
+surface) but had no method to **create** a row. The platform's
+`POST /api/v1/hitl/queue` endpoint has existed since v6.x; only the SDK
+surface was missing.
+
+### Added
+
+- **`client.createHITLRequest(input: HITLCreateInput): Promise<HITLApprovalRequest>`.**
+  Required fields: `client_id`, `original_query`, `request_type`.
+  Optional fields cover policy attribution, severity, compliance
+  framework, an expiry override, and the new `notify_url` callback.
+  Server-side `X-Org-ID` / `X-Tenant-ID` headers are derived by the
+  platform's auth middleware from the SDK client's configured
+  credentials — callers do not pass them through this method.
+- **`HITLCreateInput` interface** in `src/types/hitl.ts` mirroring
+  `platform/agent/hitl/handler.go:86 CreateRequestInput`. Exported
+  from the top-level package alongside the existing HITL types.
+- **`notify_url` field on `HITLCreateInput` and `HITLApprovalRequest`.**
+  Opt-in webhook URL fired after the request reaches a terminal state
+  (approved / rejected / expired / overridden). Pairs with the
+  HMAC-SHA256 `X-AxonFlow-Signature` header on the receiver side.
+  Scheme allowlist (`https://`, plus `http://` for self-hosted
+  local-dev) is enforced server-side; bad schemes surface as an SDK
+  error carrying the platform's `HTTP 400`. Companion platform work in
+  getaxonflow/axonflow-enterprise#2419.
+- 8 Jest cases covering: full-fields create, minimal required-fields
+  create, bad-`notify_url`-scheme 400 propagation, 401 propagation,
+  connect failure propagation, and the three `ConfigurationError`
+  guards for missing required fields.
+
+### Compatibility
+
+No breaking changes. New imports are additive in `src/types/hitl.ts`
+and the top-level package re-exports. The existing `getHITLRequest` /
+`approveHITLRequest` / `rejectHITLRequest` / `listHITLQueue` /
+`getHITLStats` methods are unchanged. `notify_url` on the response
+type is optional and absent in payloads from platforms that don't yet
+implement the field; older code parses the new shape cleanly.
+
+Cross-SDK parity sweep: getaxonflow/axonflow-enterprise#2421.
+
 ## [8.1.0] - 2026-05-22 — `X-Client-ID` header on every outbound request + `org_id` in telemetry heartbeat + single-attempt HTTP contract documented
 
 Companion release to the v9 identity cleanup on the platform. Every
