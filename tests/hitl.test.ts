@@ -310,8 +310,7 @@ describe('HITL Queue Methods', () => {
         mockResponse(
           {
             success: false,
-            error:
-              'notify_url scheme "javascript" is not allowed (use https:// or http://)',
+            error: 'notify_url scheme "javascript" is not allowed (use https:// or http://)',
           },
           400
         )
