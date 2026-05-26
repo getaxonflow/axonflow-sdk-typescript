@@ -2971,6 +2971,8 @@ export class AxonFlow {
       latencyMs: (data.latency_ms as number) ?? 0,
       policyViolations: (data.policy_violations as string[]) ?? [],
       metadata: (data.metadata as Record<string, unknown>) ?? {},
+      ...(data.data_residency != null && { dataResidency: data.data_residency as string }),
+      ...(data.transfer_basis != null && { transferBasis: data.transfer_basis as string }),
     };
   }
 
