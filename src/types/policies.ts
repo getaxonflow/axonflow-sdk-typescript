@@ -20,6 +20,7 @@ export type PolicyCategory =
   | 'pii-eu'
   | 'pii-india'
   | 'pii-singapore'
+  | 'pii-indonesia'
   // Static policy categories - Code Governance
   | 'code-secrets'
   | 'code-unsafe'

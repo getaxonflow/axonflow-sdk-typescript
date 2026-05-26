@@ -607,6 +607,60 @@ describe('Policy CRUD Methods', () => {
   });
 
   // ========================================================================
+  // PolicyCategory Union Type Tests
+  // ========================================================================
+
+  describe('PolicyCategory values', () => {
+    it('should accept pii-indonesia as a valid PolicyCategory', async () => {
+      const indonesiaPolicy: StaticPolicy = {
+        ...sampleStaticPolicy,
+        id: 'pol_indonesia',
+        name: 'Indonesia PII Detection',
+        category: 'pii-indonesia',
+      };
+      mockFetch.mockReturnValueOnce(mockResponse({ policies: [indonesiaPolicy] }));
+
+      const policies = await client.listStaticPolicies({ category: 'pii-indonesia' });
+
+      expect(policies).toHaveLength(1);
+      expect(policies[0].category).toBe('pii-indonesia');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v1/static-policies?category=pii-indonesia',
+        expect.any(Object)
+      );
+    });
+
+    it('should create a policy with pii-indonesia category', async () => {
+      const indonesiaPolicy: StaticPolicy = {
+        ...sampleStaticPolicy,
+        id: 'pol_indonesia_nik',
+        name: 'Indonesia NIK Detection',
+        category: 'pii-indonesia',
+      };
+      mockFetch.mockReturnValueOnce(mockResponse(indonesiaPolicy));
+
+      const request: CreateStaticPolicyRequest = {
+        name: 'Indonesia NIK Detection',
+        category: 'pii-indonesia',
+        pattern: '\\b\\d{16}\\b',
+        severity: 'high',
+        action: 'redact',
+      };
+
+      const policy = await client.createStaticPolicy(request);
+
+      expect(policy.category).toBe('pii-indonesia');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v1/static-policies',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"category":"pii-indonesia"'),
+        })
+      );
+    });
+  });
+
+  // ========================================================================
   // Error Handling Tests
   // ========================================================================
 

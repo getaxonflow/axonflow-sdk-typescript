@@ -383,6 +383,34 @@ describe('Audit Log Read Methods', () => {
       expect(entry.metadata).toEqual({});
     });
 
+    it('should parse dataResidency and transferBasis from wire fields', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse([
+          {
+            ...sampleAuditEntries[0],
+            data_residency: 'ID',
+            transfer_basis: 'consent',
+          },
+        ])
+      );
+
+      const result = await client.searchAuditLogs();
+      const entry = result.entries[0];
+
+      expect(entry.dataResidency).toBe('ID');
+      expect(entry.transferBasis).toBe('consent');
+    });
+
+    it('should omit dataResidency and transferBasis when absent from wire (backward compat)', async () => {
+      mockFetch.mockReturnValueOnce(mockResponse(sampleAuditEntries));
+
+      const result = await client.searchAuditLogs();
+      const entry = result.entries[0];
+
+      expect(entry.dataResidency).toBeUndefined();
+      expect(entry.transferBasis).toBeUndefined();
+    });
+
     it('should handle missing optional fields with defaults', async () => {
       mockFetch.mockReturnValueOnce(
         mockResponse([

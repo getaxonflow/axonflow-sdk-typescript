@@ -5,6 +5,19 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`pii-indonesia` policy category** in the `PolicyCategory` union type.
+  Enables filtering and creating policies for Indonesian PII detection
+  (NIK, KK, NPWP, BPJS) alongside the existing per-jurisdiction categories.
+- **`dataResidency` and `transferBasis` fields on `AuditLogEntry`.**
+  Optional string fields supporting cross-border data transfer logging.
+  `dataResidency` is an ISO 3166-1 alpha-2 country code;
+  `transferBasis` is one of `adequacy`, `safeguards`, or `consent`.
+  Both are optional for backward compatibility with older platform versions.
+
 ## [8.2.0] - 2026-05-23 — `createHITLRequest` for explicit HITL row creation
 
 Enables agent-framework plugins (Google ADK, n8n, OpenAI Agents SDK) to

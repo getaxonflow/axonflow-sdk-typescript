@@ -296,6 +296,10 @@ export interface AuditLogEntry {
   policyViolations: string[];
   /** Additional context */
   metadata: Record<string, unknown>;
+  /** ISO 3166-1 alpha-2 country code for data residency (cross-border transfer logging). */
+  dataResidency?: string;
+  /** Legal basis for cross-border data transfer: "adequacy", "safeguards", or "consent". */
+  transferBasis?: string;
 }
 
 /**
