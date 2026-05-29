@@ -120,6 +120,8 @@ export type {
   AuditQueryOptions,
   AuditLogEntry,
   AuditSearchResponse,
+  // Cross-border transfer basis (UU PDP Pasal 56)
+  TransferBasis,
   // Audit Tool Call types
   AuditToolCallRequest,
   AuditToolCallResponse,

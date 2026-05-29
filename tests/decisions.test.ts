@@ -130,6 +130,50 @@ describe('Decision Explainability (ADR-043)', () => {
       expect(exp.decisionId).toBe('dec-1');
     });
 
+    it('surfaces the full request context + contextTruncated (v8.4.0)', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse({
+          decision_id: 'dec-ctx',
+          timestamp: '2026-05-30T12:00:00Z',
+          decision: 'deny',
+          reason: '',
+          policy_matches: [],
+          override_available: false,
+          historical_hit_count_session: 0,
+          context: {
+            x_ai_agent: 'refund-bot',
+            x_session_id: 'sess-42',
+            x_leader_identity: 'ops-lead',
+          },
+          context_truncated: true,
+        })
+      );
+      const exp = await client.explainDecision('dec-ctx');
+      expect(exp.context).toEqual({
+        x_ai_agent: 'refund-bot',
+        x_session_id: 'sess-42',
+        x_leader_identity: 'ops-lead',
+      });
+      expect(exp.contextTruncated).toBe(true);
+    });
+
+    it('leaves context + contextTruncated undefined for pre-v8.4.0 rows', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse({
+          decision_id: 'dec-1',
+          timestamp: '2026-04-17T12:00:00Z',
+          decision: 'allow',
+          reason: '',
+          policy_matches: [],
+          override_available: false,
+          historical_hit_count_session: 0,
+        })
+      );
+      const exp = await client.explainDecision('dec-1');
+      expect(exp.context).toBeUndefined();
+      expect(exp.contextTruncated).toBeUndefined();
+    });
+
     it('handles minimal responses without optional fields', async () => {
       mockFetch.mockReturnValueOnce(
         mockResponse({
@@ -263,6 +307,43 @@ describe('listDecisions (Session γ #1982)', () => {
     expect(got[0].policyId).toBe('pol-sqli');
     expect(got[0].toolSignature).toBe('postgres.query');
     expect(got[2].decision).toBe('require_approval');
+  });
+
+  it('surfaces the truncated request context on the summary (v8.4.0)', async () => {
+    mockFetch.mockReturnValueOnce(
+      ok({
+        decisions: [
+          {
+            decision_id: 'dec-ctx',
+            timestamp: '2026-05-30T12:00:00Z',
+            decision: 'deny',
+            context: {
+              x_ai_agent: 'refund-bot',
+              x_session_id: 'sess-42',
+              x_leader_identity: 'ops-lead',
+            },
+          },
+        ],
+      })
+    );
+    const got = await client.listDecisions();
+    expect(got[0].context).toEqual({
+      x_ai_agent: 'refund-bot',
+      x_session_id: 'sess-42',
+      x_leader_identity: 'ops-lead',
+    });
+  });
+
+  it('leaves context undefined for decisions without one', async () => {
+    mockFetch.mockReturnValueOnce(
+      ok({
+        decisions: [
+          { decision_id: 'dec-noctx', timestamp: '2026-05-30T12:00:00Z', decision: 'allow' },
+        ],
+      })
+    );
+    const got = await client.listDecisions();
+    expect(got[0].context).toBeUndefined();
   });
 
   it('serializes every filter into the URL', async () => {
