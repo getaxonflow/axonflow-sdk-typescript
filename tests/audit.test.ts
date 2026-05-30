@@ -411,6 +411,31 @@ describe('Audit Log Read Methods', () => {
       expect(entry.transferBasis).toBeUndefined();
     });
 
+    it('should parse the pasal_56b_dpa transfer basis verbatim (v8.4.0)', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse([
+          {
+            ...sampleAuditEntries[0],
+            data_residency: 'ID',
+            transfer_basis: 'pasal_56b_dpa',
+          },
+        ])
+      );
+
+      const result = await client.searchAuditLogs();
+      // never auto-translated to "safeguards"
+      expect(result.entries[0].transferBasis).toBe('pasal_56b_dpa');
+    });
+
+    it('should still parse the existing safeguards value after the widening (backward compat)', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse([{ ...sampleAuditEntries[0], transfer_basis: 'safeguards' }])
+      );
+
+      const result = await client.searchAuditLogs();
+      expect(result.entries[0].transferBasis).toBe('safeguards');
+    });
+
     it('should handle missing optional fields with defaults', async () => {
       mockFetch.mockReturnValueOnce(
         mockResponse([

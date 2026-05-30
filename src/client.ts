@@ -40,6 +40,7 @@ import {
   ListDecisionsOptions,
   AuditQueryOptions,
   AuditLogEntry,
+  TransferBasis,
   AuditSearchResponse,
   ExecuteQueryOptions,
   ExecuteQueryResponse,
@@ -278,6 +279,9 @@ function parseDecisionSummary(raw: Record<string, unknown>): DecisionSummary {
     decision: (raw.decision as string) ?? '',
     policyId: raw.policy_id as string | undefined,
     toolSignature: raw.tool_signature as string | undefined,
+    // v8.4.0 (platform #2509): the PEP-forwarded request context. Keys arrive
+    // already canonicalized to lower_snake_case; pass the map through verbatim.
+    context: raw.context as Record<string, string> | undefined,
   };
 }
 
@@ -2839,6 +2843,10 @@ export class AxonFlow {
       historicalHitCountSession: (r.historical_hit_count_session as number) ?? 0,
       policySourceLink: r.policy_source_link as string | undefined,
       toolSignature: r.tool_signature as string | undefined,
+      // v8.4.0 (platform #2509): full PEP-forwarded context + truncation flag.
+      // Keys arrive already canonicalized to lower_snake_case.
+      context: r.context as Record<string, string> | undefined,
+      contextTruncated: r.context_truncated as boolean | undefined,
     };
   }
 
@@ -2972,7 +2980,9 @@ export class AxonFlow {
       policyViolations: (data.policy_violations as string[]) ?? [],
       metadata: (data.metadata as Record<string, unknown>) ?? {},
       ...(data.data_residency != null && { dataResidency: data.data_residency as string }),
-      ...(data.transfer_basis != null && { transferBasis: data.transfer_basis as string }),
+      // Cast is compile-time only — the value is surfaced verbatim, so an
+      // unknown future transfer-basis value still passes through (v8.4.0).
+      ...(data.transfer_basis != null && { transferBasis: data.transfer_basis as TransferBasis }),
     };
   }
 

@@ -217,6 +217,7 @@
     "Finding",
     "KillSwitch",
     "KillSwitchEvent",
+    "LLMProviderListResponse",
     "ListWorkflowsResponse",
     "MCPCheckInputResponse",
     "MCPCheckOutputResponse",
@@ -225,6 +226,7 @@
     "MediaGovernanceConfig",
     "MediaGovernanceStatus",
     "ModelPricing",
+    "PaginationMeta",
     "PendingApproval",
     "PendingApprovalsResponse",
     "PlanResponse",
@@ -330,6 +332,13 @@
       "sdk_only": [
         "created_at",
         "source"
+      ],
+      "spec_only": []
+    },
+    "DecisionExplanation": {
+      "sdk_only": [
+        "context",
+        "context_truncated"
       ],
       "spec_only": []
     },

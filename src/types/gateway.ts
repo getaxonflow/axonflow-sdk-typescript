@@ -259,6 +259,19 @@ export interface AuditQueryOptions {
 }
 
 /**
+ * Cross-border transfer-basis values recognized under Indonesia UU PDP Pasal 56:
+ *
+ *   - `adequacy`      — Pasal 56(a): destination with adequate protection
+ *   - `safeguards`    — Pasal 56(b): binding legal instrument (generic label)
+ *   - `pasal_56b_dpa` — Pasal 56(b): binding legal instrument, explicit DPA tag
+ *   - `consent`       — Pasal 56(c): explicit data-subject consent
+ *
+ * `safeguards` and `pasal_56b_dpa` are semantic equivalents; the platform
+ * surfaces whichever was recorded at decision time, verbatim. (platform #2513)
+ */
+export type TransferBasis = 'adequacy' | 'safeguards' | 'pasal_56b_dpa' | 'consent';
+
+/**
  * A single audit log entry representing an audited request or event.
  */
 export interface AuditLogEntry {
@@ -298,8 +311,11 @@ export interface AuditLogEntry {
   metadata: Record<string, unknown>;
   /** ISO 3166-1 alpha-2 country code for data residency (cross-border transfer logging). */
   dataResidency?: string;
-  /** Legal basis for cross-border data transfer: "adequacy", "safeguards", or "consent". */
-  transferBasis?: string;
+  /**
+   * Legal basis for cross-border data transfer under Indonesia UU PDP Pasal 56.
+   * See {@link TransferBasis}. Surfaced verbatim — never auto-translated.
+   */
+  transferBasis?: TransferBasis;
 }
 
 /**

@@ -47,6 +47,18 @@ export interface DecisionExplanation {
   historicalHitCountSession: number;
   policySourceLink?: string;
   toolSignature?: string;
+  /**
+   * The FULL sanitized request context the PEP attached to the decision
+   * (canonical lower_snake_case keys, string values), read from the audit
+   * row's `policy_details->'context'`. Unlike {@link DecisionSummary} (which
+   * truncates to 5 keys), explain returns every persisted key up to the
+   * platform's 10-key cap (e.g. `x_ai_agent`, `x_session_id`,
+   * `x_leader_identity`, `x-bukuwarung-*`). Absent for pre-v8.4.0 audit rows.
+   * (platform #2509 / epic #2508)
+   */
+  context?: Record<string, string>;
+  /** True when the agent dropped surplus context keys at write time. */
+  contextTruncated?: boolean;
 }
 
 /**
@@ -69,6 +81,15 @@ export interface DecisionSummary {
   decision: string;
   policyId?: string;
   toolSignature?: string;
+  /**
+   * The sanitized request context the PEP attached to the decision (canonical
+   * lower_snake_case keys, string values), surfaced from the audit row's
+   * `policy_details->'context'`. The list summary is truncated by the platform
+   * to the 5 most-correlated keys; the full map is available via
+   * {@link AxonFlowClient.explainDecision}. Absent for pre-v8.4.0 audit rows or
+   * decisions with no context. (platform #2509 / epic #2508)
+   */
+  context?: Record<string, string>;
 }
 
 /**
