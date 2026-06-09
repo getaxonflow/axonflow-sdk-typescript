@@ -2871,7 +2871,21 @@ export class AxonFlow {
     }
 
     const data = (await response.json()) as Partial<DecideResponse> | null;
-    const verdict = (data?.verdict as string) ?? VERDICT_ALLOW;
+    // FAIL CLOSED on a malformed response: `verdict` is required. A missing /
+    // empty / non-string verdict must NEVER default to allow — that would let a
+    // truncated or empty 200 body synthesize an allow with no obligations, and
+    // decideAndFulfill would then forward the original unredacted query. The
+    // contract's whole premise is "don't trust the engine's response shape"
+    // (#2563). Parity with Python/Rust (raise on the required field) and
+    // Go/Java (empty/null verdict is not-allow → block).
+    const verdict = data?.verdict;
+    if (typeof verdict !== 'string' || verdict === '') {
+      throw new APIError(
+        response.status,
+        response.statusText,
+        'decide response is missing the required "verdict" field',
+      );
+    }
     return {
       verdict,
       decision_id: data?.decision_id,
@@ -2974,7 +2988,15 @@ export class AxonFlow {
         'engine reported the redactor did not run (redaction disabled)'
       );
     }
-    if (result.redacted && result.redacted_statement) {
+    if (result.redacted) {
+      // FAIL CLOSED on a self-contradictory engine response: redacted=true with
+      // no redacted_statement means the engine claims it masked something but
+      // gave us nothing to forward — never fall back to the unredacted original.
+      if (!result.redacted_statement) {
+        throw new ObligationNotFulfillableError(
+          'engine reported redacted=true but returned no redacted_statement'
+        );
+      }
       return result.redacted_statement;
     }
     // Redactor ran and found nothing to mask — forward unchanged.

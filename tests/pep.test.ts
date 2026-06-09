@@ -204,6 +204,29 @@ describe('AxonFlow.decide', () => {
     expect(resp.verdict).toBe('deny');
     expect(resp.reasons).toEqual(['blocked']);
   });
+
+  // FAIL CLOSED: a malformed/empty 200 body with no verdict must NOT default to
+  // allow (that would let decideAndFulfill forward the original unredacted
+  // query). Cross-SDK parity: Python/Rust raise, Go/Java treat empty as
+  // not-allow. Proven red-on-revert against `?? VERDICT_ALLOW`.
+  it('fails closed on a malformed 200 with no verdict', async () => {
+    mockFetch.mockReturnValueOnce(mockResponse({ obligations: [] }));
+    await expect(client.decide({ stage: 'tool', query: 'hi' })).rejects.toThrow(APIError);
+  });
+
+  it('fails closed on an empty-string verdict', async () => {
+    mockFetch.mockReturnValueOnce(mockResponse({ verdict: '', obligations: [] }));
+    await expect(client.decide({ stage: 'tool', query: 'hi' })).rejects.toThrow(APIError);
+  });
+
+  it('decideAndFulfill never forwards on a verdict-less 200', async () => {
+    mockFetch.mockReturnValueOnce(mockResponse({ obligations: [] }));
+    await expect(
+      client.decideAndFulfill({ stage: 'tool', query: 'Email john@x.com' })
+    ).rejects.toThrow(APIError);
+    // Only the /decide call happened; no engine fulfillment, no forward.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('AxonFlow.fulfillRequest — the fail-closed core', () => {
