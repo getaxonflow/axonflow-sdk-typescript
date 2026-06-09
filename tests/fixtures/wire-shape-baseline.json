@@ -396,6 +396,20 @@
       ],
       "spec_only": []
     },
+    "MCPCheckInputResponse": {
+      "sdk_only": [
+        "redacted",
+        "redacted_statement",
+        "redaction_evaluated"
+      ],
+      "spec_only": []
+    },
+    "MCPCheckOutputResponse": {
+      "sdk_only": [
+        "redaction_evaluated"
+      ],
+      "spec_only": []
+    },
     "MarkStepCompletedRequest": {
       "sdk_only": [
         "metadata"

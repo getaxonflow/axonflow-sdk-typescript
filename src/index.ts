@@ -95,8 +95,35 @@ export {
   TimeoutError,
   IdempotencyKeyMismatchError,
   APIError,
+  ObligationNotFulfillableError,
 } from './errors';
 export type { UpgradeInfo } from './errors';
+
+// Export Decision Mode PEP contract: decide -> fulfill -> forward
+// (ADR-056, epic #2563). Types, constants, and the pure helpers a PEP uses
+// to branch on a verdict before fulfilling.
+export {
+  OBLIGATION_REDACT_PII,
+  PHASE_REQUEST,
+  PHASE_RESPONSE,
+  CONTENT_TYPE_TEXT,
+  VERDICT_ALLOW,
+  VERDICT_DENY,
+  VERDICT_NEEDS_APPROVAL,
+  REQUEST_REDACTION_PATH,
+  RESPONSE_REDACTION_PATH,
+  DECIDE_PATH,
+  hasRequestRedaction,
+  endpointPathMatches,
+} from './pep';
+export type {
+  DecideRequest,
+  DecideResponse,
+  Obligation,
+  ObligationFulfillment,
+  DecisionCallerIdentity,
+  DecisionTarget,
+} from './pep';
 
 // Export types for TypeScript users
 export type {

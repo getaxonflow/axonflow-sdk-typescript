@@ -145,6 +145,41 @@ export class AuthenticationError extends AxonFlowError {
 }
 
 /**
+ * Error thrown when a Decision Mode obligation cannot be discharged through
+ * the engine (the PEP fail-closed signal — ADR-056, epic #2563).
+ *
+ * Raised by the PEP fulfillment path ({@link AxonFlow.fulfillRequest} /
+ * {@link AxonFlow.decideAndFulfill}) when a `redact_pii` obligation named no
+ * request-phase fulfillment endpoint, named an endpoint the client will not
+ * call, advertised a content-type the PEP is not holding, the engine endpoint
+ * failed, or the engine reported the redactor did not run
+ * (`redaction_evaluated=false`).
+ *
+ * This is a FAIL-CLOSED signal: the caller MUST block the request, never
+ * forward the unredacted content. The PEP contains no local redaction path,
+ * so it cannot silently substitute its own masking.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   const [content] = await axonflow.fulfillRequest(decision, statement);
+ *   forward(content);
+ * } catch (e) {
+ *   if (e instanceof ObligationNotFulfillableError) {
+ *     block(); // fail closed — never forward the original statement
+ *   }
+ * }
+ * ```
+ */
+export class ObligationNotFulfillableError extends AxonFlowError {
+  constructor(message: string = 'Obligation not engine-fulfillable') {
+    super(message);
+    this.name = 'ObligationNotFulfillableError';
+    Object.setPrototypeOf(this, ObligationNotFulfillableError.prototype);
+  }
+}
+
+/**
  * Error thrown when rate limit is exceeded.
  * Includes limit, remaining count, and reset time.
  *
