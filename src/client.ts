@@ -2883,7 +2883,7 @@ export class AxonFlow {
       throw new APIError(
         response.status,
         response.statusText,
-        'decide response is missing the required "verdict" field',
+        'decide response is missing the required "verdict" field'
       );
     }
     return {
