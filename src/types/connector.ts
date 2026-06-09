@@ -154,6 +154,15 @@ export interface MCPCheckInputOptions {
   statement: string;
   parameters?: Record<string, any>;
   operation?: string;
+  /**
+   * Selects the request-redaction detector (ADR-056 / #2563 addendum).
+   * Maps to the snake_case `content_type` field on the wire. `undefined`
+   * defaults to "text/plain" server-side. A content_type with no registered
+   * detector is rejected (415) so a PEP fulfilling a `redact_pii` obligation
+   * fails closed rather than forwarding content the engine cannot govern.
+   * Source of truth: platform/agent MCPCheckInputRequest.
+   */
+  contentType?: string;
 }
 
 /**
@@ -214,6 +223,24 @@ export interface MCPCheckInputResponse {
   policy_matches?: MCPExplainPolicy[];
   override_available?: boolean;
   override_existing_id?: string;
+  /**
+   * Request-phase redaction (ADR-056 / #2563). When an allowed statement
+   * carries PII under a redact (not block) policy, the engine returns the
+   * masked statement here so a PEP can forward redacted content WITHOUT
+   * hand-rolling its own patterns — this is what makes a /decide `redact_pii`
+   * obligation engine-fulfillable. Source of truth: platform/agent
+   * MCPCheckInputResponse.
+   */
+  redacted?: boolean;
+  redacted_statement?: string;
+  /**
+   * Reports whether the redaction detector actually RAN (regardless of whether
+   * it masked anything). A PEP fulfilling a `redact_pii` obligation MUST fail
+   * closed when this is `false`/absent — it means the redactor did not run
+   * (detection disabled), so `redacted:false` would otherwise be
+   * indistinguishable from "looked, found nothing" (#2563 B1).
+   */
+  redaction_evaluated?: boolean;
 }
 
 /**
@@ -258,6 +285,16 @@ export interface MCPCheckOutputResponse {
    */
   decision_id?: string;
   policy_matches?: MCPExplainPolicy[];
+  /**
+   * Mirrors the check-input field for the response phase (ADR-056 / #2563).
+   * A PEP fulfilling a response-phase `redact_pii` obligation MUST fail closed
+   * when this is `false`/absent — the redactor did not run, so absence of
+   * redacted output cannot be trusted as "nothing to mask". The agent does not
+   * populate this on every path today; default-absent keeps a PEP fail-closed
+   * when the platform predates the field. Source of truth: platform/agent
+   * MCPCheckOutputResponse.
+   */
+  redaction_evaluated?: boolean;
 }
 
 /**

@@ -185,7 +185,21 @@ import {
   RateLimitError,
   VersionConflictError,
   IdempotencyKeyMismatchError,
+  ObligationNotFulfillableError,
 } from './errors';
+import {
+  CONTENT_TYPE_TEXT,
+  DECIDE_PATH,
+  OBLIGATION_REDACT_PII,
+  PHASE_REQUEST,
+  REQUEST_REDACTION_PATH,
+  VERDICT_ALLOW,
+  endpointPathMatches,
+  stripUndefined,
+  type DecideRequest,
+  type DecideResponse,
+  type Obligation,
+} from './pep';
 import { generateRequestId, debugLog } from './utils/helpers';
 
 /**
@@ -1508,6 +1522,9 @@ export class AxonFlow {
       body.parameters = options.parameters;
     }
     body.operation = options.operation ?? 'execute';
+    if (options.contentType !== undefined) {
+      body.content_type = options.contentType;
+    }
 
     if (this.config.debug) {
       debugLog('MCP Check Input', {
@@ -2803,6 +2820,186 @@ export class AxonFlow {
     const body = (await response.json()) as { decisions?: Array<Record<string, unknown>> };
     const rows = body?.decisions ?? [];
     return rows.map(parseDecisionSummary);
+  }
+
+  // ------------------------------------------------------------------ //
+  // Decision Mode PEP: decide -> fulfill -> forward (ADR-056, #2563)    //
+  // ------------------------------------------------------------------ //
+
+  /**
+   * Ask the PDP for a verdict on a request (`POST /api/v1/decide`).
+   *
+   * This is the PDP step of a PEP. `/decide` is a pure decision point: it NEVER
+   * mutates content. When an allow verdict carries a `redact_pii` obligation,
+   * discharge it with {@link AxonFlow.fulfillRequest} (or use the one-call
+   * {@link AxonFlow.decideAndFulfill}) — never by redacting locally.
+   *
+   * Decision Mode auth is HTTP Basic (org:license), which this client already
+   * sends; demo / wrong credentials are refused with 401 →
+   * {@link AuthenticationError}. A deny verdict is returned in the body with
+   * HTTP 200, not as an error.
+   *
+   * @param request - The {@link DecideRequest} (`stage` ∈ {"llm","tool","agent"}
+   *   and `query` are required).
+   * @returns The {@link DecideResponse} verdict, with `obligations` always a
+   *   (possibly empty) array.
+   * @throws AuthenticationError on 401 (bad / demo credentials).
+   * @throws APIError on other non-200 responses.
+   */
+  async decide(request: DecideRequest): Promise<DecideResponse> {
+    const url = `${this.config.endpoint}${DECIDE_PATH}`;
+    const headers = this.buildAuthHeaders();
+
+    // Drop undefined-valued keys so the wire body matches the spec
+    // (user_token / context omitted when empty).
+    const body = JSON.stringify(stripUndefined(request));
+
+    const response = await this._fetch(url, {
+      method: 'POST',
+      headers,
+      body,
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      const errorText = await response.text();
+      throw new AuthenticationError(`Decision request failed: ${errorText}`);
+    }
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new APIError(response.status, response.statusText, errorText);
+    }
+
+    const data = (await response.json()) as Partial<DecideResponse> | null;
+    const verdict = (data?.verdict as string) ?? VERDICT_ALLOW;
+    return {
+      verdict,
+      decision_id: data?.decision_id,
+      trace_id: data?.trace_id,
+      reasons: data?.reasons,
+      // Normalize obligations to an array so PEP code can iterate without a
+      // null-check (the platform always sends [], but be defensive).
+      obligations: Array.isArray(data?.obligations) ? (data!.obligations as Obligation[]) : [],
+      evaluated_policies: data?.evaluated_policies,
+      stage: data?.stage,
+      expires_at: data?.expires_at,
+      error: data?.error,
+    };
+  }
+
+  /**
+   * Discharge every request-phase `redact_pii` obligation on `decision`.
+   *
+   * For each request-phase `redact_pii` obligation, POSTs `statement` to the
+   * engine endpoint the obligation names (`check-input`) and returns the
+   * engine-redacted statement to forward.
+   *
+   * There is NO code path in which this method redacts locally — fulfillment is
+   * always the engine round-trip (ADR-056 / #2563).
+   *
+   * @param decision - The verdict returned by {@link AxonFlow.decide}.
+   * @param statement - The request content to fulfill.
+   * @returns `[content, didRedact]`. `content` is the engine-redacted statement
+   *   (or the original when no obligation mutates the request). `didRedact`
+   *   reflects whether the ENGINE actually changed the content, not merely that
+   *   an obligation was present.
+   * @throws ObligationNotFulfillableError when a `redact_pii` obligation could
+   *   not be discharged through the engine — it named no request-phase
+   *   fulfillment, advertised a content-type the PEP is not holding, named an
+   *   endpoint this client will not call, the engine call failed, or the engine
+   *   reported the redactor did not run (`redaction_evaluated=false`). The
+   *   caller MUST fail closed (block) — never forward the original `statement`.
+   */
+  async fulfillRequest(decision: DecideResponse, statement: string): Promise<[string, boolean]> {
+    let redacted = statement;
+    let didRedact = false;
+    for (const ob of decision.obligations ?? []) {
+      if (ob.type !== OBLIGATION_REDACT_PII) {
+        // redact_pii is the only content-mutating obligation today; other
+        // types are pass-through by contract.
+        continue;
+      }
+      if (!ob.fulfillment || ob.fulfillment.phase !== PHASE_REQUEST) {
+        throw new ObligationNotFulfillableError(
+          'redact_pii obligation missing request-phase fulfillment'
+        );
+      }
+      const contentTypes = ob.fulfillment.content_types ?? [];
+      if (contentTypes.length > 0 && !contentTypes.includes(CONTENT_TYPE_TEXT)) {
+        throw new ObligationNotFulfillableError(
+          `fulfillment endpoint does not advertise a ${CONTENT_TYPE_TEXT} detector`
+        );
+      }
+      if (!endpointPathMatches(ob.fulfillment.endpoint, REQUEST_REDACTION_PATH)) {
+        throw new ObligationNotFulfillableError(
+          `fulfillment endpoint ${JSON.stringify(ob.fulfillment.endpoint)} is not ` +
+            'the request-redaction endpoint'
+        );
+      }
+      redacted = await this.fulfillViaCheckInput(redacted);
+      if (redacted !== statement) {
+        didRedact = true;
+      }
+    }
+    return [redacted, didRedact];
+  }
+
+  /**
+   * POST `statement` to the request-redaction engine endpoint and return the
+   * engine-masked statement.
+   *
+   * Fails closed (throws {@link ObligationNotFulfillableError}) when the engine
+   * call errors, the engine returns non-200, or `redaction_evaluated` is
+   * false/absent — never returns unredacted content under an unfulfillable
+   * condition.
+   */
+  private async fulfillViaCheckInput(statement: string): Promise<string> {
+    let result: MCPCheckInputResponse;
+    try {
+      result = await this.mcpCheckInput({
+        connectorType: 'gateway',
+        statement,
+        operation: 'execute',
+        contentType: CONTENT_TYPE_TEXT,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new ObligationNotFulfillableError(`request-redaction engine call failed: ${msg}`);
+    }
+    // FAIL CLOSED if the redactor did not actually run (#2563 B1). Without this
+    // the PEP cannot distinguish "engine looked, found nothing" (safe to
+    // forward) from "engine wasn't looking" (would leak PII).
+    if (!result.redaction_evaluated) {
+      throw new ObligationNotFulfillableError(
+        'engine reported the redactor did not run (redaction disabled)'
+      );
+    }
+    if (result.redacted && result.redacted_statement) {
+      return result.redacted_statement;
+    }
+    // Redactor ran and found nothing to mask — forward unchanged.
+    return statement;
+  }
+
+  /**
+   * One-call PEP path: decide, then fulfill any request-phase obligation
+   * (ADR-056, #2563).
+   *
+   * @param request - The {@link DecideRequest}.
+   * @returns `[verdict, content, decision]`. Branch on `verdict`: forward
+   *   `content` on `"allow"`; block on `"deny"` / `"needs_approval"`.
+   * @throws ObligationNotFulfillableError on the not-fulfillable path AFTER
+   *   discarding the unredacted content, so a caller that catches the error
+   *   cannot accidentally forward the unredacted query — fail-closed by
+   *   construction.
+   */
+  async decideAndFulfill(request: DecideRequest): Promise<[string, string, DecideResponse]> {
+    const decision = await this.decide(request);
+    if (decision.verdict !== VERDICT_ALLOW) {
+      return [decision.verdict, request.query, decision];
+    }
+    const [redacted] = await this.fulfillRequest(decision, request.query);
+    return [decision.verdict, redacted, decision];
   }
 
   /**
