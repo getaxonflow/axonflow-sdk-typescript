@@ -2768,7 +2768,7 @@ export class AxonFlow {
    * @example
    * ```typescript
    * try {
-   *   const decisions = await client.listDecisions({ decision: 'deny', limit: 10 });
+   *   const decisions = await client.listDecisions({ decision: 'blocked', limit: 10 });
    *   for (const d of decisions) {
    *     console.log(d.decisionId, d.decision, d.timestamp);
    *   }

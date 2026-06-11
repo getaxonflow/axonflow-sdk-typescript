@@ -46,7 +46,7 @@ describe('Decision Explainability (ADR-043)', () => {
       const raw = {
         decision_id: 'dec_wf1_step2',
         timestamp: '2026-04-17T12:00:00Z',
-        decision: 'deny',
+        decision: 'blocked',
         reason: 'SQL injection detected',
         risk_level: 'high',
         policy_matches: [
@@ -83,7 +83,7 @@ describe('Decision Explainability (ADR-043)', () => {
       expect((callArgs[1] as { method: string }).method).toBe('GET');
 
       expect(exp.decisionId).toBe('dec_wf1_step2');
-      expect(exp.decision).toBe('deny');
+      expect(exp.decision).toBe('blocked');
       expect(exp.policyMatches).toHaveLength(1);
       expect(exp.policyMatches[0].policyId).toBe('pol-sqli');
       expect(exp.policyMatches[0].allowOverride).toBe(true);
@@ -101,7 +101,7 @@ describe('Decision Explainability (ADR-043)', () => {
         mockResponse({
           decision_id: 'a/b',
           timestamp: '2026-04-17T12:00:00Z',
-          decision: 'allow',
+          decision: 'allowed',
           reason: '',
           policy_matches: [],
           override_available: false,
@@ -118,7 +118,7 @@ describe('Decision Explainability (ADR-043)', () => {
         mockResponse({
           decision_id: 'dec-1',
           timestamp: '2026-04-17T12:00:00Z',
-          decision: 'allow',
+          decision: 'allowed',
           reason: '',
           policy_matches: [],
           override_available: false,
@@ -135,7 +135,7 @@ describe('Decision Explainability (ADR-043)', () => {
         mockResponse({
           decision_id: 'dec-ctx',
           timestamp: '2026-05-30T12:00:00Z',
-          decision: 'deny',
+          decision: 'blocked',
           reason: '',
           policy_matches: [],
           override_available: false,
@@ -162,7 +162,7 @@ describe('Decision Explainability (ADR-043)', () => {
         mockResponse({
           decision_id: 'dec-1',
           timestamp: '2026-04-17T12:00:00Z',
-          decision: 'allow',
+          decision: 'allowed',
           reason: '',
           policy_matches: [],
           override_available: false,
@@ -179,7 +179,7 @@ describe('Decision Explainability (ADR-043)', () => {
         mockResponse({
           decision_id: 'dec-1',
           timestamp: '2026-04-17T12:00:00Z',
-          decision: 'allow',
+          decision: 'allowed',
           reason: '',
           policy_matches: [],
           override_available: false,
@@ -278,21 +278,21 @@ describe('listDecisions (Session γ #1982)', () => {
           {
             decision_id: 'dec-1',
             timestamp: '2026-05-07T12:00:00Z',
-            decision: 'deny',
+            decision: 'blocked',
             policy_id: 'pol-sqli',
             tool_signature: 'postgres.query',
           },
           {
             decision_id: 'dec-2',
             timestamp: '2026-05-07T11:00:00Z',
-            decision: 'allow',
+            decision: 'allowed',
             policy_id: 'pol-default',
             tool_signature: 'github.status',
           },
           {
             decision_id: 'dec-3',
             timestamp: '2026-05-07T10:00:00Z',
-            decision: 'require_approval',
+            decision: 'needs_approval',
             policy_id: 'pol-amount',
             tool_signature: 'stripe.charge',
           },
@@ -303,10 +303,10 @@ describe('listDecisions (Session γ #1982)', () => {
     const got = await client.listDecisions();
     expect(got).toHaveLength(3);
     expect(got[0].decisionId).toBe('dec-1');
-    expect(got[0].decision).toBe('deny');
+    expect(got[0].decision).toBe('blocked');
     expect(got[0].policyId).toBe('pol-sqli');
     expect(got[0].toolSignature).toBe('postgres.query');
-    expect(got[2].decision).toBe('require_approval');
+    expect(got[2].decision).toBe('needs_approval');
   });
 
   it('surfaces the truncated request context on the summary (v8.4.0)', async () => {
@@ -316,7 +316,7 @@ describe('listDecisions (Session γ #1982)', () => {
           {
             decision_id: 'dec-ctx',
             timestamp: '2026-05-30T12:00:00Z',
-            decision: 'deny',
+            decision: 'blocked',
             context: {
               x_ai_agent: 'refund-bot',
               x_session_id: 'sess-42',
@@ -338,7 +338,7 @@ describe('listDecisions (Session γ #1982)', () => {
     mockFetch.mockReturnValueOnce(
       ok({
         decisions: [
-          { decision_id: 'dec-noctx', timestamp: '2026-05-30T12:00:00Z', decision: 'allow' },
+          { decision_id: 'dec-noctx', timestamp: '2026-05-30T12:00:00Z', decision: 'allowed' },
         ],
       })
     );
@@ -350,7 +350,7 @@ describe('listDecisions (Session γ #1982)', () => {
     mockFetch.mockReturnValueOnce(ok({ decisions: [] }));
     const opts: ListDecisionsOptions = {
       since: new Date('2026-05-07T00:00:00Z'),
-      decision: 'deny',
+      decision: 'blocked',
       policyId: 'pol-sqli',
       toolSignature: 'postgres.query',
       limit: 25,
@@ -359,7 +359,7 @@ describe('listDecisions (Session γ #1982)', () => {
 
     const calledUrl = mockFetch.mock.calls[0][0] as string;
     expect(calledUrl).toContain('since=2026-05-07T00%3A00%3A00Z');
-    expect(calledUrl).toContain('decision=deny');
+    expect(calledUrl).toContain('decision=blocked');
     expect(calledUrl).toContain('policy_id=pol-sqli');
     expect(calledUrl).toContain('tool_signature=postgres.query');
     expect(calledUrl).toContain('limit=25');
@@ -367,10 +367,10 @@ describe('listDecisions (Session γ #1982)', () => {
 
   it('omits unset filters from the URL', async () => {
     mockFetch.mockReturnValueOnce(ok({ decisions: [] }));
-    await client.listDecisions({ decision: 'deny' });
+    await client.listDecisions({ decision: 'blocked' });
 
     const calledUrl = mockFetch.mock.calls[0][0] as string;
-    expect(calledUrl).toContain('?decision=deny');
+    expect(calledUrl).toContain('?decision=blocked');
     expect(calledUrl).not.toContain('since=');
     expect(calledUrl).not.toContain('policy_id=');
     expect(calledUrl).not.toContain('tool_signature=');
@@ -441,7 +441,7 @@ describe('listDecisions (Session γ #1982)', () => {
           {
             decision_id: 'dec-fwd',
             timestamp: '2026-05-07T12:00:00Z',
-            decision: 'deny',
+            decision: 'blocked',
             policy_id: 'pol-x',
             tool_signature: 'tool-x',
             policy_version: 7,
@@ -461,7 +461,7 @@ describe('listDecisions (Session γ #1982)', () => {
     mockFetch.mockReturnValueOnce(
       ok({
         decisions: [
-          { decision_id: 'dec-min', timestamp: '2026-05-07T12:00:00Z', decision: 'deny' },
+          { decision_id: 'dec-min', timestamp: '2026-05-07T12:00:00Z', decision: 'blocked' },
         ],
       })
     );
@@ -478,7 +478,7 @@ describe('buildListDecisionsQuery (#1982)', () => {
   });
 
   it('omits unset fields and emits stable order', () => {
-    const qs = buildListDecisionsQuery({ decision: 'deny', limit: 7 });
-    expect(qs).toBe('decision=deny&limit=7');
+    const qs = buildListDecisionsQuery({ decision: 'blocked', limit: 7 });
+    expect(qs).toBe('decision=blocked&limit=7');
   });
 });
