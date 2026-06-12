@@ -36,7 +36,11 @@ export interface DecisionExplanation {
   timestamp: Date;
   policyMatches: ExplainPolicy[];
   matchedRules?: ExplainRule[];
-  /** allow | deny | require_approval */
+  /**
+   * Canonical audit verdict: allowed | blocked | redacted | needs_approval | error
+   * (platform 9.0.0+). Pre-9.0.0 this field used allow | deny | require_approval;
+   * see https://docs.getaxonflow.com/docs/deployment/v8-to-v9-migration/
+   */
   decision: string;
   reason: string;
   /** low | medium | high | critical */
@@ -77,7 +81,11 @@ export interface DecisionExplanation {
 export interface DecisionSummary {
   decisionId: string;
   timestamp: Date;
-  /** allow | deny | require_approval */
+  /**
+   * Canonical audit verdict: allowed | blocked | redacted | needs_approval | error
+   * (platform 9.0.0+). Pre-9.0.0 this field used allow | deny | require_approval;
+   * see https://docs.getaxonflow.com/docs/deployment/v8-to-v9-migration/
+   */
   decision: string;
   policyId?: string;
   toolSignature?: string;
@@ -96,9 +104,12 @@ export interface DecisionSummary {
  * Optional filters for {@link AxonFlowClient.listDecisions}.
  *
  * Every field is optional; `undefined` values are omitted from the URL so
- * the platform applies its tier-default page. `decision` must be one of
- * `'allow' | 'deny' | 'require_approval'` when set. `limit` is server-
- * capped per tier; over-cap requests yield a 429 with the V1 upgrade
+ * the platform applies its tier-default page. `decision`, when set, must be one
+ * of the canonical audit verdicts `'allowed' | 'blocked' | 'redacted' |
+ * 'needs_approval' | 'error'` (platform 9.0.0+); the pre-9.0.0 values
+ * `'allow' | 'deny' | 'require_approval'` are rejected with HTTP 400 by 9.0.0
+ * (see https://docs.getaxonflow.com/docs/deployment/v8-to-v9-migration/).
+ * `limit` is server-capped per tier; over-cap requests yield a 429 with the V1 upgrade
  * envelope (surfaced as {@link RateLimitError} carrying `upgrade`).
  */
 export interface ListDecisionsOptions {
