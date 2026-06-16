@@ -19,6 +19,12 @@ concurrency:
 env:
   AXONFLOW_TELEMETRY: 'off'
 
+# Least-privilege token: this workflow only checks out the repo and runs
+# tests. No write access to repo contents, packages, or pull requests is
+# required.
+permissions:
+  contents: read
+
 jobs:
   real-stack:
     name: real-stack ${{ matrix.os }}
