@@ -5,6 +5,35 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.5.1] - 2026-07-09 — getPlanStatus auth + queryConnector user token + example fixes
+
+Hostile-testing sweep ahead of the BukuWarung integration
+(getaxonflow/axonflow-enterprise#2861).
+
+### Fixed
+
+- **`getPlanStatus` sends the Basic auth header.** It was the only client
+  method calling `_fetch` without `buildAuthHeaders()` — every call 401'd
+  ("Authorization header required") against a live stack. Regression test
+  asserts the header on the wire; `runtime-e2e/plan_status_auth/` proves the
+  round-trip against a real agent.
+- **`queryConnector` accepts an optional `userToken` parameter** (4th arg,
+  additive). It hardcoded `user_token: ''` with no way to supply a real
+  token, so JWT-validating enterprise stacks rejected every connector query.
+  Cross-SDK parity with Go's `QueryConnector(userToken, …)`.
+- **Examples pass `AXONFLOW_USER_TOKEN` and fail honestly.** Enterprise
+  stacks validate user tokens as JWTs; `basic`, `proxy-mode`, `planning` and
+  `connectors` passed hardcoded non-JWT literals — every governed call
+  401'd while the examples still printed "completed" and exited 0. They now
+  read `AXONFLOW_USER_TOKEN`, thread it through `generatePlan`/`executePlan`
+  and `queryConnector`, and set a non-zero exit code on unexpected failures
+  (`PolicyViolationError` remains an expected demo outcome).
+
+### Added
+
+- `runtime-e2e/plan_status_auth/` — live-agent assertion: generatePlan →
+  getPlanStatus authenticated round-trip + wrong-credentials 401 control.
+
 ## [8.5.0] - 2026-06-09 — Decision Mode PEP: decide → fulfill → forward
 
 Adds the SDK analog of the platform PEP client (`platform/shared/pep`,

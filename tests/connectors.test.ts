@@ -336,5 +336,34 @@ describe('Connector and Orchestrator Methods', () => {
       expect(result.success).toBe(true);
       expect(result.policy_info?.policies_evaluated).toBe(3);
     });
+
+    it('should forward an explicit userToken on the wire (JWT-validating stacks)', async () => {
+      mockFetch.mockImplementation(() => mockResponse({ success: true, data: {} }));
+
+      await client.queryConnector('postgres', 'SELECT 1', undefined, 'jwt-user-token');
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+      expect(body.user_token).toBe('jwt-user-token');
+    });
+
+    it('should default user_token to empty (community anonymous) when not provided', async () => {
+      mockFetch.mockImplementation(() => mockResponse({ success: true, data: {} }));
+
+      await client.queryConnector('postgres', 'SELECT 1');
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+      expect(body.user_token).toBe('');
+    });
+  });
+
+  describe('getPlanStatus auth (regression: 401 without Basic header)', () => {
+    it('should send Authorization Basic header', async () => {
+      mockFetch.mockImplementation(() => mockResponse({ status: 'completed', result: 'ok' }));
+
+      await client.getPlanStatus('plan-123');
+
+      const headers = mockFetch.mock.calls[0][1].headers as Record<string, string>;
+      expect(headers.Authorization).toMatch(/^Basic /);
+    });
   });
 });

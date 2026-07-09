@@ -11,12 +11,14 @@
  * Run: npx tsx examples/basic/index.ts
  */
 
-import { AxonFlow } from '@axonflow/sdk';
+import { AxonFlow, PolicyViolationError } from '@axonflow/sdk';
 
 async function main() {
   const agentURL = process.env.AXONFLOW_AGENT_URL || 'http://localhost:8080';
   const clientId = process.env.AXONFLOW_CLIENT_ID;
   const clientSecret = process.env.AXONFLOW_CLIENT_SECRET;
+  // Enterprise stacks validate user tokens as JWTs - export AXONFLOW_USER_TOKEN.
+  const userToken = process.env.AXONFLOW_USER_TOKEN || 'demo-user';
 
   if (!clientId || !clientSecret) {
     console.error('AXONFLOW_CLIENT_ID and AXONFLOW_CLIENT_SECRET must be set');
@@ -47,7 +49,7 @@ async function main() {
   console.log('='.repeat(60));
   try {
     const ctx = await client.getPolicyApprovedContext({
-      userToken: 'demo-user',
+      userToken,
       query: 'What is the capital of France?',
     });
     console.log(`Approved:  ${ctx.approved}`);
@@ -80,6 +82,7 @@ async function main() {
     }
   } catch (error) {
     console.log(`Gateway Mode error: ${(error as Error).message}`);
+    process.exitCode = 1;
   }
 
   // Step 3: Proxy Mode (single round-trip) ---------------------------------
@@ -88,7 +91,7 @@ async function main() {
   console.log('='.repeat(60));
   try {
     const result = await client.proxyLLMCall({
-      userToken: 'demo-user',
+      userToken,
       query: 'What is the capital of France?',
       requestType: 'chat',
     });
@@ -98,10 +101,10 @@ async function main() {
       console.log(`Policies: ${result.policyInfo.policiesEvaluated.length} evaluated`);
     }
   } catch (error) {
-    // Community stacks without an LLM provider configured will return
-    // non-success; that's normal here. Specific error subclasses (e.g.
-    // PolicyViolationError) signal blocked content rather than a failure.
+    // Specific error subclasses (e.g. PolicyViolationError) signal blocked
+    // content; anything else here is a real failure.
     console.log(`Proxy Mode error: ${(error as Error).message}`);
+    process.exitCode = 1;
   }
 
   // Step 4: PII detection (Proxy Mode) -------------------------------------
@@ -110,7 +113,7 @@ async function main() {
   console.log('='.repeat(60));
   try {
     const result = await client.proxyLLMCall({
-      userToken: 'demo-user',
+      userToken,
       query: 'My email is john.doe@example.com and SSN is 123-45-6789',
       requestType: 'chat',
     });
@@ -124,6 +127,9 @@ async function main() {
     // is set to block. Community defaults to warn — caller may see
     // success=true with a policy match recorded.
     console.log(`PII step: ${(error as Error).message}`);
+    if (!(error instanceof PolicyViolationError)) {
+      process.exitCode = 1;
+    }
   }
 
   console.log('\nAll examples completed');

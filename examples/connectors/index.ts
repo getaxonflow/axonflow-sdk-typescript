@@ -12,11 +12,18 @@ import { AxonFlow } from '@axonflow/sdk';
 async function main() {
   const clientId = process.env.AXONFLOW_CLIENT_ID || 'demo-client';
   const clientSecret = process.env.AXONFLOW_CLIENT_SECRET || 'demo-secret';
+  // Enterprise stacks validate user tokens as JWTs - export AXONFLOW_USER_TOKEN.
+  const userToken = process.env.AXONFLOW_USER_TOKEN || '';
   // Tenant id is independent of the auth principal in real installations,
   // even when a single demo collapses them to the same value.
   const tenantId = process.env.AXONFLOW_TENANT_ID || clientId;
 
-  const client = new AxonFlow({ clientId, clientSecret, debug: true });
+  const client = new AxonFlow({
+    clientId,
+    clientSecret,
+    endpoint: process.env.AXONFLOW_AGENT_URL || 'http://localhost:8080',
+    debug: true,
+  });
 
   // List connectors
   console.log('='.repeat(60));
@@ -68,11 +75,12 @@ async function main() {
 
   if (amadeusKey) {
     try {
-      const result = await client.queryConnector('amadeus-prod', 'Find flights from Paris to Amsterdam', {
-        origin: 'CDG',
-        destination: 'AMS',
-        date: '2025-12-15',
-      });
+      const result = await client.queryConnector(
+        'amadeus-prod',
+        'Find flights from Paris to Amsterdam',
+        { origin: 'CDG', destination: 'AMS', date: '2025-12-15' },
+        userToken
+      );
 
       console.log('✓ Flight data retrieved:', result.data);
     } catch (error) {
@@ -83,4 +91,7 @@ async function main() {
   console.log('\n✅ Connector examples completed');
 }
 
-main().catch(console.error);
+main().catch(error => {
+  console.error(error);
+  process.exit(1);
+});
