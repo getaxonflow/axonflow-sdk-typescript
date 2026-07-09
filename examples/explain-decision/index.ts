@@ -31,9 +31,7 @@ import { AxonFlow } from '@axonflow/sdk';
 async function main() {
   const decisionId = process.env.AXONFLOW_DECISION_ID;
   if (!decisionId) {
-    console.error(
-      'AXONFLOW_DECISION_ID must be set (a decision_id from a recent blocked call)',
-    );
+    console.error('AXONFLOW_DECISION_ID must be set (a decision_id from a recent blocked call)');
     process.exit(2);
   }
 
@@ -65,7 +63,7 @@ async function main() {
     const action = m.action || '-';
     const risk = m.riskLevel || '-';
     console.log(
-      `    [${i}] ${m.policyId} (${name}) — action=${action} risk=${risk} allow_override=${!!m.allowOverride}`,
+      `    [${i}] ${m.policyId} (${name}) — action=${action} risk=${risk} allow_override=${!!m.allowOverride}`
     );
   });
 
@@ -82,9 +80,7 @@ async function main() {
   if (exp.overrideExistingId) {
     console.log(`  override_existing_id:         ${exp.overrideExistingId}`);
   }
-  console.log(
-    `  historical_hit_count_session: ${exp.historicalHitCountSession}`,
-  );
+  console.log(`  historical_hit_count_session: ${exp.historicalHitCountSession}`);
   if (exp.policySourceLink) {
     console.log(`  policy_source_link:           ${exp.policySourceLink}`);
   }

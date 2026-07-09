@@ -358,9 +358,7 @@ describe('Connector and Orchestrator Methods', () => {
 
   describe('getPlanStatus auth (regression: 401 without Basic header)', () => {
     it('should send Authorization Basic header', async () => {
-      mockFetch.mockImplementation(() =>
-        mockResponse({ status: 'completed', result: 'ok' })
-      );
+      mockFetch.mockImplementation(() => mockResponse({ status: 'completed', result: 'ok' }));
 
       await client.getPlanStatus('plan-123');
 

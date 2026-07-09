@@ -10,11 +10,7 @@
  *   npx tsx index.ts
  */
 
-import {
-  AxonFlow,
-  IdempotencyKeyMismatchError,
-  type StepGateRequest,
-} from '@axonflow/sdk';
+import { AxonFlow, IdempotencyKeyMismatchError, type StepGateRequest } from '@axonflow/sdk';
 
 function mustEnv(k: string): string {
   const v = process.env[k];
@@ -74,27 +70,56 @@ async function act1(client: AxonFlow): Promise<void> {
   assertEqInt('first completion_count', 0, first.retry_context.completion_count);
   assertEqStr('first prior_completion_status', 'none', first.retry_context.prior_completion_status);
   assertTrue('first !prior_output_available', !first.retry_context.prior_output_available);
-  assertEqStr('first last_decision (first-call invariant)', first.decision, first.retry_context.last_decision);
-  assertEqStr('first FirstAttemptAt == LastAttemptAt', first.retry_context.first_attempt_at ?? '', first.retry_context.last_attempt_at ?? '');
+  assertEqStr(
+    'first last_decision (first-call invariant)',
+    first.decision,
+    first.retry_context.last_decision
+  );
+  assertEqStr(
+    'first FirstAttemptAt == LastAttemptAt',
+    first.retry_context.first_attempt_at ?? '',
+    first.retry_context.last_attempt_at ?? ''
+  );
   console.log('  first gate invariants ✔');
 
   // 2) Complete, then re-gate
   await client.markStepCompleted(wf.workflow_id, 'step-1', {
     output: { transfer_id: 'TXN-ts-1', amount: 500 },
   });
-  const reGate = await client.stepGate(wf.workflow_id, 'step-1', { step_type: 'tool_call' as const });
+  const reGate = await client.stepGate(wf.workflow_id, 'step-1', {
+    step_type: 'tool_call' as const,
+  });
   assertEqInt('re-gate post-complete gate_count', 2, reGate.retry_context.gate_count);
   assertEqInt('re-gate post-complete completion_count', 1, reGate.retry_context.completion_count);
-  assertEqStr('re-gate post-complete prior_completion_status', 'completed', reGate.retry_context.prior_completion_status);
-  assertTrue('re-gate post-complete prior_output_available', reGate.retry_context.prior_output_available);
-  assertTrue('re-gate post-complete prior_output omitted by default', reGate.retry_context.prior_output === null || reGate.retry_context.prior_output === undefined);
+  assertEqStr(
+    're-gate post-complete prior_completion_status',
+    'completed',
+    reGate.retry_context.prior_completion_status
+  );
+  assertTrue(
+    're-gate post-complete prior_output_available',
+    reGate.retry_context.prior_output_available
+  );
+  assertTrue(
+    're-gate post-complete prior_output omitted by default',
+    reGate.retry_context.prior_output === null || reGate.retry_context.prior_output === undefined
+  );
   assertTrue('re-gate post-complete cached==true', reGate.cached);
   console.log('  re-gate post-complete ✔');
 
   // 3) Gate on step-2 without completion (agent-crash simulation)
-  await client.stepGate(wf.workflow_id, 'step-2', { step_name: 'second-step', step_type: 'tool_call' as const });
-  const reGate2 = await client.stepGate(wf.workflow_id, 'step-2', { step_type: 'tool_call' as const });
-  assertEqStr('gated_not_completed status', 'gated_not_completed', reGate2.retry_context.prior_completion_status);
+  await client.stepGate(wf.workflow_id, 'step-2', {
+    step_name: 'second-step',
+    step_type: 'tool_call' as const,
+  });
+  const reGate2 = await client.stepGate(wf.workflow_id, 'step-2', {
+    step_type: 'tool_call' as const,
+  });
+  assertEqStr(
+    'gated_not_completed status',
+    'gated_not_completed',
+    reGate2.retry_context.prior_completion_status
+  );
   assertEqInt('gated_not_completed completion_count', 0, reGate2.retry_context.completion_count);
   console.log('  gated_not_completed ✔');
 
@@ -106,7 +131,11 @@ async function act1(client: AxonFlow): Promise<void> {
     { includePriorOutput: true }
   );
   assertTrue('prior_output populated', !!withPrior.retry_context.prior_output);
-  assertEqStr('prior_output.transfer_id', 'TXN-ts-1', String(withPrior.retry_context.prior_output!.transfer_id));
+  assertEqStr(
+    'prior_output.transfer_id',
+    'TXN-ts-1',
+    String(withPrior.retry_context.prior_output!.transfer_id)
+  );
   console.log('  prior_output recovery ✔');
 }
 
@@ -122,7 +151,11 @@ async function act2(client: AxonFlow): Promise<void> {
     step_type: 'tool_call' as const,
     idempotency_key: originalKey,
   });
-  assertEqStr('retry_context.idempotency_key echo', originalKey, first.retry_context.idempotency_key);
+  assertEqStr(
+    'retry_context.idempotency_key echo',
+    originalKey,
+    first.retry_context.idempotency_key
+  );
   console.log('  key round-trip ✔');
 
   // 6) Re-gate with different key → IdempotencyKeyMismatchError
@@ -134,7 +167,9 @@ async function act2(client: AxonFlow): Promise<void> {
     fail('expected IdempotencyKeyMismatchError on gate with different key');
   } catch (err) {
     if (!(err instanceof IdempotencyKeyMismatchError)) {
-      fail(`expected IdempotencyKeyMismatchError, got ${(err as Error).constructor?.name}: ${(err as Error).message}`);
+      fail(
+        `expected IdempotencyKeyMismatchError, got ${(err as Error).constructor?.name}: ${(err as Error).message}`
+      );
     }
     assertEqStr('mismatch expected_key', originalKey, err.expectedIdempotencyKey);
     assertEqStr('mismatch received_key', 'payment:wire:different-2', err.receivedIdempotencyKey);
@@ -151,7 +186,7 @@ async function act2(client: AxonFlow): Promise<void> {
   console.log('  complete with matching key ✔');
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error('UNEXPECTED ERROR:', err);
   process.exit(1);
 });
