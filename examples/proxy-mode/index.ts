@@ -19,6 +19,9 @@ async function main() {
     debug: true,
   });
 
+  // Enterprise stacks validate user tokens as JWTs - export AXONFLOW_USER_TOKEN.
+  const userToken = process.env.AXONFLOW_USER_TOKEN || 'user-123';
+
   console.log('='.repeat(60));
   console.log('AxonFlow Proxy Mode Example');
   console.log('='.repeat(60));
@@ -35,7 +38,7 @@ async function main() {
   console.log('-'.repeat(40));
   try {
     const chatResult = await axonflow.proxyLLMCall({
-      userToken: 'user-123',
+      userToken,
       query: 'What is the capital of France?',
       requestType: 'chat',
     });
@@ -46,6 +49,9 @@ async function main() {
     }
   } catch (error) {
     console.log(`   Error: ${error instanceof Error ? error.message : error}`);
+    if (!(error instanceof PolicyViolationError)) {
+      process.exitCode = 1;
+    }
   }
 
   // 3. Query with Context
@@ -53,7 +59,7 @@ async function main() {
   console.log('-'.repeat(40));
   try {
     const contextResult = await axonflow.proxyLLMCall({
-      userToken: 'user-123',
+      userToken,
       query: 'Explain quantum computing in simple terms',
       requestType: 'chat',
       context: {
@@ -69,6 +75,9 @@ async function main() {
     }
   } catch (error) {
     console.log(`   Error: ${error instanceof Error ? error.message : error}`);
+    if (!(error instanceof PolicyViolationError)) {
+      process.exitCode = 1;
+    }
   }
 
   // 4. PII Detection (should be blocked)
@@ -76,7 +85,7 @@ async function main() {
   console.log('-'.repeat(40));
   try {
     await axonflow.proxyLLMCall({
-      userToken: 'user-123',
+      userToken,
       query: 'Process this SSN: 123-45-6789 and credit card: 4111-1111-1111-1111',
       requestType: 'chat',
     });
@@ -96,7 +105,7 @@ async function main() {
   console.log('-'.repeat(40));
   try {
     await axonflow.proxyLLMCall({
-      userToken: 'user-123',
+      userToken,
       query: "SELECT * FROM users WHERE id = '1'; DROP TABLE users;--",
       requestType: 'sql',
     });
@@ -115,7 +124,7 @@ async function main() {
   console.log('-'.repeat(40));
   try {
     const sqlResult = await axonflow.proxyLLMCall({
-      userToken: 'user-123',
+      userToken,
       query: 'SELECT name, email FROM customers WHERE status = active LIMIT 10',
       requestType: 'sql',
     });
@@ -123,6 +132,9 @@ async function main() {
     console.log(`   Blocked: ${sqlResult.blocked}`);
   } catch (error) {
     console.log(`   Error: ${error instanceof Error ? error.message : error}`);
+    if (!(error instanceof PolicyViolationError)) {
+      process.exitCode = 1;
+    }
   }
 
   // 7. MCP Connector Query
@@ -130,7 +142,7 @@ async function main() {
   console.log('-'.repeat(40));
   try {
     const mcpResult = await axonflow.proxyLLMCall({
-      userToken: 'user-123',
+      userToken,
       query: 'Get recent orders',
       requestType: 'mcp-query',
       context: {
@@ -142,6 +154,9 @@ async function main() {
     console.log(`   Has Data: ${!!mcpResult.data}`);
   } catch (error) {
     console.log(`   Error: ${error instanceof Error ? error.message : error}`);
+    if (!(error instanceof PolicyViolationError)) {
+      process.exitCode = 1;
+    }
   }
 
   console.log('\n' + '='.repeat(60));

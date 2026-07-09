@@ -1321,11 +1321,14 @@ export class AxonFlow {
   async queryConnector(
     connectorName: string,
     query: string,
-    params?: any
+    params?: any,
+    userToken?: string
   ): Promise<ConnectorResponse> {
     const agentRequest = {
       query,
-      user_token: '',
+      // JWT-validating (enterprise) stacks reject requests without a real
+      // user token — cross-SDK parity with Go's QueryConnector(userToken, …).
+      user_token: userToken ?? '',
       // Intentional || (not ??): an empty-string clientId/tenant is treated as
       // "missing" by the SDK contract — see tests/smart-defaults.test.ts.
       // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
@@ -1856,6 +1859,7 @@ export class AxonFlow {
 
     const response = await this._fetch(url, {
       method: 'GET',
+      headers: this.buildAuthHeaders(),
       signal: AbortSignal.timeout(this.config.timeout),
     });
 
