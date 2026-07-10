@@ -28,6 +28,14 @@ Hostile-testing sweep ahead of the BukuWarung integration
   read `AXONFLOW_USER_TOKEN`, thread it through `generatePlan`/`executePlan`
   and `queryConnector`, and set a non-zero exit code on unexpected failures
   (`PolicyViolationError` remains an expected demo outcome).
+- **`resumePlan` surfaces the step-mode HITL fields the platform emits when
+  gating the next step** — `next_step`, `next_step_name`, `step_result`,
+  `total_steps` and `workflow_id` now map onto `ResumePlanResponse`
+  (`nextStep`/`nextStepName`/`stepResult`/`totalSteps`/`workflowId`). The
+  transformer dropped them and the type doc wrongly marked them
+  never-populated/deprecated; the orchestrator's confirm/step-mode resume
+  path has emitted them all along. Their `ResumePlanResponse` entries drop
+  out of the wire-shape drift baseline.
 
 ### Added
 

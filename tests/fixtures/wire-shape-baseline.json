@@ -392,7 +392,7 @@
       "spec_only": []
     },
     "MCPCheckOutputResponse": {
-      "_note": "SDK-superset (acknowledged): the platform emits redaction_evaluated on check-output since enterprise #2865/#2866 (2026-07-09); the spec declaration rides the v9.7.0 community sync. Flip (drop this entry) on the next pin bump. refresh.js does not preserve _note keys — re-add on regeneration.",
+      "_note": "SDK-superset (acknowledged): the platform emits redaction_evaluated on check-output since enterprise #2865/#2866 (2026-07-09); the spec declaration rides the v9.7.0 community sync. Flip (drop this entry) on the next pin bump. refresh.js does not preserve _note keys \u2014 re-add on regeneration.",
       "sdk_only": [
         "redaction_evaluated"
       ],
@@ -425,19 +425,6 @@
         "previous_values"
       ],
       "spec_only": []
-    },
-    "ResumePlanResponse": {
-      "_note": "Real drift, spec side new in this pin: v9.6.1 declares next_step/next_step_name/step_result on the wire, but the SDK's resumePlan transformer does not populate them (its camelCase nextStep/nextStepName/stepResult slots are documented-deprecated and never populated). Burn down via a dedicated SDK fix PR, not this pin bump.",
-      "sdk_only": [
-        "nextStep",
-        "nextStepName",
-        "stepResult"
-      ],
-      "spec_only": [
-        "next_step",
-        "next_step_name",
-        "step_result"
-      ]
     },
     "StaticPolicy": {
       "sdk_only": [

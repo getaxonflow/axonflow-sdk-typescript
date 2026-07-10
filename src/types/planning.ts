@@ -202,10 +202,14 @@ export interface PlanVersionsResponse {
 /**
  * Response from resuming a paused plan.
  *
- * Wire shape: `{ plan_id, status, result }`. The 5 fields below marked
- * @deprecated were declared but never populated by the `resumePlan`
- * transformer — they have always read `undefined`. Use `result` and
- * `status` for resume outcomes.
+ * Wire shape (see `ResumePlanResponse` in the community OpenAPI spec and
+ * the orchestrator's resume handler): `plan_id`, `workflow_id` and
+ * `status` are always present. On the step/confirm-mode HITL path —
+ * where the platform executes the approved step and gates the next one
+ * for approval — the response additionally carries `step_result`,
+ * `next_step`, `next_step_name` and `total_steps`. On terminal resumes
+ * (plan completed or rejected) those step-mode fields are absent and
+ * `message` summarizes the outcome instead.
  */
 export interface ResumePlanResponse {
   planId: string;
@@ -214,29 +218,40 @@ export interface ResumePlanResponse {
   result?: unknown;
   approved?: boolean;
   /**
-   * @deprecated Declared on the interface but never populated by the
-   * `resumePlan` transformer. Always read `undefined`. Removed in v7.
+   * WCP workflow id the plan is bound to. Surfaced on every resume
+   * response so callers don't need a separate plan-status round-trip.
    */
   workflowId?: string;
   /**
-   * @deprecated Same as `workflowId` — never populated. Removed in v7.
+   * Human-readable summary of the resume outcome (e.g. "All steps
+   * completed", "Step rejected, plan aborted"). Populated on terminal
+   * resume paths; absent when the platform gates the next step.
    */
   message?: string;
   /**
-   * @deprecated Never populated; the wire emits `result`. Use `result`.
-   * Removed in v7.
+   * Result of the step that was waiting on this approval. Populated on
+   * the step/confirm-mode HITL resume path; shape depends on the step
+   * type, so treat it as opaque unless the step type is known. Absent
+   * on terminal resumes that executed no step.
    */
   stepResult?: Record<string, any>;
   /**
-   * @deprecated Never populated; not on the wire. Removed in v7.
+   * Index of the next step the orchestrator gated for approval.
+   * Populated on the step/confirm-mode HITL resume path when the
+   * platform pauses before the next step (`status: 'awaiting_approval'`);
+   * absent on terminal resumes.
    */
   nextStep?: number;
   /**
-   * @deprecated Never populated; not on the wire. Removed in v7.
+   * Name of the step at `nextStep` (mirrors PlanStep.name). Populated
+   * alongside `nextStep` on the step/confirm-mode HITL resume path;
+   * absent on terminal resumes.
    */
   nextStepName?: string;
   /**
-   * @deprecated Never populated; not on the wire. Removed in v7.
+   * Total number of steps in the plan, so callers can render
+   * "Step N of M" without a separate plan-status lookup. Populated on
+   * the step/confirm-mode HITL resume path; absent on terminal resumes.
    */
   totalSteps?: number;
 }

@@ -2079,9 +2079,16 @@ export class AxonFlow {
       // `result` is the canonical wire-aggregated outcome on resume.
       result: data.result,
       approved: data.approved,
-      // `message` kept populated for the back-compat alias; legacy
-      // path read this slot historically.
+      // Terminal-path outcome summary (e.g. "All steps completed").
       message: data.message,
+      workflowId: data.workflow_id,
+      // Step/confirm-mode HITL fields — populated when the platform
+      // executes the approved step and gates the next one for approval;
+      // absent (undefined) on terminal resumes.
+      stepResult: data.step_result,
+      nextStep: data.next_step,
+      nextStepName: data.next_step_name,
+      totalSteps: data.total_steps,
     };
   }
 

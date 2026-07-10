@@ -329,6 +329,108 @@ describe('WCP Approval, Rollback, and Webhook Methods', () => {
   });
 
   // ==========================================================================
+  // Plan Resume Tests (step/confirm-mode HITL + terminal paths)
+  // ==========================================================================
+
+  describe('resumePlan', () => {
+    it('should surface step-mode HITL fields when the platform gates the next step', async () => {
+      // Wire shape from the orchestrator's confirm/step-mode resume path:
+      // the approved step ran, the next step is gated for approval.
+      const resumeResponse = {
+        plan_id: 'plan_123',
+        workflow_id: 'wf_456',
+        status: 'awaiting_approval',
+        step_result: { output: 'step 1 done', records: 3 },
+        next_step: 2,
+        next_step_name: 'send_notification',
+        total_steps: 4,
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(resumeResponse));
+
+      const result = await client.resumePlan('plan_123', true);
+
+      expect(result.planId).toBe('plan_123');
+      expect(result.workflowId).toBe('wf_456');
+      expect(result.status).toBe('awaiting_approval');
+      expect(result.stepResult).toEqual({ output: 'step 1 done', records: 3 });
+      expect(result.nextStep).toBe(2);
+      expect(result.nextStepName).toBe('send_notification');
+      expect(result.totalSteps).toBe(4);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v1/plan/plan_123/resume',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ approved: true }),
+        })
+      );
+    });
+
+    it('should map the terminal completed path (message, no step-gating fields)', async () => {
+      const resumeResponse = {
+        plan_id: 'plan_123',
+        workflow_id: 'wf_456',
+        status: 'completed',
+        step_result: { output: 'final step done' },
+        message: 'All steps completed',
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(resumeResponse));
+
+      const result = await client.resumePlan('plan_123');
+
+      expect(result.planId).toBe('plan_123');
+      expect(result.workflowId).toBe('wf_456');
+      expect(result.status).toBe('completed');
+      expect(result.message).toBe('All steps completed');
+      expect(result.stepResult).toEqual({ output: 'final step done' });
+      // No next step is gated on a terminal resume.
+      expect(result.nextStep).toBeUndefined();
+      expect(result.nextStepName).toBeUndefined();
+      expect(result.totalSteps).toBeUndefined();
+      // approved defaults to true on the request wire.
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v1/plan/plan_123/resume',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ approved: true }),
+        })
+      );
+    });
+
+    it('should map the rejected path and send approved: false', async () => {
+      const resumeResponse = {
+        plan_id: 'plan_123',
+        workflow_id: 'wf_456',
+        status: 'rejected',
+        message: 'Step rejected, plan aborted',
+      };
+
+      mockFetch.mockResolvedValueOnce(mockResponse(resumeResponse));
+
+      const result = await client.resumePlan('plan_123', false);
+
+      expect(result.status).toBe('rejected');
+      expect(result.message).toBe('Step rejected, plan aborted');
+      expect(result.workflowId).toBe('wf_456');
+      expect(result.stepResult).toBeUndefined();
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v1/plan/plan_123/resume',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ approved: false }),
+        })
+      );
+    });
+
+    it('should throw PlanExecutionError on failure', async () => {
+      mockFetch.mockResolvedValueOnce(mockResponse({ error: 'Plan is not executing' }, 400));
+
+      await expect(client.resumePlan('plan_123')).rejects.toThrow('Plan resume failed');
+    });
+  });
+
+  // ==========================================================================
   // Webhook CRUD Tests (Feature 7)
   // ==========================================================================
 
