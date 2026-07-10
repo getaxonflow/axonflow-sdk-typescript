@@ -41,6 +41,11 @@ Hostile-testing sweep ahead of the BukuWarung integration
 
 - `runtime-e2e/plan_status_auth/` — live-agent assertion: generatePlan →
   getPlanStatus authenticated round-trip + wrong-credentials 401 control.
+- `runtime-e2e/resume_plan_step_fields/` — live-agent assertion for the
+  resumePlan fix: drives the real confirm-mode loop (generatePlan →
+  executePlan → resumePlan per gated step → terminal resume) and asserts
+  the step-mode HITL fields land on every gate and are absent on the
+  terminal response.
 
 ## [8.5.0] - 2026-06-09 — Decision Mode PEP: decide → fulfill → forward
 
