@@ -82,9 +82,17 @@ async function main() {
         userToken
       );
 
-      console.log('✓ Flight data retrieved:', result.data);
+      if (result.success) {
+        console.log('✓ Flight data retrieved:', result.data);
+      } else {
+        // queryConnector reports failures in-band, not as throws — a ✓
+        // over success:false hides auth/access errors.
+        console.log('⚠ Query failed:', result.error ?? 'unknown error');
+        process.exitCode = 1;
+      }
     } catch (error) {
       console.log('⚠ Query failed:', (error as Error).message);
+      process.exitCode = 1;
     }
   }
 

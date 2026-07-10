@@ -143,7 +143,9 @@ async function main() {
   try {
     const mcpResult = await axonflow.proxyLLMCall({
       userToken,
-      query: 'Get recent orders',
+      // The postgres connector executes the statement as SQL — a
+      // natural-language string fails with a syntax error.
+      query: 'SELECT tenant_id, name FROM tenants LIMIT 5',
       requestType: 'mcp-query',
       context: {
         connector: 'postgres',
