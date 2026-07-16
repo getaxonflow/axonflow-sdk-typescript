@@ -5,6 +5,18 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **LangGraph `mcpToolInterceptor()` no longer concatenates the MCP server
+  name and tool name into a single `connectorType` string.** `mcpCheckInput`
+  and `mcpCheckOutput` now accept an optional `tool` field, sent alongside
+  `connectorType` on the wire, matching the platform's two-field
+  (server, tool) identity contract (epic #2905 / #2904). The interceptor
+  sends `connectorType: request.serverName` and `tool: request.name` as two
+  distinct values instead of `` `${serverName}.${name}` ``.
+
 ## [8.5.1] - 2026-07-09 — getPlanStatus auth + queryConnector user token + example fixes
 
 Hostile-testing sweep ahead of the BukuWarung integration

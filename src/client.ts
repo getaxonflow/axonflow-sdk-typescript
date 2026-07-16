@@ -1521,6 +1521,9 @@ export class AxonFlow {
       connector_type: options.connectorType,
       statement: options.statement,
     };
+    if (options.tool) {
+      body.tool = options.tool;
+    }
     if (options.parameters) {
       body.parameters = options.parameters;
     }
@@ -1600,6 +1603,9 @@ export class AxonFlow {
     const body: Record<string, any> = {
       connector_type: options.connectorType,
     };
+    if (options.tool) {
+      body.tool = options.tool;
+    }
     if (options.responseData !== undefined) {
       body.response_data = options.responseData;
     }

@@ -737,9 +737,12 @@ describe('AxonFlowLangGraphAdapter', () => {
       expect(result).toEqual({ results: ['a', 'b'] });
       expect(handler).toHaveBeenCalledWith(makeRequest());
 
-      // Verify input check
+      // Verify input check - server and tool are sent as two separate
+      // fields (epic #2905 / #2904 two-field identity contract), not
+      // concatenated into a single connectorType string.
       expect(mockClient.mcpCheckInput).toHaveBeenCalledWith({
-        connectorType: 'my-server.search',
+        connectorType: 'my-server',
+        tool: 'search',
         statement: 'my-server.search({"query":"test"})',
         operation: 'execute',
         parameters: { query: 'test' },
@@ -747,9 +750,37 @@ describe('AxonFlowLangGraphAdapter', () => {
 
       // Verify output check
       expect(mockClient.mcpCheckOutput).toHaveBeenCalledWith({
-        connectorType: 'my-server.search',
+        connectorType: 'my-server',
+        tool: 'search',
         message: '{"results":["a","b"]}',
       });
+    });
+
+    it('should send server name and tool name as two distinct fields, never concatenated', async () => {
+      (mockClient.mcpCheckInput as jest.Mock).mockResolvedValue({
+        allowed: true,
+        policies_evaluated: 1,
+      } as MCPCheckInputResponse);
+      (mockClient.mcpCheckOutput as jest.Mock).mockResolvedValue({
+        allowed: true,
+        policies_evaluated: 1,
+      } as MCPCheckOutputResponse);
+
+      const handler = jest.fn().mockResolvedValue('ok');
+      const interceptor = adapter.mcpToolInterceptor();
+      const request = makeRequest({ serverName: 'weather-mcp', name: 'get_forecast' });
+
+      await interceptor(request, handler);
+
+      const inputCall = (mockClient.mcpCheckInput as jest.Mock).mock.calls[0][0];
+      expect(inputCall.connectorType).toBe('weather-mcp');
+      expect(inputCall.tool).toBe('get_forecast');
+      expect(inputCall.connectorType).not.toContain('get_forecast');
+
+      const outputCall = (mockClient.mcpCheckOutput as jest.Mock).mock.calls[0][0];
+      expect(outputCall.connectorType).toBe('weather-mcp');
+      expect(outputCall.tool).toBe('get_forecast');
+      expect(outputCall.connectorType).not.toContain('get_forecast');
     });
 
     it('should throw PolicyViolationError when input is blocked', async () => {
@@ -867,15 +898,16 @@ describe('AxonFlowLangGraphAdapter', () => {
 
       const handler = jest.fn().mockResolvedValue('ok');
       const interceptor = adapter.mcpToolInterceptor({
-        connectorTypeFn: (req: any) => req.serverName,
+        connectorTypeFn: (req: any) => `custom-${req.serverName}`,
       });
 
       await interceptor(makeRequest(), handler);
 
       expect(mockClient.mcpCheckInput).toHaveBeenCalledWith(
         expect.objectContaining({
-          connectorType: 'my-server',
-          statement: 'my-server({"query":"test"})',
+          connectorType: 'custom-my-server',
+          tool: 'search',
+          statement: 'custom-my-server.search({"query":"test"})',
         })
       );
     });
@@ -920,6 +952,8 @@ describe('AxonFlowLangGraphAdapter', () => {
 
       expect(mockClient.mcpCheckInput).toHaveBeenCalledWith(
         expect.objectContaining({
+          connectorType: 'my-server',
+          tool: 'search',
           statement: 'my-server.search({})',
           parameters: null,
         })
@@ -949,7 +983,8 @@ describe('AxonFlowLangGraphAdapter', () => {
       // The output check should have received String(circular) as message
       expect(mockClient.mcpCheckOutput).toHaveBeenCalledWith(
         expect.objectContaining({
-          connectorType: 'my-server.search',
+          connectorType: 'my-server',
+          tool: 'search',
           message: '[object Object]',
         })
       );
