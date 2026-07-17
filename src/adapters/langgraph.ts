@@ -76,8 +76,15 @@ export class WorkflowApprovalRequiredError extends AxonFlowError {
  */
 export interface MCPInterceptorOptions {
   /**
-   * Optional function that maps an MCP request to a connector type string.
-   * Defaults to `${request.serverName}.${request.name}`.
+   * Optional function that maps an MCP request to a connector type string
+   * identifying the MCP server. Defaults to `request.serverName`.
+   *
+   * This identifies the server only — the tool name is reported
+   * separately via the `tool` field on `mcpCheckInput`/`mcpCheckOutput`
+   * (epic #2905 / #2904 two-field identity contract). Do not concatenate
+   * server and tool name into this string; use a custom `connectorTypeFn`
+   * only if you need to override how the server identity itself is
+   * derived.
    */
   connectorTypeFn?: (request: any) => string;
   /**
@@ -483,13 +490,14 @@ export class AxonFlowLangGraphAdapter {
     const operation = opts?.operation ?? 'execute';
 
     const defaultConnectorType = (request: any): string => {
-      return `${request.serverName}.${request.name}`;
+      return request.serverName;
     };
 
     const resolveConnectorType = opts?.connectorTypeFn ?? defaultConnectorType;
 
     return async (request: any, handler: (request: any) => Promise<any>): Promise<any> => {
       const connectorType = resolveConnectorType(request);
+      const tool = request.name;
       let argsStr = '{}';
       if (request.args) {
         try {
@@ -498,10 +506,11 @@ export class AxonFlowLangGraphAdapter {
           argsStr = String(request.args);
         }
       }
-      const statement = `${connectorType}(${argsStr})`;
+      const statement = `${connectorType}.${tool}(${argsStr})`;
 
       const preCheck = await this.client.mcpCheckInput({
         connectorType,
+        tool,
         statement,
         operation,
         parameters: request.args,
@@ -522,6 +531,7 @@ export class AxonFlowLangGraphAdapter {
 
       const outputCheck = await this.client.mcpCheckOutput({
         connectorType,
+        tool,
         message: resultStr,
       });
 
