@@ -115,6 +115,10 @@ export interface AuditToolCallRequest {
    * Name of the client/caller that made the tool call (e.g. "claude_code",
    * "codex", "cursor", "openclaw"). Replaces the misleadingly-named
    * `toolType` field (getaxonflow/axonflow-enterprise#2912).
+   *
+   * Requires a platform with caller_name support (v9.11.0+); older platforms
+   * silently drop this field, so also set `toolType` if you need attribution
+   * there.
    */
   callerName?: string;
   /** Input parameters passed to the tool */
