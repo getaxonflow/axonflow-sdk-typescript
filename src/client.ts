@@ -2319,7 +2319,7 @@ export class AxonFlow {
    * ```typescript
    * const result = await axonflow.auditToolCall({
    *   toolName: 'search_database',
-   *   toolType: 'function',
+   *   callerName: 'claude_code',
    *   input: { query: 'SELECT * FROM users' },
    *   output: { rows: 42 },
    *   workflowId: 'wf-123',
@@ -2338,6 +2338,7 @@ export class AxonFlow {
       tool_name: request.toolName,
     };
     if (request.toolType !== undefined) body.tool_type = request.toolType;
+    if (request.callerName !== undefined) body.caller_name = request.callerName;
     if (request.input !== undefined) body.input = request.input;
     if (request.output !== undefined) body.output = request.output;
     if (request.workflowId !== undefined) body.workflow_id = request.workflowId;

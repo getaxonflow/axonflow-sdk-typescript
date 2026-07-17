@@ -57,6 +57,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tool` on any released platform version yet (tracked by #2955, targeted for
   v9.11.0); the SDK sends it forward-compatibly and current platforms ignore
   it.
+### Added
+
+- **`AuditToolCallRequest.callerName`** — identifies which client made a
+  tool call (e.g. `claude_code`, `codex`, `cursor`, `openclaw`), sent to the
+  orchestrator as `caller_name` (getaxonflow/axonflow-enterprise#2912,
+  sub-issue of epic #2905). Replaces the misleadingly-named `toolType`
+  field, which every real caller used to identify the calling client rather
+  than any property of the tool itself. `toolType` is kept as a deprecated
+  input fallback — not removed, not renamed — so existing callers keep
+  working during the deprecation window; the server resolves `callerName`
+  if supplied, else falls back to legacy `toolType`, else a default.
 
 ## [8.5.1] - 2026-07-09 — getPlanStatus auth + queryConnector user token + example fixes
 
