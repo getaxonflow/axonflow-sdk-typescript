@@ -7,11 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> **This release contains a breaking change and MUST be published as a major
-> version bump.** The `connectorType` wire value emitted by the LangGraph
-> adapter changes from `` `${server}.${tool}` `` to the bare server name;
-> policies matching the old concatenated value stop matching until re-scoped
-> (see the migration note below).
+## [9.0.0] - 2026-07-18
 
 ### Changed (BREAKING)
 
@@ -19,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   separate wire fields instead of concatenating them into `connectorType`.**
   `mcpCheckInput` and `mcpCheckOutput` gain an optional `tool` field, sent
   alongside `connectorType` on the wire, matching the platform's two-field
-  (server, tool) identity contract (epic #2905 / #2904). `mcpToolInterceptor()`
+  (server, tool) identity contract. `mcpToolInterceptor()`
   now sends `connectorType: request.serverName` and `tool: request.name` as
   two distinct values instead of `` `${serverName}.${name}` ``; the default
   `connectorTypeFn` returns the bare `serverName`. `tool` is always sent
@@ -49,21 +45,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   MCP tools.
 
   **Minimum platform.** The `tool` field is consumed on `POST
-  /api/v1/mcp/check-input` by platform **v9.10.0+** (enterprise `c8df2006b`,
-  epic #2905 / #2904). On platforms below v9.10.0 the `tool` field is silently
-  dropped and identity degrades to the bare server name — coarser than the old
-  concatenated value — so **upgrade the platform to v9.10.0+ before adopting
-  this SDK major.** The response plane (`check-output`) does **not** consume
-  `tool` on any released platform version yet (tracked by #2955, targeted for
-  v9.11.0); the SDK sends it forward-compatibly and current platforms ignore
-  it.
+  /api/v1/mcp/check-input` by **AxonFlow platform v9.10.0+**. On platforms
+  below v9.10.0 the `tool` field is silently dropped and identity degrades to
+  the bare server name — coarser than the old concatenated value — so
+  **upgrade the platform to v9.10.0+ before adopting this SDK major.**
+  Response-plane (`check-output`) `tool` scoping requires **AxonFlow platform
+  v9.11.0+**; until then the SDK sends it forward-compatibly and older
+  platforms ignore it.
 
 ### Added
 
 - **`AuditToolCallRequest.callerName`** — identifies which client made a
   tool call (e.g. `claude_code`, `codex`, `cursor`, `openclaw`), sent to the
-  orchestrator as `caller_name` (getaxonflow/axonflow-enterprise#2912,
-  sub-issue of epic #2905). Replaces the misleadingly-named `toolType`
+  orchestrator as `caller_name`. Replaces the misleadingly-named `toolType`
   field, which every real caller used to identify the calling client rather
   than any property of the tool itself. `toolType` is kept as a deprecated
   input fallback — not removed, not renamed — so existing callers keep
