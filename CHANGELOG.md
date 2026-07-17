@@ -7,15 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+> **This release contains a breaking change and MUST be published as a major
+> version bump.** The `connectorType` wire value emitted by the LangGraph
+> adapter changes from `` `${server}.${tool}` `` to the bare server name;
+> policies matching the old concatenated value stop matching until re-scoped
+> (see the migration note below).
 
-- **LangGraph `mcpToolInterceptor()` no longer concatenates the MCP server
-  name and tool name into a single `connectorType` string.** `mcpCheckInput`
-  and `mcpCheckOutput` now accept an optional `tool` field, sent alongside
-  `connectorType` on the wire, matching the platform's two-field
-  (server, tool) identity contract (epic #2905 / #2904). The interceptor
-  sends `connectorType: request.serverName` and `tool: request.name` as two
-  distinct values instead of `` `${serverName}.${name}` ``.
+### Changed (BREAKING)
+
+- **The LangGraph adapter now reports the (server, tool) identity as two
+  separate wire fields instead of concatenating them into `connectorType`.**
+  `mcpCheckInput` and `mcpCheckOutput` gain an optional `tool` field, sent
+  alongside `connectorType` on the wire, matching the platform's two-field
+  (server, tool) identity contract (epic #2905 / #2904). `mcpToolInterceptor()`
+  now sends `connectorType: request.serverName` and `tool: request.name` as
+  two distinct values instead of `` `${serverName}.${name}` ``; the default
+  `connectorTypeFn` returns the bare `serverName`. `tool` is always sent
+  separately and is never folded into `connectorType`, even with a custom
+  `connectorTypeFn`.
+
+  **Migration.** Policies or per-connector settings matching the old
+  concatenated value — e.g. `connectorType == "filesystem.read_file"` — stop
+  matching after upgrade. Re-scope them to match `connectorType ==
+  "filesystem"` together with the `tool` field (e.g. `tool == "read_file"`).
+  The `connectorTypeFn` option is the compatibility lever: a caller can
+  restore any prior `connectorType` value (including the old concatenated
+  form, `` (req) => `${req.serverName}.${req.name}` ``) without losing the
+  separate `tool` field.
+
+  **Statement text also changed** for policies that match on the
+  human-readable `statement`: it is now `` `${connectorType}.${tool}(args)` ``
+  (built from the *resolved* connector type). With a custom `connectorTypeFn`
+  the statement shape shifts from the old `` `${custom}(args)` `` to
+  `` `${custom}.${tool}(args)` ``.
+
+  **Missing-server edge.** With the default resolver, a tool whose
+  `serverName` is empty now sends `connectorType: ''`, which the platform
+  rejects with HTTP 400 → the tool call is blocked (fail-closed), never run
+  ungoverned. Previously the concatenated value was `".tool"` (a non-empty
+  string the platform accepted). Supply a `connectorTypeFn` for server-less
+  MCP tools.
+
+  **Minimum platform.** The `tool` field is consumed on `POST
+  /api/v1/mcp/check-input` by platform **v9.10.0+** (enterprise `c8df2006b`,
+  epic #2905 / #2904). On platforms below v9.10.0 the `tool` field is silently
+  dropped and identity degrades to the bare server name — coarser than the old
+  concatenated value — so **upgrade the platform to v9.10.0+ before adopting
+  this SDK major.** The response plane (`check-output`) does **not** consume
+  `tool` on any released platform version yet (tracked by #2955, targeted for
+  v9.11.0); the SDK sends it forward-compatibly and current platforms ignore
+  it.
 
 ## [8.5.1] - 2026-07-09 — getPlanStatus auth + queryConnector user token + example fixes
 

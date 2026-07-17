@@ -783,6 +783,38 @@ describe('AxonFlowLangGraphAdapter', () => {
       expect(outputCall.connectorType).not.toContain('get_forecast');
     });
 
+    it('sends an empty connectorType (with tool) when serverName is empty (missing-server edge)', async () => {
+      // Missing-server edge (epic #2905): with the default resolver,
+      // connectorType is the server name, so an empty serverName sends
+      // connectorType="" while tool still carries the tool name.
+      //
+      // Documented behavior: a real platform rejects an empty connectorType
+      // with HTTP 400, which the client surfaces as an error — the tool call
+      // is blocked (fail-closed), never run ungoverned. Callers whose MCP
+      // tools have no server must supply a connectorTypeFn. Before the
+      // de-concatenation the old value was ".tool" (a non-empty string the
+      // platform accepted), so this is a deliberate, surfaced change for
+      // server-less tools.
+      (mockClient.mcpCheckInput as jest.Mock).mockResolvedValue({
+        allowed: true,
+        policies_evaluated: 1,
+      } as MCPCheckInputResponse);
+      (mockClient.mcpCheckOutput as jest.Mock).mockResolvedValue({
+        allowed: true,
+        policies_evaluated: 1,
+      } as MCPCheckOutputResponse);
+
+      const handler = jest.fn().mockResolvedValue('ok');
+      const interceptor = adapter.mcpToolInterceptor();
+      const request = makeRequest({ serverName: '', name: 'tool' });
+
+      await interceptor(request, handler);
+
+      const inputCall = (mockClient.mcpCheckInput as jest.Mock).mock.calls[0][0];
+      expect(inputCall.connectorType).toBe('');
+      expect(inputCall.tool).toBe('tool');
+    });
+
     it('should throw PolicyViolationError when input is blocked', async () => {
       (mockClient.mcpCheckInput as jest.Mock).mockResolvedValue({
         allowed: false,
