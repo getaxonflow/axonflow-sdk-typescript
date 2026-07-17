@@ -101,8 +101,22 @@ export interface AuditOptions {
 export interface AuditToolCallRequest {
   /** Name of the tool that was called */
   toolName: string;
-  /** Type of tool: "function", "mcp", or "api" */
+  /**
+   * Type of tool: "function", "mcp", or "api"
+   *
+   * @deprecated Use `callerName` instead. `toolType` was misleadingly named —
+   * every real caller (claude_code/codex/cursor/openclaw) used it to identify
+   * WHICH CLIENT made the call, not any property of the tool itself. Kept as
+   * a deprecated input fallback for backward compatibility; the server
+   * resolves `callerName` if supplied, else falls back to this field.
+   */
   toolType?: string;
+  /**
+   * Name of the client/caller that made the tool call (e.g. "claude_code",
+   * "codex", "cursor", "openclaw"). Replaces the misleadingly-named
+   * `toolType` field (getaxonflow/axonflow-enterprise#2912).
+   */
+  callerName?: string;
   /** Input parameters passed to the tool */
   input?: Record<string, unknown>;
   /** Output returned by the tool */

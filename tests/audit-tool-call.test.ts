@@ -105,6 +105,7 @@ describe('auditToolCall', () => {
     expect(callBody.tool_name).toBe('ping');
     // Optional fields should not be present
     expect(callBody.tool_type).toBeUndefined();
+    expect(callBody.caller_name).toBeUndefined();
     expect(callBody.input).toBeUndefined();
     expect(callBody.output).toBeUndefined();
     expect(callBody.workflow_id).toBeUndefined();
@@ -151,6 +152,69 @@ describe('auditToolCall', () => {
     // `orchestratorRequest` or `_fetch` adds status-code-based retry
     // that includes 401, this assertion fails.
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  // getaxonflow/axonflow-enterprise#2912: tool_type was misleadingly named —
+  // every real caller used it to identify WHICH CLIENT made the call, not any
+  // property of the tool. callerName is the new, correctly-named field;
+  // toolType is kept as a deprecated fallback (not removed, not renamed).
+  it('should send callerName as caller_name in the request body', async () => {
+    mockFetch.mockReturnValueOnce(
+      mockResponse({
+        audit_id: 'audit-tc-004',
+        status: 'recorded',
+        timestamp: '2026-07-16T10:00:00Z',
+      })
+    );
+
+    await client.auditToolCall({
+      toolName: 'search_database',
+      callerName: 'claude_code',
+    });
+
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.caller_name).toBe('claude_code');
+    // Legacy field must not be invented when the caller didn't supply it.
+    expect(callBody.tool_type).toBeUndefined();
+  });
+
+  it('should still send toolType standalone (deprecated, backward-compatible)', async () => {
+    mockFetch.mockReturnValueOnce(
+      mockResponse({
+        audit_id: 'audit-tc-005',
+        status: 'recorded',
+        timestamp: '2026-07-16T10:01:00Z',
+      })
+    );
+
+    await client.auditToolCall({
+      toolName: 'search_database',
+      toolType: 'function',
+    });
+
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.tool_type).toBe('function');
+    expect(callBody.caller_name).toBeUndefined();
+  });
+
+  it('should send both toolType and callerName when both are supplied', async () => {
+    mockFetch.mockReturnValueOnce(
+      mockResponse({
+        audit_id: 'audit-tc-006',
+        status: 'recorded',
+        timestamp: '2026-07-16T10:02:00Z',
+      })
+    );
+
+    await client.auditToolCall({
+      toolName: 'search_database',
+      toolType: 'function',
+      callerName: 'codex',
+    });
+
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.tool_type).toBe('function');
+    expect(callBody.caller_name).toBe('codex');
   });
 
   it('should include error_message for failed tool calls', async () => {
