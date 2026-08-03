@@ -3091,6 +3091,10 @@ export class AxonFlow {
     if (request?.startTime) body.start_time = request.startTime.toISOString();
     if (request?.endTime) body.end_time = request.endTime.toISOString();
     if (request?.requestType) body.request_type = request.requestType;
+    // #3254: `action` is the filter the 9.x server actually reads (verdict
+    // normalization server-side). request_type keeps serializing above for
+    // back-compat - the server ignores it (silent no-op).
+    if (request?.action) body.action = request.action;
     if (request?.decisionId) body.decision_id = request.decisionId;
     if (request?.policyName) body.policy_name = request.policyName;
     if (request?.overrideId) body.override_id = request.overrideId;
@@ -3209,6 +3213,16 @@ export class AxonFlow {
       latencyMs: (data.latency_ms as number) ?? 0,
       policyViolations: (data.policy_violations as string[]) ?? [],
       metadata: (data.metadata as Record<string, unknown>) ?? {},
+      // #3254 real wire fields. Optional on the model, so absence on an old
+      // server or a non-LLM plane leaves them undefined rather than
+      // fabricating defaults. policy_decision is an OPEN string set
+      // (allowed/blocked/redacted named in the struct, "error" observed
+      // live) - no enum narrowing here.
+      ...(data.policy_decision != null && { policyDecision: data.policy_decision as string }),
+      ...(data.policy_details != null && {
+        policyDetails: data.policy_details as Record<string, unknown>,
+      }),
+      ...(data.response_time_ms != null && { responseTimeMs: data.response_time_ms as number }),
       ...(data.data_residency != null && { dataResidency: data.data_residency as string }),
       // Cast is compile-time only — the value is surfaced verbatim, so an
       // unknown future transfer-basis value still passes through (v8.4.0).

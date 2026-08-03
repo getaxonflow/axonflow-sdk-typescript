@@ -20,7 +20,9 @@ on:
     paths:
       - 'src/**/*.ts'
       - 'tests/fixtures/wire-shape-baseline.json'
+      - 'tests/fixtures/audit-binding-spec.json'
       - 'scripts/wire-shape/**'
+      - 'scripts/audit-binding/**'
       - '.github/workflows/wire-shape-contract.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -29,7 +31,9 @@ on:
     paths:
       - 'src/**/*.ts'
       - 'tests/fixtures/wire-shape-baseline.json'
+      - 'tests/fixtures/audit-binding-spec.json'
       - 'scripts/wire-shape/**'
+      - 'scripts/audit-binding/**'
       - '.github/workflows/wire-shape-contract.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -125,6 +129,19 @@ jobs:
         env:
           AXONFLOW_OPENAPI_SPECS_DIR: ${{ github.workspace }}/axonflow-community/docs/api
         run: node scripts/wire-shape/validate.js
+
+      - name: Run audit-surface binding gate (#3254)
+        # Unlike the recording wire-shape baseline, this gate BINDS the
+        # audit model to the pinned spec: every wire field the model
+        # declares (via its transformer mapping in client.ts) must exist
+        # in the OpenAPI schema; unresolvable bindings FAIL rather than
+        # skip. The seven deprecated fiction fields + request_type are
+        # carried as curated, noted debt. The vendored fixture keeps the
+        # gate running without this env var; setting it here additionally
+        # cross-checks the fixture against the live pinned spec.
+        env:
+          AXONFLOW_OPENAPI_SPECS_DIR: ${{ github.workspace }}/axonflow-community/docs/api
+        run: node scripts/audit-binding/check.js
 
       - name: Run transformer-coverage gate (type-vs-implementation)
         # Catches the class of bug where a typed wire field exists on

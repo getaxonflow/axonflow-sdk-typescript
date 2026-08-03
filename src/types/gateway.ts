@@ -245,8 +245,14 @@ export interface AuditSearchRequest {
   startTime?: Date;
   /** End of time range to search */
   endTime?: Date;
-  /** Filter by request type (e.g., "llm_chat", "policy_check") */
+  /**
+   * @deprecated The 9.x server does not read this filter; a search filtered
+   * only by it returns unfiltered results. Use `action`. Scheduled for
+   * removal in the next major (#3254).
+   */
   requestType?: string;
+  /** Filters by action/request type with verdict normalization on the server side. */
+  action?: string;
   /**
    * Filter by decision ID (ADR-043). Gathers every audit record tied to
    * a single decision — the explain flow's cross-reference pivot.
@@ -307,13 +313,32 @@ export interface AuditLogEntry {
   tenantId: string;
   /** Type of request (e.g., "llm_chat", "sql", "mcp-query") */
   requestType: string;
-  /** Summary of the query/request */
+  /**
+   * @deprecated Never populated on the 9.x line - the server has never sent
+   * this field (getaxonflow/axonflow-enterprise#3254). The wire carries
+   * `query`/`query_hash`, not modeled in this interim. Scheduled for removal
+   * in the next major.
+   */
   querySummary: string;
-  /** Whether the request succeeded */
+  /**
+   * @deprecated Never populated on the 9.x line - the server has never sent
+   * this field (getaxonflow/axonflow-enterprise#3254). Read `policyDecision`
+   * for the verdict ("allowed" replaces `success=true`). Scheduled for
+   * removal in the next major.
+   */
   success: boolean;
-  /** Whether the request was blocked by policy */
+  /**
+   * @deprecated Never populated on the 9.x line - the server has never sent
+   * this field (getaxonflow/axonflow-enterprise#3254). Read `policyDecision`
+   * for the verdict ("blocked" replaces `blocked=true`). Scheduled for
+   * removal in the next major.
+   */
   blocked: boolean;
-  /** Calculated risk score (0.0-1.0) */
+  /**
+   * @deprecated Never populated on the 9.x line - the server has never sent
+   * this field (getaxonflow/axonflow-enterprise#3254). No wire equivalent.
+   * Scheduled for removal in the next major.
+   */
   riskScore: number;
   /** LLM provider used (if applicable) */
   provider: string;
@@ -321,12 +346,47 @@ export interface AuditLogEntry {
   model: string;
   /** Total tokens consumed */
   tokensUsed: number;
-  /** Request latency in milliseconds */
+  /**
+   * @deprecated Never populated on the 9.x line - the server has never sent
+   * this field (getaxonflow/axonflow-enterprise#3254). Read `responseTimeMs`
+   * (wire `response_time_ms`) for latency. Scheduled for removal in the
+   * next major.
+   */
   latencyMs: number;
-  /** List of violated policy IDs (if any) */
+  /**
+   * @deprecated Never populated on the 9.x line - the server has never sent
+   * this field (getaxonflow/axonflow-enterprise#3254). Read `policyDetails`
+   * (wire `policy_details`) for violation context. Scheduled for removal in
+   * the next major.
+   */
   policyViolations: string[];
-  /** Additional context */
+  /**
+   * @deprecated Never populated on the 9.x line - the server has never sent
+   * this field (getaxonflow/axonflow-enterprise#3254). The wire carries
+   * `policy_details`/`security_metrics` instead. Scheduled for removal in
+   * the next major.
+   */
   metadata: Record<string, unknown>;
+  /**
+   * Verdict for the request as served on the wire (`policy_decision`).
+   * Open string set: `allowed`/`blocked`/`redacted` are named in the
+   * orchestrator struct and `error` has been observed live, so this is
+   * documented as a string, NOT an enum. Absent from old servers and
+   * some planes.
+   */
+  policyDecision?: string;
+  /**
+   * Nested decision detail exactly as the writer stored it (wire
+   * `policy_details`): policy_ids / reasons / latency_ms plus
+   * writer-specific keys. Treat keys as writer-specific. Absent from old
+   * servers and some planes.
+   */
+  policyDetails?: Record<string, unknown>;
+  /**
+   * Server-measured response time in milliseconds (wire
+   * `response_time_ms`, int64). Absent from old servers and some planes.
+   */
+  responseTimeMs?: number;
   /** ISO 3166-1 alpha-2 country code for data residency (cross-border transfer logging). */
   dataResidency?: string;
   /**

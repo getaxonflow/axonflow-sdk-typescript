@@ -1,0 +1,57 @@
+{
+  "_comment": "Audit-surface schemas vendored from the pinned OpenAPI specs so the binding gate always runs (no env-dependent skip). Regenerate with: AXONFLOW_OPENAPI_SPECS_DIR=<docs/api at the pinned SHA> node scripts/audit-binding/check.js --vendor",
+  "openapi_specs_sha": "df027c788b60c18d044278c45aa4bce3a1ac8717",
+  "schemas": {
+    "AuditLogEntry": [
+      "client_id",
+      "compliance_flags",
+      "correlation_id",
+      "cost",
+      "data_residency",
+      "decision_id",
+      "error_message",
+      "id",
+      "model",
+      "org_id",
+      "plane",
+      "policy_decision",
+      "policy_details",
+      "provider",
+      "query",
+      "query_hash",
+      "redacted_fields",
+      "request_id",
+      "request_type",
+      "response_sample",
+      "response_time_ms",
+      "security_metrics",
+      "session_id",
+      "tenant_id",
+      "timestamp",
+      "tokens_used",
+      "transfer_basis",
+      "user_email",
+      "user_id",
+      "user_role"
+    ],
+    "AuditSearchRequest": [
+      "action",
+      "client_id",
+      "decision_id",
+      "end_time",
+      "limit",
+      "offset",
+      "override_id",
+      "policy_name",
+      "session_id",
+      "start_time",
+      "user_email"
+    ],
+    "AuditSearchResponse": [
+      "entries",
+      "limit",
+      "offset",
+      "total"
+    ]
+  }
+}
