@@ -47,6 +47,12 @@ async function main() {
     if (chatResult.policyInfo) {
       console.log(`   Policies Evaluated: ${chatResult.policyInfo.policiesEvaluated.length}`);
     }
+    if (!chatResult.success) {
+      // proxyLLMCall reports failures in-band (200 + success:false), not
+      // only as throws - printing "Success: false" and exiting 0 hides them.
+      console.log(`   Failure detail: ${chatResult.error ?? 'unknown error'}`);
+      process.exitCode = 1;
+    }
   } catch (error) {
     console.log(`   Error: ${error instanceof Error ? error.message : error}`);
     if (!(error instanceof PolicyViolationError)) {
@@ -72,6 +78,10 @@ async function main() {
     console.log(`   Success: ${contextResult.success}`);
     if (contextResult.metadata) {
       console.log(`   Metadata: ${JSON.stringify(contextResult.metadata)}`);
+    }
+    if (!contextResult.success) {
+      console.log(`   Failure detail: ${contextResult.error ?? 'unknown error'}`);
+      process.exitCode = 1;
     }
   } catch (error) {
     console.log(`   Error: ${error instanceof Error ? error.message : error}`);
@@ -130,6 +140,10 @@ async function main() {
     });
     console.log(`   Success: ${sqlResult.success}`);
     console.log(`   Blocked: ${sqlResult.blocked}`);
+    if (!sqlResult.success) {
+      console.log(`   Failure detail: ${sqlResult.error ?? 'unknown error'}`);
+      process.exitCode = 1;
+    }
   } catch (error) {
     console.log(`   Error: ${error instanceof Error ? error.message : error}`);
     if (!(error instanceof PolicyViolationError)) {
@@ -154,6 +168,12 @@ async function main() {
     });
     console.log(`   Success: ${mcpResult.success}`);
     console.log(`   Has Data: ${!!mcpResult.data}`);
+    if (!mcpResult.success) {
+      // Same in-band failure channel as queryConnector: a failed connector
+      // query comes back 200 + success:false, not as a throw.
+      console.log(`   Failure detail: ${mcpResult.error ?? 'unknown error'}`);
+      process.exitCode = 1;
+    }
   } catch (error) {
     console.log(`   Error: ${error instanceof Error ? error.message : error}`);
     if (!(error instanceof PolicyViolationError)) {
@@ -162,8 +182,17 @@ async function main() {
   }
 
   console.log('\n' + '='.repeat(60));
-  console.log('Example completed!');
+  if (process.exitCode === 1) {
+    console.log('Example completed with failures');
+  } else {
+    console.log('Example completed!');
+  }
   console.log('='.repeat(60));
 }
 
-main().catch(console.error);
+// catch(console.error) alone would swallow the failure and exit 0 - an
+// unreachable stack would then read as a green run.
+main().catch(error => {
+  console.error(error);
+  process.exit(1);
+});

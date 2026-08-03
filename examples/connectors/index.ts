@@ -41,6 +41,7 @@ async function main() {
     });
   } catch (error) {
     console.log('⚠ Could not list connectors:', (error as Error).message);
+    process.exitCode = 1;
   }
 
   // Install connector
@@ -63,6 +64,7 @@ async function main() {
       console.log('✓ Connector installed successfully!');
     } catch (error) {
       console.log('⚠ Install failed:', (error as Error).message);
+      process.exitCode = 1;
     }
   } else {
     console.log('⚠ Skipping (AMADEUS_API_KEY and AMADEUS_API_SECRET not set)');
@@ -96,7 +98,11 @@ async function main() {
     }
   }
 
-  console.log('\n✅ Connector examples completed');
+  if (process.exitCode === 1) {
+    console.log('\n⚠ Connector examples completed with failures');
+  } else {
+    console.log('\n✅ Connector examples completed');
+  }
 }
 
 main().catch(error => {
