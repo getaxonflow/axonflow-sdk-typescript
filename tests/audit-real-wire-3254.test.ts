@@ -217,6 +217,10 @@ describe('#3254 audit real-wire fields', () => {
     it('null redacted_fields/compliance_flags/security_metrics on the wire do not crash the parse', async () => {
       // HAND-MODIFIED variant of the live capture (these unmapped wire
       // fields arrive as JSON null from the real server already).
+      // NOTE: this test has no discriminating power today - the audit
+      // parse path never references these wire fields, so it can only
+      // pin tolerance against a FUTURE dereference of them, not any
+      // current behavior. Do not mistake it for coverage of these fields.
       const nulled = JSON.parse(JSON.stringify(liveCapture)) as {
         entries: Record<string, unknown>[];
       };

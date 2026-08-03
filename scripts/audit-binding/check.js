@@ -196,34 +196,26 @@ function extractReadModelBindings(method) {
         addBinding(bindings, name, collectAccesses(prop.initializer, 'data'));
       } else if (ts.isSpreadAssignment(prop)) {
         // Shape: ...(data.x != null && { modelProp: data.x as T })
-        const spreadWires = collectAccesses(prop.expression, 'data');
         let sawInner = false;
         function findInner(n) {
           if (ts.isObjectLiteralExpression(n)) {
             sawInner = true;
-            const assignments = n.properties.filter(
-              (p) => ts.isPropertyAssignment(p) && p.name
-            );
-            for (const inner of assignments) {
+            for (const inner of n.properties) {
+              if (!ts.isPropertyAssignment(inner) || !inner.name) continue;
               const name = inner.name.text || inner.name.escapedText?.toString();
               if (!name) continue;
-              const wires = collectAccesses(inner.initializer, 'data');
-              // R3 round 1 evasion fix: a property with no `data.` access of
-              // its own may inherit the spread condition's accesses ONLY when
-              // it is the sole property of the inner literal (the
-              // `...(data.x != null && { prop: data.x as T })` idiom, where
-              // the guard IS the property's wire evidence). In a multi-
-              // property inner literal that inheritance let a pure fiction
-              // field ride an existing spread's guard past the gate; such a
-              // property now binds to NOTHING and fails closed as
-              // unresolvable downstream.
-              if (wires.size > 0) {
-                addBinding(bindings, name, wires);
-              } else if (assignments.length === 1) {
-                addBinding(bindings, name, spreadWires);
-              } else {
-                addBinding(bindings, name, []);
-              }
+              // R3 rounds 1+2: an inner property binds ONLY through the
+              // `data.` accesses in its OWN initializer - never by
+              // inheriting the spread condition's accesses. Round 1 allowed
+              // inheritance for a single-property inner literal; round 2
+              // showed that carve-out was a live bypass (a lone
+              // `{ fictionOnly: 'made-up' }` inside an existing guard bound
+              // fiction to the guard's wire field) AND unnecessary (every
+              // legitimate conditional-spread property reads its wire field
+              // in its own initializer, so the clean tree passes without
+              // it). A property with no own access binds to nothing and
+              // fails closed as unresolvable downstream.
+              addBinding(bindings, name, collectAccesses(inner.initializer, 'data'));
             }
             return;
           }
