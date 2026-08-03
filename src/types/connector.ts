@@ -151,6 +151,16 @@ export interface ConnectorResponse {
  */
 export interface MCPCheckInputOptions {
   connectorType: string;
+  /**
+   * Optional tool identity, distinct from `connectorType`. Maps to the
+   * `tool` field on the wire (epic #2905 / #2904 two-field identity
+   * contract). Use this to carry the specific tool/operation name (e.g.
+   * an MCP tool name) while `connectorType` identifies the server or
+   * connector it belongs to — do not concatenate the two into a single
+   * string. Omitted from the request body when empty/undefined.
+   * Source of truth: platform/agent MCPCheckInputRequest.
+   */
+  tool?: string;
   statement: string;
   parameters?: Record<string, any>;
   operation?: string;
@@ -250,6 +260,19 @@ export interface MCPCheckInputResponse {
  */
 export interface MCPCheckOutputOptions {
   connectorType: string;
+  /**
+   * Optional tool identity, distinct from `connectorType`. Mirrors
+   * {@link MCPCheckInputOptions.tool} for the response-phase check.
+   * Omitted from the request body when empty/undefined. **Note:** unlike
+   * `MCPCheckInputRequest`, the platform's `MCPCheckOutputRequest`
+   * (`platform/agent/mcp_handler.go`) does not yet have a matching `tool`
+   * field (epic #2905 / #2904 only added the input-phase field) — sending
+   * this is forward-compatible and harmless (the platform's JSON decoder
+   * silently ignores unrecognized keys), but it is not yet consumed
+   * server-side. Wire it up for real once/if a future sub-issue adds
+   * response-phase tool identity.
+   */
+  tool?: string;
   responseData?: Record<string, any>[];
   message?: string;
   metadata?: Record<string, any>;

@@ -3100,6 +3100,92 @@ describe('AxonFlow Client Unit Tests', () => {
         const body = JSON.parse(callArgs[1].body);
         expect(body.operation).toBe('query');
       });
+
+      it('should include tool field on the wire when provided', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              allowed: true,
+              policies_evaluated: 1,
+            }),
+        });
+
+        await client.mcpCheckInput({
+          connectorType: 'weather-mcp',
+          tool: 'get_forecast',
+          statement: 'weather-mcp.get_forecast({})',
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1].body);
+        expect(body.connector_type).toBe('weather-mcp');
+        expect(body.tool).toBe('get_forecast');
+      });
+
+      it('should omit tool field when not provided', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              allowed: true,
+              policies_evaluated: 1,
+            }),
+        });
+
+        await client.mcpCheckInput({
+          connectorType: 'postgres',
+          statement: 'SELECT 1',
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1].body);
+        expect(body.tool).toBeUndefined();
+      });
+    });
+
+    describe('mcpCheckOutput', () => {
+      it('should include tool field on the wire when provided', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              allowed: true,
+              policies_evaluated: 1,
+            }),
+        });
+
+        await client.mcpCheckOutput({
+          connectorType: 'weather-mcp',
+          tool: 'get_forecast',
+          message: '{"temp": 72}',
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1].body);
+        expect(body.connector_type).toBe('weather-mcp');
+        expect(body.tool).toBe('get_forecast');
+      });
+
+      it('should omit tool field when not provided', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              allowed: true,
+              policies_evaluated: 1,
+            }),
+        });
+
+        await client.mcpCheckOutput({
+          connectorType: 'postgres',
+          message: 'result',
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1].body);
+        expect(body.tool).toBeUndefined();
+      });
     });
   });
 });

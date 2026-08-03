@@ -1521,6 +1521,9 @@ export class AxonFlow {
       connector_type: options.connectorType,
       statement: options.statement,
     };
+    if (options.tool) {
+      body.tool = options.tool;
+    }
     if (options.parameters) {
       body.parameters = options.parameters;
     }
@@ -1600,6 +1603,9 @@ export class AxonFlow {
     const body: Record<string, any> = {
       connector_type: options.connectorType,
     };
+    if (options.tool) {
+      body.tool = options.tool;
+    }
     if (options.responseData !== undefined) {
       body.response_data = options.responseData;
     }
@@ -2313,7 +2319,7 @@ export class AxonFlow {
    * ```typescript
    * const result = await axonflow.auditToolCall({
    *   toolName: 'search_database',
-   *   toolType: 'function',
+   *   callerName: 'claude_code',
    *   input: { query: 'SELECT * FROM users' },
    *   output: { rows: 42 },
    *   workflowId: 'wf-123',
@@ -2332,6 +2338,7 @@ export class AxonFlow {
       tool_name: request.toolName,
     };
     if (request.toolType !== undefined) body.tool_type = request.toolType;
+    if (request.callerName !== undefined) body.caller_name = request.callerName;
     if (request.input !== undefined) body.input = request.input;
     if (request.output !== undefined) body.output = request.output;
     if (request.workflowId !== undefined) body.workflow_id = request.workflowId;
