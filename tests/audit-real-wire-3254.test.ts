@@ -165,6 +165,73 @@ describe('#3254 audit real-wire fields', () => {
     });
   });
 
+  describe('explicit-null wire values (hand-modified capture)', () => {
+    // R3 round 1: mutation analysis showed that weakening the transformer's
+    // `data.policy_details != null` guard to `!== undefined` (which leaks
+    // `policyDetails: null`, violating the optional Record type) left every
+    // other test in this file green. These tests pin explicit-null
+    // tolerance: a server sending JSON null for the #3254 fields must
+    // yield ABSENT keys (undefined), never a null property value.
+    it('explicit null policy_details/policy_decision/response_time_ms -> key absent, undefined, no crash', async () => {
+      // HAND-MODIFIED variant of the live capture: the three #3254 wire
+      // fields are set to explicit JSON null.
+      const nulled = JSON.parse(JSON.stringify(liveCapture)) as {
+        entries: Record<string, unknown>[];
+      };
+      for (const e of nulled.entries) {
+        e.policy_details = null;
+        e.policy_decision = null;
+        e.response_time_ms = null;
+      }
+      mockFetch.mockReturnValueOnce(mockResponse(nulled));
+
+      const result = await client.searchAuditLogs({ limit: 10 });
+      expect(result.entries).toHaveLength(2);
+      for (const entry of result.entries) {
+        expect(entry.policyDetails).toBeUndefined();
+        expect('policyDetails' in entry).toBe(false);
+        expect(entry.policyDecision).toBeUndefined();
+        expect('policyDecision' in entry).toBe(false);
+        expect(entry.responseTimeMs).toBeUndefined();
+        expect('responseTimeMs' in entry).toBe(false);
+        expect(entry.tenantId).toBe('community');
+      }
+    });
+
+    it('explicit null on deprecated fields falls back to their historical defaults (?? path)', async () => {
+      // HAND-MODIFIED variant of the live capture.
+      const nulled = JSON.parse(JSON.stringify(liveCapture)) as {
+        entries: Record<string, unknown>[];
+      };
+      nulled.entries[0].metadata = null;
+      nulled.entries[0].policy_violations = null;
+      nulled.entries[0].success = null;
+      mockFetch.mockReturnValueOnce(mockResponse(nulled));
+
+      const result = await client.searchAuditLogs({ limit: 10 });
+      expect(result.entries[0].metadata).toEqual({});
+      expect(result.entries[0].policyViolations).toEqual([]);
+      expect(result.entries[0].success).toBe(true);
+    });
+
+    it('null redacted_fields/compliance_flags/security_metrics on the wire do not crash the parse', async () => {
+      // HAND-MODIFIED variant of the live capture (these unmapped wire
+      // fields arrive as JSON null from the real server already).
+      const nulled = JSON.parse(JSON.stringify(liveCapture)) as {
+        entries: Record<string, unknown>[];
+      };
+      for (const e of nulled.entries) {
+        e.redacted_fields = null;
+        e.compliance_flags = null;
+        e.security_metrics = null;
+      }
+      mockFetch.mockReturnValueOnce(mockResponse(nulled));
+
+      const result = await client.searchAuditLogs({ limit: 10 });
+      expect(result.entries).toHaveLength(2);
+    });
+  });
+
   describe('search request serialization', () => {
     it('serializes action to `action` and keeps requestType serializing to `request_type`', async () => {
       mockFetch.mockReturnValueOnce(mockResponse({ entries: [], total: 0, limit: 100, offset: 0 }));

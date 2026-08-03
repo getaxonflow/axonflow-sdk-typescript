@@ -30,6 +30,12 @@
  * Spec fields the model does not cover are reported as INFORMATIONAL
  * (additive coverage gaps, not contract violations).
  *
+ * DESIGN LIMIT (accepted): the gate binds by wire-name EXISTENCE, not
+ * semantics. A model property whose transformer maps it to an existing
+ * but WRONG wire name (e.g. a latency prop reading `tokens_used`) passes
+ * this gate; only the value-level tests (real-capture fixtures and the
+ * runtime-e2e suite) can catch that class.
+ *
  * Spec source: tests/fixtures/audit-binding-spec.json, vendored from the
  * OpenAPI specs at the SHA pinned in tests/fixtures/wire-shape-baseline.json
  * so the gate ALWAYS runs (no env-dependent skip). When
@@ -195,12 +201,28 @@ function extractReadModelBindings(method) {
         function findInner(n) {
           if (ts.isObjectLiteralExpression(n)) {
             sawInner = true;
-            for (const inner of n.properties) {
-              if (ts.isPropertyAssignment(inner) && inner.name) {
-                const name = inner.name.text || inner.name.escapedText?.toString();
-                if (!name) continue;
-                const wires = collectAccesses(inner.initializer, 'data');
-                addBinding(bindings, name, wires.size > 0 ? wires : spreadWires);
+            const assignments = n.properties.filter(
+              (p) => ts.isPropertyAssignment(p) && p.name
+            );
+            for (const inner of assignments) {
+              const name = inner.name.text || inner.name.escapedText?.toString();
+              if (!name) continue;
+              const wires = collectAccesses(inner.initializer, 'data');
+              // R3 round 1 evasion fix: a property with no `data.` access of
+              // its own may inherit the spread condition's accesses ONLY when
+              // it is the sole property of the inner literal (the
+              // `...(data.x != null && { prop: data.x as T })` idiom, where
+              // the guard IS the property's wire evidence). In a multi-
+              // property inner literal that inheritance let a pure fiction
+              // field ride an existing spread's guard past the gate; such a
+              // property now binds to NOTHING and fails closed as
+              // unresolvable downstream.
+              if (wires.size > 0) {
+                addBinding(bindings, name, wires);
+              } else if (assignments.length === 1) {
+                addBinding(bindings, name, spreadWires);
+              } else {
+                addBinding(bindings, name, []);
               }
             }
             return;
@@ -379,7 +401,18 @@ function loadSpecSchemas() {
     );
   }
   const specsDir = process.env.AXONFLOW_OPENAPI_SPECS_DIR;
-  if (specsDir && fs.existsSync(specsDir) && fs.statSync(specsDir).isDirectory()) {
+  if (specsDir && (!fs.existsSync(specsDir) || !fs.statSync(specsDir).isDirectory())) {
+    // R3 round 1: a set-but-broken specs dir must not silently downgrade
+    // to vendored-only mode - in CI that would skip the fixture-vs-live
+    // cross-check while looking green. Env UNSET remains the designed
+    // vendored-only local mode.
+    throw new Error(
+      `audit-binding: AXONFLOW_OPENAPI_SPECS_DIR is set to '${specsDir}' but that is not ` +
+        'an existing directory. Fix the path (or unset the variable for vendored-only mode); ' +
+        'refusing to skip the fixture-vs-live-spec cross-check silently.'
+    );
+  }
+  if (specsDir) {
     const { merged } = loadAllSchemas(specsDir);
     for (const { type } of SURFACE) {
       const live = merged[type];
