@@ -320,13 +320,10 @@
         "error_message",
         "org_id",
         "plane",
-        "policy_decision",
-        "policy_details",
         "query",
         "query_hash",
         "redacted_fields",
         "response_sample",
-        "response_time_ms",
         "security_metrics",
         "session_id",
         "user_id",
@@ -338,7 +335,6 @@
         "request_type"
       ],
       "spec_only": [
-        "action",
         "session_id"
       ]
     },

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Real wire fields `policyDecision` (`policy_decision`), `policyDetails`
+  (`policy_details`), `responseTimeMs` (`response_time_ms`) on the audit
+  read model (`AuditLogEntry`), and `action` on audit search
+  (`AuditSearchRequest`). All optional; an old server or a non-LLM plane
+  omitting them leaves them `undefined`
+  (getaxonflow/axonflow-enterprise#3254).
+- Audit-surface binding gate (`scripts/audit-binding/check.js`): binds
+  model properties through their transformer mappings to the pinned
+  OpenAPI schemas, fails closed on unresolvable bindings, and names the
+  deprecated fiction fields as curated debt.
+
 - **`AuditToolCallRequest.callerName`** — identifies which client made a
   tool call (e.g. `claude_code`, `codex`, `cursor`, `openclaw`), sent to the
   orchestrator as `caller_name` (getaxonflow/axonflow-enterprise#2912,
@@ -21,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `"unknown"` for an unidentified caller (getaxonflow/axonflow-enterprise#2903
   — an unidentified caller is no longer silently attributed to the specific
   client `"claude_code"`).
+
+### Deprecated
+
+- `querySummary`/`success`/`blocked`/`riskScore`/`latencyMs`/
+  `policyViolations`/`metadata` (read model) and `requestType` (search
+  request) - never served/read on the 9.x line
+  (getaxonflow/axonflow-enterprise#3254). Removal rides the next major.
 
 ## [9.0.0] - 2026-07-18
 
