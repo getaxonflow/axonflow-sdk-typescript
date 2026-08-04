@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- masfeat real wire fields (#3254 pin-advance batch): `orgId`,
+  `highMateriality`, `mediumMateriality`, `lowMateriality`,
+  `assessmentsDue`, `killSwitchesTriggered` on `RegistrySummary`;
+  `ownerEmail`, `riskRatingImpact`, `riskRatingComplexity`,
+  `riskRatingReliance` on `AISystemRegistry`; `triggerReason`,
+  `triggerConditions`, `restoreReason` on `KillSwitch`. All optional; an
+  old server omitting them leaves them `undefined`
+  (getaxonflow/axonflow-enterprise#3254).
+- The audit-surface binding gate now also binds the masfeat read models
+  (`RegistrySummary`, `AISystemRegistry`, `KillSwitch`) to the pinned
+  OpenAPI schemas.
 - Real wire fields `policyDecision` (`policy_decision`), `policyDetails`
   (`policy_details`), `responseTimeMs` (`response_time_ms`) on the audit
   read model (`AuditLogEntry`), and `action` on audit search
@@ -35,6 +46,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
+- masfeat fiction fields (#3254 pin-advance batch):
+  `highMaterialityCount`/`mediumMaterialityCount`/`lowMaterialityCount`
+  (populated via fallback from the real `high/medium/low_materiality`
+  wire fields; use `highMateriality` etc.), `byUseCase`/`byStatus`
+  (never served, always `{}`) on `RegistrySummary`; `technicalOwner`
+  (never served), `businessOwner` (fallback from `owner_email`),
+  `customerImpact`/`modelComplexity`/`humanReliance` (fallback from
+  `risk_rating_*`; use `riskRating*`) on `AISystemRegistry`;
+  `triggeredReason` (fallback from `trigger_reason`; use
+  `triggerReason`) on `KillSwitch`. Removal rides the next major.
 - `querySummary`/`success`/`blocked`/`riskScore`/`latencyMs`/
   `policyViolations`/`metadata` (read model) and `requestType` (search
   request) - never served/read on the 9.x line

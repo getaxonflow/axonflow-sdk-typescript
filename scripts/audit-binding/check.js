@@ -36,6 +36,11 @@
  * this gate; only the value-level tests (real-capture fixtures and the
  * runtime-e2e suite) can catch that class.
  *
+ * DESIGN LIMIT (accepted): SURFACE registration is MANUAL. A wire-modeling
+ * interface that is not listed in SURFACE below is invisible to this
+ * binding gate; its only automatic coverage is the wire-shape drift gate,
+ * and that only when its name matches a spec schema.
+ *
  * Spec source: tests/fixtures/audit-binding-spec.json, vendored from the
  * OpenAPI specs at the SHA pinned in tests/fixtures/wire-shape-baseline.json
  * so the gate ALWAYS runs (no env-dependent skip). When
@@ -58,7 +63,7 @@ const ts = require('typescript');
 const { loadAllSchemas } = require('../wire-shape/lib');
 
 const SDK_ROOT = path.resolve(__dirname, '..', '..');
-const GATEWAY_TS = path.join(SDK_ROOT, 'src', 'types', 'gateway.ts');
+const TYPES_DIR = path.join(SDK_ROOT, 'src', 'types');
 const CLIENT_TS = path.join(SDK_ROOT, 'src', 'client.ts');
 const FIXTURE_PATH = path.join(SDK_ROOT, 'tests', 'fixtures', 'audit-binding-spec.json');
 const WIRE_SHAPE_BASELINE = path.join(SDK_ROOT, 'tests', 'fixtures', 'wire-shape-baseline.json');
@@ -90,34 +95,84 @@ const ALLOWED_UNSERVED = {
     request_type:
       '#3254: the 9.x server does not read this filter (silent no-op); use action. Still serialized for back-compat. Deprecated on the model; removal rides the next major.',
   },
+  RegistrySummary: {
+    high_materiality_count:
+      '#3254 pin-advance batch: fiction wire tag, never served on 9.x; the deprecated highMaterialityCount prop reads it first and falls back to the real high_materiality. Use highMateriality. Removal rides the next major.',
+    medium_materiality_count:
+      '#3254 pin-advance batch: fiction wire tag, never served on 9.x; the deprecated mediumMaterialityCount prop reads it first and falls back to the real medium_materiality. Use mediumMateriality. Removal rides the next major.',
+    low_materiality_count:
+      '#3254 pin-advance batch: fiction wire tag, never served on 9.x; the deprecated lowMaterialityCount prop reads it first and falls back to the real low_materiality. Use lowMateriality. Removal rides the next major.',
+    by_use_case:
+      '#3254 pin-advance batch: fiction field, never served on 9.x (always {} against real servers). No wire equivalent. Deprecated on the model; removal rides the next major.',
+    by_status:
+      '#3254 pin-advance batch: fiction field, never served on 9.x (always {} against real servers). No wire equivalent. Deprecated on the model; removal rides the next major.',
+  },
+  AISystemRegistry: {
+    technical_owner:
+      '#3254 pin-advance batch: fiction field, never served on 9.x (the wire carries owner_email/owner_team). Use ownerEmail. Deprecated on the model; removal rides the next major.',
+    business_owner:
+      '#3254 pin-advance batch: fiction wire tag, never served on 9.x; the deprecated businessOwner prop reads it first and falls back to the real owner_email. Use ownerEmail. Removal rides the next major.',
+    customer_impact:
+      '#3254 pin-advance batch: fiction wire tag, never served on 9.x; the deprecated customerImpact prop reads it first and falls back to the real risk_rating_impact. Use riskRatingImpact. Removal rides the next major.',
+    model_complexity:
+      '#3254 pin-advance batch: fiction wire tag, never served on 9.x; the deprecated modelComplexity prop reads it first and falls back to the real risk_rating_complexity. Use riskRatingComplexity. Removal rides the next major.',
+    human_reliance:
+      '#3254 pin-advance batch: fiction wire tag, never served on 9.x; the deprecated humanReliance prop reads it first and falls back to the real risk_rating_reliance. Use riskRatingReliance. Removal rides the next major.',
+  },
+  KillSwitch: {
+    triggered_reason:
+      '#3254 pin-advance batch: fiction wire tag, never served on 9.x; the deprecated triggeredReason prop reads it first and falls back to the real trigger_reason. Use triggerReason. Removal rides the next major.',
+  },
 };
 
 // ---------------------------------------------------------------------------
 // Model discovery (interface properties + @deprecated marks)
 // ---------------------------------------------------------------------------
 
-function readInterface(typeName) {
-  const text = fs.readFileSync(GATEWAY_TS, 'utf8');
-  const sourceFile = ts.createSourceFile(GATEWAY_TS, text, ts.ScriptTarget.Latest, true);
-  let result = null;
-  ts.forEachChild(sourceFile, (node) => {
-    if (ts.isInterfaceDeclaration(node) && node.name.text === typeName) {
-      const properties = [];
-      const deprecated = new Set();
-      for (const member of node.members) {
-        if (!ts.isPropertySignature(member) || !member.name) continue;
-        const name = ts.isIdentifier(member.name) || ts.isStringLiteral(member.name)
-          ? member.name.text
-          : null;
-        if (!name) continue;
-        properties.push(name);
-        if (ts.getJSDocTags(member).some((t) => t.tagName.text === 'deprecated')) {
-          deprecated.add(name);
-        }
-      }
-      result = { properties, deprecated };
+function walkTypesFiles(dir) {
+  // Recursive: a wire type declared in a future src/types subdirectory must
+  // be found (and a duplicate there must be caught), not silently skipped.
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkTypesFiles(full));
+    else if (entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+      out.push(full);
     }
-  });
+  }
+  return out;
+}
+
+function readInterface(typeName) {
+  let result = null;
+  const files = walkTypesFiles(TYPES_DIR);
+  for (const file of files) {
+    const text = fs.readFileSync(file, 'utf8');
+    const sourceFile = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+    ts.forEachChild(sourceFile, (node) => {
+      if (ts.isInterfaceDeclaration(node) && node.name.text === typeName) {
+        if (result) {
+          throw new Error(
+            `audit-binding: interface '${typeName}' declared in more than one file under src/types - ambiguous binding target.`
+          );
+        }
+        const properties = [];
+        const deprecated = new Set();
+        for (const member of node.members) {
+          if (!ts.isPropertySignature(member) || !member.name) continue;
+          const name = ts.isIdentifier(member.name) || ts.isStringLiteral(member.name)
+            ? member.name.text
+            : null;
+          if (!name) continue;
+          properties.push(name);
+          if (ts.getJSDocTags(member).some((t) => t.tagName.text === 'deprecated')) {
+            deprecated.add(name);
+          }
+        }
+        result = { properties, deprecated };
+      }
+    });
+  }
   return result;
 }
 
@@ -344,6 +399,12 @@ const SURFACE = [
   { type: 'AuditLogEntry', transformer: 'parseAuditLogEntry', kind: 'read' },
   { type: 'AuditSearchRequest', transformer: 'searchAuditLogs', kind: 'request' },
   { type: 'AuditSearchResponse', transformer: 'searchAuditLogs', kind: 'response' },
+  // #3254 pin-advance batch: masfeat read models. OJKAuditExportResponse is
+  // in the pinned spec but this SDK does not model it (zero references), so
+  // there is nothing to bind for it.
+  { type: 'RegistrySummary', transformer: 'masfeatGetRegistrySummary', kind: 'read' },
+  { type: 'AISystemRegistry', transformer: 'mapSystemResponse', kind: 'read' },
+  { type: 'KillSwitch', transformer: 'mapKillSwitchResponse', kind: 'read' },
 ];
 
 function pinnedSha() {
@@ -459,7 +520,7 @@ function main() {
   for (const { type, transformer, kind } of SURFACE) {
     const iface = readInterface(type);
     if (!iface) {
-      failures.push(`${type}: interface not found in src/types/gateway.ts.`);
+      failures.push(`${type}: interface not found under src/types/ (searched recursively).`);
       continue;
     }
     const specFields = new Set(schemas[type] || []);
