@@ -294,10 +294,6 @@
         "last_assessment_date",
         "model_type",
         "next_assessment_due",
-        "owner_email",
-        "risk_rating_complexity",
-        "risk_rating_impact",
-        "risk_rating_reliance",
         "updated_by",
         "version"
       ]
@@ -432,11 +428,7 @@
       "sdk_only": [
         "triggered_reason"
       ],
-      "spec_only": [
-        "restore_reason",
-        "trigger_conditions",
-        "trigger_reason"
-      ]
+      "spec_only": []
     },
     "MCPCheckOutputResponse": {
       "sdk_only": [
@@ -487,14 +479,7 @@
         "low_materiality_count",
         "medium_materiality_count"
       ],
-      "spec_only": [
-        "assessments_due",
-        "high_materiality",
-        "kill_switches_triggered",
-        "low_materiality",
-        "medium_materiality",
-        "org_id"
-      ]
+      "spec_only": []
     },
     "RejectAssessmentRequest": {
       "sdk_only": [

@@ -88,11 +88,52 @@ export interface AISystemRegistry {
   description?: string;
   useCase: AISystemUseCase;
   ownerTeam: string;
+  /**
+   * @deprecated Never populated on the 9.x line - the server has never sent
+   * the `technical_owner` wire field (getaxonflow/axonflow-enterprise#3254).
+   * The wire carries `owner_email`/`owner_team`; read `ownerEmail`.
+   * Scheduled for removal in the next major.
+   */
   technicalOwner?: string;
+  /**
+   * @deprecated The server has never sent the `business_owner` wire field on
+   * the 9.x line (getaxonflow/axonflow-enterprise#3254); this property is
+   * populated from the real `owner_email` wire field as a legacy fallback.
+   * Read `ownerEmail`. Scheduled for removal in the next major.
+   */
   businessOwner?: string;
+  /**
+   * @deprecated The server has never sent the `customer_impact` wire field
+   * on the 9.x line (getaxonflow/axonflow-enterprise#3254); this property is
+   * populated from the real `risk_rating_impact` wire field as a legacy
+   * fallback. Read `riskRatingImpact`. Scheduled for removal in the next
+   * major.
+   */
   customerImpact?: number;
+  /**
+   * @deprecated The server has never sent the `model_complexity` wire field
+   * on the 9.x line (getaxonflow/axonflow-enterprise#3254); this property is
+   * populated from the real `risk_rating_complexity` wire field as a legacy
+   * fallback. Read `riskRatingComplexity`. Scheduled for removal in the next
+   * major.
+   */
   modelComplexity?: number;
+  /**
+   * @deprecated The server has never sent the `human_reliance` wire field on
+   * the 9.x line (getaxonflow/axonflow-enterprise#3254); this property is
+   * populated from the real `risk_rating_reliance` wire field as a legacy
+   * fallback. Read `riskRatingReliance`. Scheduled for removal in the next
+   * major.
+   */
   humanReliance?: number;
+  /** System owner email as served on the wire (`owner_email`). */
+  ownerEmail?: string;
+  /** Impact dimension of the 3-part MAS risk rating (wire `risk_rating_impact`, 1-5). */
+  riskRatingImpact?: number;
+  /** Complexity dimension of the 3-part MAS risk rating (wire `risk_rating_complexity`, 1-5). */
+  riskRatingComplexity?: number;
+  /** Reliance dimension of the 3-part MAS risk rating (wire `risk_rating_reliance`, 1-5). */
+  riskRatingReliance?: number;
   materialityClassification: MaterialityClassification;
   status: SystemStatus;
   metadata?: Record<string, unknown>;
@@ -105,11 +146,56 @@ export interface AISystemRegistry {
 export interface RegistrySummary {
   totalSystems: number;
   activeSystems: number;
+  /**
+   * @deprecated The server has never sent the `high_materiality_count` wire
+   * field on the 9.x line (getaxonflow/axonflow-enterprise#3254); this
+   * property is populated from the real `high_materiality` wire field as a
+   * legacy fallback. Read `highMateriality`. Scheduled for removal in the
+   * next major.
+   */
   highMaterialityCount: number;
+  /**
+   * @deprecated The server has never sent the `medium_materiality_count`
+   * wire field on the 9.x line (getaxonflow/axonflow-enterprise#3254); this
+   * property is populated from the real `medium_materiality` wire field as a
+   * legacy fallback. Read `mediumMateriality`. Scheduled for removal in the
+   * next major.
+   */
   mediumMaterialityCount: number;
+  /**
+   * @deprecated The server has never sent the `low_materiality_count` wire
+   * field on the 9.x line (getaxonflow/axonflow-enterprise#3254); this
+   * property is populated from the real `low_materiality` wire field as a
+   * legacy fallback. Read `lowMateriality`. Scheduled for removal in the
+   * next major.
+   */
   lowMaterialityCount: number;
+  /**
+   * @deprecated Never populated on the 9.x line - the server has never sent
+   * the `by_use_case` wire field (getaxonflow/axonflow-enterprise#3254);
+   * this property is always `{}` against real servers. No wire equivalent.
+   * Scheduled for removal in the next major.
+   */
   byUseCase: Record<string, number>;
+  /**
+   * @deprecated Never populated on the 9.x line - the server has never sent
+   * the `by_status` wire field (getaxonflow/axonflow-enterprise#3254); this
+   * property is always `{}` against real servers. No wire equivalent.
+   * Scheduled for removal in the next major.
+   */
   byStatus: Record<string, number>;
+  /** Organization the summary is scoped to (wire `org_id`). */
+  orgId?: string;
+  /** Count of high-materiality systems as served on the wire (`high_materiality`). */
+  highMateriality?: number;
+  /** Count of medium-materiality systems as served on the wire (`medium_materiality`). */
+  mediumMateriality?: number;
+  /** Count of low-materiality systems as served on the wire (`low_materiality`). */
+  lowMateriality?: number;
+  /** Count of systems with assessments due (wire `assessments_due`). */
+  assessmentsDue?: number;
+  /** Count of currently triggered kill switches (wire `kill_switches_triggered`). */
+  killSwitchesTriggered?: number;
 }
 
 /** Request to register a new AI system. */
@@ -255,9 +341,21 @@ export interface KillSwitch {
   errorRateThreshold?: number;
   triggeredAt?: Date;
   triggeredBy?: string;
+  /**
+   * @deprecated The server has never sent the `triggered_reason` wire field
+   * on the 9.x line (getaxonflow/axonflow-enterprise#3254); this property is
+   * populated from the real `trigger_reason` wire field as a legacy
+   * fallback. Read `triggerReason`. Scheduled for removal in the next major.
+   */
   triggeredReason?: string;
+  /** Reason the switch was triggered, as served on the wire (`trigger_reason`). */
+  triggerReason?: string;
+  /** Auto-trigger conditions as served on the wire (`trigger_conditions`). */
+  triggerConditions?: Record<string, unknown>;
   restoredAt?: Date;
   restoredBy?: string;
+  /** Reason the switch was restored, as served on the wire (`restore_reason`). */
+  restoreReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }

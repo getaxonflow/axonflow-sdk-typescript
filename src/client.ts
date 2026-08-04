@@ -6421,6 +6421,16 @@ export class AxonFlow {
       lowMaterialityCount: data.low_materiality_count ?? data.low_materiality ?? 0,
       byUseCase: data.by_use_case ?? {},
       byStatus: data.by_status ?? {},
+      // #3254 real wire fields. Optional on the model; absence on an old
+      // server leaves them undefined rather than fabricating defaults.
+      ...(data.org_id != null && { orgId: data.org_id }),
+      ...(data.high_materiality != null && { highMateriality: data.high_materiality }),
+      ...(data.medium_materiality != null && { mediumMateriality: data.medium_materiality }),
+      ...(data.low_materiality != null && { lowMateriality: data.low_materiality }),
+      ...(data.assessments_due != null && { assessmentsDue: data.assessments_due }),
+      ...(data.kill_switches_triggered != null && {
+        killSwitchesTriggered: data.kill_switches_triggered,
+      }),
     };
   }
 
@@ -6895,6 +6905,14 @@ export class AxonFlow {
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
       createdBy: data.created_by,
+      // #3254 real wire fields. Optional on the model; absence on an old
+      // server leaves them undefined rather than fabricating defaults.
+      ...(data.owner_email != null && { ownerEmail: data.owner_email }),
+      ...(data.risk_rating_impact != null && { riskRatingImpact: data.risk_rating_impact }),
+      ...(data.risk_rating_complexity != null && {
+        riskRatingComplexity: data.risk_rating_complexity,
+      }),
+      ...(data.risk_rating_reliance != null && { riskRatingReliance: data.risk_rating_reliance }),
     };
   }
 
@@ -6962,6 +6980,11 @@ export class AxonFlow {
       restoredBy: data.restored_by,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
+      // #3254 real wire fields. Optional on the model; absence on an old
+      // server leaves them undefined rather than fabricating defaults.
+      ...(data.trigger_reason != null && { triggerReason: data.trigger_reason }),
+      ...(data.trigger_conditions != null && { triggerConditions: data.trigger_conditions }),
+      ...(data.restore_reason != null && { restoreReason: data.restore_reason }),
     };
   }
 
