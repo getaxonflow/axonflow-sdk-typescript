@@ -36,6 +36,11 @@
  * this gate; only the value-level tests (real-capture fixtures and the
  * runtime-e2e suite) can catch that class.
  *
+ * DESIGN LIMIT (accepted): SURFACE registration is MANUAL. A wire-modeling
+ * interface that is not listed in SURFACE below is invisible to this
+ * binding gate; its only automatic coverage is the wire-shape drift gate,
+ * and that only when its name matches a spec schema.
+ *
  * Spec source: tests/fixtures/audit-binding-spec.json, vendored from the
  * OpenAPI specs at the SHA pinned in tests/fixtures/wire-shape-baseline.json
  * so the gate ALWAYS runs (no env-dependent skip). When
@@ -124,12 +129,23 @@ const ALLOWED_UNSERVED = {
 // Model discovery (interface properties + @deprecated marks)
 // ---------------------------------------------------------------------------
 
+function walkTypesFiles(dir) {
+  // Recursive: a wire type declared in a future src/types subdirectory must
+  // be found (and a duplicate there must be caught), not silently skipped.
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkTypesFiles(full));
+    else if (entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 function readInterface(typeName) {
   let result = null;
-  const files = fs
-    .readdirSync(TYPES_DIR)
-    .filter((n) => n.endsWith('.ts') && !n.endsWith('.d.ts'))
-    .map((n) => path.join(TYPES_DIR, n));
+  const files = walkTypesFiles(TYPES_DIR);
   for (const file of files) {
     const text = fs.readFileSync(file, 'utf8');
     const sourceFile = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
@@ -504,7 +520,7 @@ function main() {
   for (const { type, transformer, kind } of SURFACE) {
     const iface = readInterface(type);
     if (!iface) {
-      failures.push(`${type}: interface not found in src/types/gateway.ts.`);
+      failures.push(`${type}: interface not found under src/types/ (searched recursively).`);
       continue;
     }
     const specFields = new Set(schemas[type] || []);

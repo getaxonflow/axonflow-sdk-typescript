@@ -204,6 +204,83 @@ describe('#3254 masfeat real-wire fields', () => {
     });
   });
 
+  describe('both-present: fiction and real keys on one payload, different values', () => {
+    // Canonical-parity discriminators (batch R3): a payload serving BOTH
+    // the fiction key and the real key with DIFFERENT values. The new real
+    // props must read ONLY the real key (never shadowed by fiction), and
+    // the deprecated dual-read props surface the fiction key first,
+    // exactly as their JSDoc documents. These are HAND-BUILT hypothetical
+    // payloads - no real 9.x server sends the fiction keys.
+    it('RegistrySummary: real props read only real keys; deprecated props prefer fiction', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse({
+          total_systems: 1,
+          active_systems: 1,
+          high_materiality: 2,
+          high_materiality_count: 9,
+          medium_materiality: 3,
+          medium_materiality_count: 9,
+          low_materiality: 0,
+          low_materiality_count: 9,
+          by_use_case: { fiction: 1 },
+          by_status: { fiction: 2 },
+        })
+      );
+      const s = await client.masfeat.getRegistrySummary();
+      // Real props carry the real key even when fiction is present and
+      // even when the real value is 0.
+      expect(s.highMateriality).toBe(2);
+      expect(s.mediumMateriality).toBe(3);
+      expect(s.lowMateriality).toBe(0);
+      // Deprecated dual-reads surface the fiction key first (documented).
+      expect(s.highMaterialityCount).toBe(9);
+      expect(s.mediumMaterialityCount).toBe(9);
+      expect(s.lowMaterialityCount).toBe(9);
+      expect(s.byUseCase).toEqual({ fiction: 1 });
+      expect(s.byStatus).toEqual({ fiction: 2 });
+    });
+
+    it('AISystemRegistry: real props unshadowed; deprecated props prefer fiction', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse({
+          ...aiSystemWire,
+          owner_email: 'real@x',
+          business_owner: 'fiction@x',
+          technical_owner: 'fiction-tech@x',
+          customer_impact: 9,
+          risk_rating_impact: 2,
+          model_complexity: 9,
+          risk_rating_complexity: 3,
+          human_reliance: 9,
+          risk_rating_reliance: 4,
+        })
+      );
+      const sys = await client.masfeat.getSystem('s1');
+      expect(sys.ownerEmail).toBe('real@x');
+      expect(sys.riskRatingImpact).toBe(2);
+      expect(sys.riskRatingComplexity).toBe(3);
+      expect(sys.riskRatingReliance).toBe(4);
+      expect(sys.businessOwner).toBe('fiction@x');
+      expect(sys.technicalOwner).toBe('fiction-tech@x');
+      expect(sys.customerImpact).toBe(9);
+      expect(sys.modelComplexity).toBe(9);
+      expect(sys.humanReliance).toBe(9);
+    });
+
+    it('KillSwitch: real triggerReason unshadowed; deprecated triggeredReason prefers fiction', async () => {
+      mockFetch.mockReturnValueOnce(
+        mockResponse({
+          ...killSwitchWire,
+          trigger_reason: 'real reason',
+          triggered_reason: 'fiction reason',
+        })
+      );
+      const ks = await client.masfeat.getKillSwitch('s1');
+      expect(ks.triggerReason).toBe('real reason');
+      expect(ks.triggeredReason).toBe('fiction reason');
+    });
+  });
+
   describe('KillSwitch through the real parse path', () => {
     it('populates triggerReason/triggerConditions/restoreReason and keeps the deprecated fallback working', async () => {
       mockFetch.mockReturnValueOnce(mockResponse(killSwitchWire));
