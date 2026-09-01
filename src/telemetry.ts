@@ -157,8 +157,14 @@ export interface TelemetryPayload {
    * 2. The platform's own `DEPLOYMENT_MODE` env var — a server-side
    *    setting deciding which schema/tables the binary uses. Never read by
    *    this SDK and never sent on this field.
-   * 3. `license_tier` (this field) — the platform's EDITION/entitlement.
-   *    Says WHAT the platform is licensed for.
+   * 3. `license_tier` (this field) — what the platform REPORTED about its
+   *    own licensing, for adoption analytics.
+   *
+   * ITEM 3 IS NOT AN ENTITLEMENT FACT. This SDK relays whatever `/health`
+   * returned, and the receiver cannot verify the relay: whoever operates
+   * the endpoint the client was pointed at controls the value completely.
+   * It must never gate entitlement, unlock a feature, or enter any
+   * authorization or billing decision. See axonflow-enterprise#3619.
    *
    * A community-mode binary can run on any topology and vice versa, so
    * neither field is derivable from the other.

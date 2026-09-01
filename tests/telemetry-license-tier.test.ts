@@ -40,6 +40,33 @@ async function startStandInPlatform(
   };
 }
 
+/**
+ * A stand-in platform that additionally counts every GET /health it serves.
+ * Separate from startStandInPlatform so the existing helper's signature and
+ * every call site of it stay untouched.
+ */
+async function startCountingStandInPlatform(
+  body: string
+): Promise<{ url: string; healthRequests: () => number; close: () => Promise<void> }> {
+  let served = 0;
+  const server = http.createServer((req, res) => {
+    if (req.url !== '/health') {
+      res.writeHead(404).end();
+      return;
+    }
+    served += 1;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(body);
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as AddressInfo).port;
+  return {
+    url: `http://127.0.0.1:${port}`,
+    healthRequests: () => served,
+    close: () => new Promise<void>(resolve => server.close(() => resolve())),
+  };
+}
+
 /** A stand-in checkpoint receiver that records the raw POST body. */
 async function startCheckpoint(): Promise<{
   url: string;
@@ -263,10 +290,20 @@ describe('license_tier on the telemetry wire (#3619)', () => {
       // exists to catch the probe never settles, `finally` never runs, and
       // the listening server plus the pending fetch keep the worker alive —
       // the run HANGS instead of going red. Racing makes the failure finite.
+      // The watchdog handle is held so it can be cleared below. Left armed,
+      // the LOSER of the race keeps a 3s timer on the event loop after the
+      // test has passed, which is what produced "Jest did not exit one second
+      // after the test run has completed" on this file (and not on its
+      // siblings). The open handle was this timer, not a socket.
+      let watchdog: ReturnType<typeof setTimeout> | undefined;
       const outcome = await Promise.race([
         probePlatformHealth(`http://127.0.0.1:${port}`, 400),
-        new Promise(resolve => setTimeout(() => resolve('DID_NOT_SETTLE'), 3000)),
-      ]);
+        new Promise(resolve => {
+          watchdog = setTimeout(() => resolve('DID_NOT_SETTLE'), 3000);
+        }),
+      ]).finally(() => {
+        if (watchdog !== undefined) clearTimeout(watchdog);
+      });
       expect(outcome).toEqual({ platformVersion: null, licenseTier: null });
       expect(Date.now() - started).toBeLessThan(400 + 600);
     } finally {
@@ -296,6 +333,29 @@ describe('license_tier on the telemetry wire (#3619)', () => {
       expect(clearSpy.mock.calls.length).toBeGreaterThan(before);
     } finally {
       clearSpy.mockRestore();
+      await platform.close();
+    }
+  });
+
+  // The headline contract of this change is "no new network call": the tier
+  // rides along on the /health response ALREADY fetched for platform_version.
+  // Nothing else in this suite counts requests, so a second probe added to
+  // the telemetry path would leave every one of them green while doubling the
+  // path's blocking budget and its failure surface. The Java SDK pins the same
+  // contract in TelemetryLicenseTierTest.exactlyOneHealthRequestPerPing; this
+  // is that test's TypeScript twin.
+  it('issues exactly one /health request per ping, so the tier costs no new call', async () => {
+    const platform = await startCountingStandInPlatform(
+      JSON.stringify({ status: 'healthy', version: '10.3.0', tier: 'Enterprise' })
+    );
+    try {
+      const wire = await captureWire(platform.url);
+      // Anti-vacuity: a request count is only evidence if a complete ping
+      // actually ran. Without this, a change that stopped probing altogether
+      // would report zero requests and could read as a passing "no extra call".
+      expect(wire).toContain('"license_tier":"Enterprise"');
+      expect(platform.healthRequests()).toBe(1);
+    } finally {
       await platform.close();
     }
   });
