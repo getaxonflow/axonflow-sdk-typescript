@@ -17,6 +17,7 @@
 import {
   AUTHZEN_PATH,
   AUTHZEN_PROFILE_HEADER,
+  assertFullyResolved,
   AUTHZEN_UNKNOWN_RESOLUTION_FAILED,
   AuthZENAttribute,
   AuthZENDecision,
@@ -327,14 +328,82 @@ describe('the tri-state', () => {
     expect(recorder.sent.evaluation.context).toEqual({ args: { query: 'q' } });
   });
 
-  it('recognises an attribute from a duplicated module copy', () => {
+  it('recognises an attribute across a duplicated module copy', () => {
     // A bundler that split this package across two chunks gives two distinct
     // classes, and a bare `instanceof` would then report a resolver's output as
-    // ordinary data — serialising the attribute's internal shape onto the wire.
-    const structuralCopy = { state: 'absent', value: undefined, reason: '' };
-    expect(AuthZENAttribute.is(structuralCopy)).toBe(true);
-    expect(AuthZENAttribute.is({ state: 'nonsense', value: 1, reason: '' })).toBe(false);
+    // ordinary data - serialising the attribute's internal shape onto the wire.
+    // The brand is a `Symbol.for` key, so the second copy's attributes still
+    // register.
+    const fromAnotherCopy = { state: 'absent', value: undefined, reason: '' };
+    Object.defineProperty(fromAnotherCopy, Symbol.for('axonflow.authzen.attribute'), {
+      value: true,
+    });
+    expect(AuthZENAttribute.is(fromAnotherCopy)).toBe(true);
+  });
+
+  it("does NOT mistake a caller's ordinary data for an attribute", () => {
+    // R3 round 1: structural detection - "has state, value and reason" - reads
+    // a caller's own bag as a tri-state attribute. That direction is the worse
+    // one. Confirmed then: `{"state":"unknown","reason":"n/a"}` arriving from
+    // JSON.parse made the SDK REFUSE to send a legitimate request, with a
+    // message asserting the caller could not establish a value it had; and
+    // `{"state":"absent",…}` silently deleted the member from the wire.
+    const lookalike = JSON.parse('{"state":"unknown","value":null,"reason":"n/a"}');
+    expect(AuthZENAttribute.is(lookalike)).toBe(false);
+    expect(AuthZENAttribute.is({ state: 'absent', value: undefined, reason: '' })).toBe(false);
     expect(AuthZENAttribute.is({ query: 'q' })).toBe(false);
+  });
+
+  it('sends a lookalike bag verbatim instead of resolving it', async () => {
+    // The end-to-end form of the case above: the caller's data reaches the
+    // wire unchanged, and the request is sent.
+    const recorder = new Recorder();
+    const lookalike = JSON.parse('{"state":"unknown","value":null,"reason":"n/a"}');
+    await evaluate(
+      recorder,
+      singular({ context: { args: { query: 'q' }, correlation: { trace: lookalike } } })
+    );
+    expect(recorder.calls).toHaveLength(1);
+    expect(recorder.sent.evaluation.context.correlation.trace).toEqual(lookalike);
+  });
+
+  it('does not silently drop a member the contract does not declare', async () => {
+    // "Mapped or refused, never silently ignored" - the surface's own rule,
+    // applied client-side. R3 round 1: the resolver whitelist-copied
+    // {type, id, properties}, so an invented member was deleted before the
+    // validator saw it and the request went out without it and without a
+    // refusal. The gateway would have refused it by name; Python already did.
+    const recorder = new Recorder();
+    const refusal = await expectRefusal(
+      evaluate(
+        recorder,
+        singular({
+          subject: { type: 'gateway', id: 'g1', department: 'finance' } as never,
+        })
+      )
+    );
+    expect(recorder.calls).toHaveLength(0);
+    expect(refusal.code).toBe('malformed_envelope');
+    expect(refusal.message).toContain('department');
+  });
+
+  it('does not silently drop a __proto__ member from a context bag', async () => {
+    // `JSON.parse` produces `__proto__` as an ordinary own property, and a
+    // plain `out[key] = …` assignment invokes the inherited setter instead of
+    // creating a member - so the member VANISHED with no refusal. It now
+    // reaches the wire, where the gateway refuses it by name.
+    const recorder = new Recorder(422, {
+      code: 'unevaluable_attribute',
+      pointer: '/evaluation/context/__proto__',
+      message: 'this surface cannot evaluate the context member "__proto__"',
+    });
+    const context = JSON.parse('{"args":{"query":"q"},"__proto__":{"polluted":true}}');
+    const refusal = await expectRefusal(evaluate(recorder, singular({ context })));
+    expect(recorder.calls).toHaveLength(1);
+    expect(Object.keys(recorder.sent.evaluation.context)).toContain('__proto__');
+    expect(refusal.refusedBy).toBe('gateway');
+    // The control: nothing was polluted on the way through.
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 });
 
@@ -388,13 +457,18 @@ describe('what may be read as an allow', () => {
     expect(err.message).toContain('without the profile context');
   });
 
-  it('refuses a profile this build cannot read', async () => {
+  it('refuses a profile this build cannot read, with the actionable message', async () => {
     const recorder = new Recorder(200, {
       decision: true,
       context: { ...ALLOW_CONTEXT, profile: 'profile-2099-01-01' },
     });
     const err = await expectProtocolError(evaluate(recorder, singular()));
     expect(err.message).toContain('profile-2099-01-01');
+    // R3 round 1: the generated `const` check fired first, so the HAND-WRITTEN
+    // refusal was dead code and this test passed on the generated message -
+    // which contains the profile string too. The guidance is the point at the
+    // v11 cutover, so the test now pins the branch it names.
+    expect(err.message).toContain('Upgrade the SDK.');
   });
 
   it('refuses a state this build does not know', async () => {
@@ -860,5 +934,75 @@ describe('the generated validators', () => {
     });
     const err = await expectProtocolError(evaluate(recorder, singular()));
     expect(err.message).toContain('present but too short');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression cases from the R3 review
+// ---------------------------------------------------------------------------
+
+describe('the belt against an unresolved attribute', () => {
+  // TypeScript had no equivalent of Python's belt at all, and Python's could
+  // never fire (it ran after serialisation). Both now run on the structure,
+  // before anything is encoded.
+
+  it('fires on an attribute the resolver did not visit', () => {
+    // Reaching past resolution is the only way to produce the state the belt
+    // exists for: on today's contract the resolver's bag coverage is total.
+    const resolved: any = toWire({ evaluation: singular() });
+    resolved.evaluation.context.smuggled = AuthZENAttribute.unknown('stale');
+    expect(() => assertFullyResolved(resolved)).toThrow(/unresolved AuthZENAttribute/);
+  });
+
+  it('names the member it found', () => {
+    const resolved: any = toWire({ evaluation: singular() });
+    resolved.evaluation.context.args.smuggled = AuthZENAttribute.absent();
+    expect(() => assertFullyResolved(resolved)).toThrow(/\/evaluation\/context\/args\/smuggled/);
+  });
+
+  it('passes a fully resolved envelope', () => {
+    // The control: a belt that threw on everything would look as green.
+    expect(() => assertFullyResolved(toWire({ evaluation: singular() }))).not.toThrow();
+  });
+});
+
+describe('cyclic input', () => {
+  it('is a typed refusal, not a RangeError', async () => {
+    // A caller that builds a cycle gets the same typed refusal every other
+    // malformed bag gets, rather than an error type nothing documents and no
+    // enforcement point catches.
+    const cycle: Record<string, unknown> = { query: 'q' };
+    cycle.self = cycle;
+    const recorder = new Recorder();
+    const refusal = await expectRefusal(evaluate(recorder, singular({ context: { args: cycle } })));
+    expect(recorder.calls).toHaveLength(0);
+    expect(refusal.code).toBe('unevaluable_attribute');
+    expect(refusal.message).toContain('nests deeper');
+  });
+});
+
+describe('refusal decoding is forward-compatible', () => {
+  // R3 round 1: strict decoding of the REFUSAL envelope is a trap. Strictness on
+  // a DECISION is a safety control - an unread member may be the one that
+  // constrains an allow. A refusal constrains nothing, so the same strictness
+  // buys no safety and costs the caller the typed refusal itself.
+
+  it('keeps the typed refusal when the server adds a member', async () => {
+    const recorder = new Recorder(502, {
+      code: 'evaluation_unavailable',
+      message: 'the evaluator did not answer',
+      pointer: '/evaluation',
+      retry_after_seconds: 30, // a member a future gateway might add
+    });
+    const refusal = await expectRefusal(evaluate(recorder, singular()));
+    expect(refusal.code).toBe('evaluation_unavailable');
+    expect(refusal.pointer).toBe('/evaluation');
+    expect(refusal.retryable).toBe(true);
+  });
+
+  it('does not invent a refusal from a body that carries no code', async () => {
+    // The control. Leniency must not fabricate a refusal the server never made.
+    const recorder = new Recorder(500, { detail: 'boom' });
+    await expect(evaluate(recorder, singular())).rejects.not.toBeInstanceOf(AuthZENRefusal);
   });
 });

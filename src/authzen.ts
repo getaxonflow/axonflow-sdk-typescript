@@ -231,6 +231,24 @@ export type AuthZENAttributeState = 'known' | 'absent' | 'unknown';
  * ```
  */
 export class AuthZENAttribute {
+  /**
+   * The brand.
+   *
+   * A cross-realm marker, because `instanceof` is not one: a bundler that split
+   * this package across two chunks gives two distinct classes, and a bare
+   * `instanceof` would then report a resolver's output as ordinary data and
+   * serialise the attribute's internal shape onto the wire.
+   *
+   * It is a `Symbol.for` key rather than a structural shape check for the
+   * mirror-image reason. Structural detection - "has state, value and reason" -
+   * misreads a caller's ORDINARY data as an attribute, and that direction is
+   * worse: a `JSON.parse`d bag carrying `{"state":"unknown","reason":"n/a"}`
+   * made the SDK refuse to send a legitimate request, with a message asserting
+   * the caller could not establish a value it had established. A symbol
+   * survives a duplicated module and cannot be produced by `JSON.parse`.
+   */
+  public static readonly BRAND = Symbol.for('axonflow.authzen.attribute');
+
   public readonly state: AuthZENAttributeState;
   public readonly value: unknown;
   public readonly reason: string;
@@ -239,6 +257,7 @@ export class AuthZENAttribute {
     this.state = state;
     this.value = value;
     this.reason = reason;
+    Object.defineProperty(this, AuthZENAttribute.BRAND, { value: true, enumerable: false });
   }
 
   /** The source returned this value. */
@@ -269,26 +288,11 @@ export class AuthZENAttribute {
     return new AuthZENAttribute('unknown', undefined, reason);
   }
 
-  /**
-   * Whether `value` is a tri-state attribute.
-   *
-   * A method rather than a bare `instanceof` at each call site: a page that
-   * loaded two copies of this package (a bundler duplicating it across chunks)
-   * has two distinct classes, and `instanceof` would then quietly report an
-   * attribute as ordinary data — which would serialise a resolver's internal
-   * shape onto the wire.
-   */
+  /** Whether `value` is a tri-state attribute. See {@link AuthZENAttribute.BRAND}. */
   static is(value: unknown): value is AuthZENAttribute {
     if (value instanceof AuthZENAttribute) return true;
     if (typeof value !== 'object' || value === null) return false;
-    const candidate = value as { state?: unknown; reason?: unknown };
-    return (
-      (candidate.state === 'known' ||
-        candidate.state === 'absent' ||
-        candidate.state === 'unknown') &&
-      typeof candidate.reason === 'string' &&
-      Object.prototype.hasOwnProperty.call(candidate, 'value')
-    );
+    return (value as Record<symbol, unknown>)[AuthZENAttribute.BRAND] === true;
   }
 }
 
@@ -411,13 +415,31 @@ class Unresolvable extends Error {
 // one into the other.
 const DROP = Symbol('authzen.absent');
 
-function resolveValue(value: unknown, pointer: string): unknown {
+/**
+ * How deep an attribute bag may nest before the SDK stops walking it.
+ *
+ * Without a bound, a bag that refers to itself recurses until the engine gives
+ * up, and the caller gets a `RangeError` out of `evaluate` - an error type
+ * nothing documents and no enforcement point catches. A bound turns that into
+ * the same typed refusal every other malformed bag gets. 64 is far past
+ * anything a policy attribute path plausibly nests and far short of the stack.
+ */
+const MAX_ATTRIBUTE_DEPTH = 64;
+
+function resolveValue(value: unknown, pointer: string, depth = 0): unknown {
+  if (depth > MAX_ATTRIBUTE_DEPTH) {
+    throw new Unresolvable(
+      pointer,
+      `nests deeper than ${MAX_ATTRIBUTE_DEPTH} levels, which this SDK will not walk; a bag ` +
+        `that refers to itself would otherwise recurse until the engine stopped`
+    );
+  }
   if (AuthZENAttribute.is(value)) {
     if (value.state === 'known') {
       // A known attribute may itself hold a container carrying more
       // attributes; resolving the payload keeps the rule uniform rather than
       // depending on how deeply a caller nested its resolver output.
-      return resolveValue(value.value, pointer);
+      return resolveValue(value.value, pointer, depth + 1);
     }
     if (value.state === 'absent') return DROP;
     throw new Unresolvable(pointer, value.reason);
@@ -429,7 +451,7 @@ function resolveValue(value: unknown, pointer: string): unknown {
     // "there is no value here".
     const items: unknown[] = [];
     value.forEach((item, index) => {
-      const resolved = resolveValue(item, `${pointer}/${index}`);
+      const resolved = resolveValue(item, `${pointer}/${index}`, depth + 1);
       if (resolved !== DROP) items.push(resolved);
     });
     return items;
@@ -439,9 +461,23 @@ function resolveValue(value: unknown, pointer: string): unknown {
     Object.keys(value as Record<string, unknown>).forEach(key => {
       const resolved = resolveValue(
         (value as Record<string, unknown>)[key],
-        `${pointer}/${escapePointerToken(key)}`
+        `${pointer}/${escapePointerToken(key)}`,
+        depth + 1
       );
-      if (resolved !== DROP) out[key] = resolved;
+      if (resolved === DROP) return;
+      // defineProperty, not `out[key] = …`. A plain assignment to the key
+      // `__proto__` invokes the inherited setter instead of creating a member,
+      // so a context carrying `__proto__` - which `JSON.parse` produces as an
+      // ordinary own property - VANISHED from the request with no refusal.
+      // That is "mapped or refused, never silently ignored" broken by this SDK,
+      // in the one place the gateway cannot see it: the server refuses the
+      // member by name, and it never arrived. It reaches the wire now.
+      Object.defineProperty(out, key, {
+        value: resolved,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
     });
     return out;
   }
@@ -470,24 +506,32 @@ function resolveBag(
   return resolveValue(bag, pointer) as Record<string, unknown>;
 }
 
+// Every member the caller wrote is CARRIED FORWARD, and only the attribute bags
+// are rewritten.
+//
+// These functions used to whitelist-copy `{type, id, properties}`, which meant a
+// member the contract does not declare - `{"type":"gateway","id":"g1",
+// "department":"finance"}` - was deleted here, before the generated validator
+// ran, and the request went out without it and without a refusal. The
+// validator's own documentation says it "catches a member the caller invented
+// before it becomes a 422"; the whitelist made that claim false for exactly
+// those members. Python refuses them at model construction, so this was also a
+// place the two SDKs answered the same request differently.
+//
+// Spreading means an invented member survives to `validateAuthZENEnvelope` and
+// is refused by name, with its pointer.
+
 function resolveSubject(
   subject: AuthZENSubject | undefined,
   at: string
 ): AuthZENSubject | undefined {
   if (!subject) return undefined;
-  return {
-    type: subject.type,
-    id: subject.id,
-    properties: resolveBag(subject.properties, `${at}/subject/properties`),
-  };
+  return { ...subject, properties: resolveBag(subject.properties, `${at}/subject/properties`) };
 }
 
 function resolveAction(action: AuthZENAction | undefined, at: string): AuthZENAction | undefined {
   if (!action) return undefined;
-  return {
-    name: action.name,
-    properties: resolveBag(action.properties, `${at}/action/properties`),
-  };
+  return { ...action, properties: resolveBag(action.properties, `${at}/action/properties`) };
 }
 
 function resolveResource(
@@ -495,15 +539,12 @@ function resolveResource(
   at: string
 ): AuthZENResource | undefined {
   if (!resource) return undefined;
-  return {
-    type: resource.type,
-    id: resource.id,
-    properties: resolveBag(resource.properties, `${at}/resource/properties`),
-  };
+  return { ...resource, properties: resolveBag(resource.properties, `${at}/resource/properties`) };
 }
 
 function resolveRequest(request: AuthZENRequest, at: string): AuthZENRequest {
   return {
+    ...request,
     subject: resolveSubject(request.subject, at),
     action: resolveAction(request.action, at),
     resource: resolveResource(request.resource, at),
@@ -705,10 +746,41 @@ function validateDecision(response: AuthZENResponse, body: string): void {
   // it reads.
 }
 
-/** Decode a structured refusal document, or undefined if the body is not one. */
+/**
+ * Decode a structured refusal document, or undefined if the body is not one.
+ *
+ * Decoded LENIENTLY, unlike the decision path, and the asymmetry is deliberate.
+ * Strictness on a DECISION is a safety control: an unknown member means the
+ * server is speaking a profile this build cannot fully read, and the unread part
+ * may be the one that constrains an allow. A refusal constrains nothing - it
+ * says no decision exists - so the same strictness buys no safety and costs the
+ * caller the whole point of the surface: one additive field on the refusal
+ * envelope would degrade every typed refusal into a bare error, losing the code,
+ * the pointer, the supported set and the retryable signal on the one path whose
+ * entire purpose is to be branchable.
+ *
+ * Unknown members are dropped here, and the SHAPE is still checked: a body
+ * carrying no code or no message is not a refusal document and returns
+ * undefined, which sends the caller down the generic-error path rather than
+ * fabricating a refusal the server did not make.
+ */
+const AUTHZEN_ERROR_MEMBERS = ['code', 'pointer', 'message', 'supported', 'request_id'] as const;
+
 function decodeRefusal(body: string): AuthZENError | undefined {
+  let parsed: unknown;
   try {
-    return validateAuthZENError(JSON.parse(body), '');
+    parsed = JSON.parse(body);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
+  const known: Record<string, unknown> = {};
+  AUTHZEN_ERROR_MEMBERS.forEach(member => {
+    const value = (parsed as Record<string, unknown>)[member];
+    if (value !== undefined) known[member] = value;
+  });
+  try {
+    return validateAuthZENError(known, '');
   } catch {
     return undefined;
   }
@@ -748,6 +820,8 @@ export async function evaluateEnvelope(
   if (resolved.evaluation === undefined || resolved.evaluations === undefined) {
     checkEnvelopeComplete(resolved);
   }
+
+  assertFullyResolved(resolved);
 
   let wire: AuthZENEnvelope;
   try {
@@ -821,11 +895,58 @@ function stripUndefined(value: unknown): unknown {
   if (typeof value === 'object' && value !== null) {
     const out: Record<string, unknown> = {};
     Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
-      if (item !== undefined) out[key] = stripUndefined(item);
+      if (item === undefined) return;
+      // defineProperty for the same reason as the resolver: a plain assignment
+      // to the key `__proto__` invokes the inherited setter instead of creating
+      // a member, so the member would be dropped HERE even after the resolver
+      // carried it through. Two places, one rule.
+      Object.defineProperty(out, key, {
+        value: stripUndefined(item),
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
     });
     return out;
   }
   return value;
+}
+
+/**
+ * Guarantee no tri-state attribute reaches the wire.
+ *
+ * `resolveEnvelope` walks every bag the contract declares, so on today's
+ * contract this has nothing to catch. It exists for the case that does not
+ * announce itself: a container kind added to the artifact later, or an attribute
+ * reaching a member the resolver does not visit. Without it that attribute is
+ * not a crash - `JSON.stringify` turns the instance into an ordinary
+ * `{"state": …, "value": …, "reason": …}` object - so the request is SENT,
+ * carrying a resolver's internal shape where the gateway expects a value, and an
+ * UNKNOWN attribute reaches the network after all.
+ *
+ * The Python sibling carries the same control, and had exactly this defect:
+ * there the check ran after serialisation and could never fire.
+ */
+export function assertFullyResolved(value: unknown, path = ''): void {
+  if (AuthZENAttribute.is(value)) {
+    throw new AuthZENProtocolError(
+      `an unresolved AuthZENAttribute reached the wire at ${path || '/'}. Tri-state ` +
+        `attributes are only supported inside the context and properties bags; this one is ` +
+        `somewhere the resolver does not reach.`
+    );
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertFullyResolved(item, `${path}/${index}`));
+    return;
+  }
+  if (typeof value === 'object' && value !== null) {
+    Object.keys(value as Record<string, unknown>).forEach(key => {
+      assertFullyResolved(
+        (value as Record<string, unknown>)[key],
+        `${path}/${escapePointerToken(key)}`
+      );
+    });
+  }
 }
 
 /**
@@ -840,5 +961,6 @@ export function toWire(envelope: AuthZENEnvelope): AuthZENEnvelope {
   if (resolved.evaluation === undefined || resolved.evaluations === undefined) {
     checkEnvelopeComplete(resolved);
   }
+  assertFullyResolved(resolved);
   return validateAuthZENEnvelope(stripUndefined(resolved), '');
 }

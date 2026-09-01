@@ -37,6 +37,7 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -51,6 +52,23 @@ const SURFACE_REL = 'tests/fixtures/authzen-surface.json';
 // failure.
 const SUPPORTED_ARTIFACT = 'axonflow-authzen-surface';
 const SUPPORTED_ARTIFACT_VERSION = 1;
+
+// The sha256 of the vendored artifact FILE, verified byte-for-byte against
+// `platform/decision/surface/authzen-surface.json` on axonflow-enterprise main
+// (commit afff5d1a0), against the copy in axonflow-sdk-go, and against the copy
+// in axonflow-sdk-python.
+//
+// This is the only control that pins FIDELITY. The regeneration gate answers
+// "is the committed module the output of the committed artifact"; it says
+// nothing about whether the committed artifact is the platform's, and an edit to
+// the vendored file plus a regeneration satisfies it completely. The artifact's
+// own `source_schema_sha256` cannot close that gap either: it is a string inside
+// the file, so it moves with any edit that bothers to change it. Only a digest
+// recorded OUTSIDE the file does.
+//
+// Bumping it is the deliberate act of re-vendoring: re-copy from the platform,
+// update this constant, regenerate, and name the platform commit in the PR.
+const VENDORED_ARTIFACT_SHA256 = '7f768b8ad0d6278d3531e1410decad172459808ebda627da44dca5bb4c9f36f8';
 
 // The column limit prettier is configured with. Generated code is formatted and
 // linted like every other module here, so the emitter has to respect it: a file
@@ -85,6 +103,86 @@ const SCALAR_TS = { string: 'string', bool: 'boolean', int: 'number' };
 
 class SurfaceError extends Error {}
 
+// Reserved words plus the members every object already carries. A field named
+// `constructor` or `__proto__` generates "successfully" and produces an
+// interface whose validator writes over machinery the runtime owns.
+const RESERVED_FIELD_NAMES = new Set([
+  'constructor',
+  '__proto__',
+  '__defineGetter__',
+  '__defineSetter__',
+  '__lookupGetter__',
+  '__lookupSetter__',
+  'hasOwnProperty',
+  'isPrototypeOf',
+  'propertyIsEnumerable',
+  'toString',
+  'valueOf',
+]);
+
+// A TypeScript property name this emitter is willing to write unquoted.
+const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+/**
+ * Refuse doc text this emitter cannot safely place in a block comment.
+ *
+ * The artifact is first-party, so the realistic failure is the benign one: a
+ * `*​/` arriving in a platform doc comment ends the emitted comment early and
+ * the module stops compiling. "The emitter refuses what it cannot render" is
+ * this file's own claim, and it did not hold for any string it copied.
+ */
+function checkDoc(where, doc) {
+  if (doc.includes('*/')) {
+    throw new SurfaceError(
+      `${where}: the doc text contains "*/", which would end the emitted block comment ` +
+        `early and change what the generated module means`
+    );
+  }
+}
+
+/** Refuse a value this emitter cannot safely place in a string literal. */
+function checkLiteral(where, value) {
+  if (/['"\\\n\r`$]/.test(value)) {
+    throw new SurfaceError(
+      `${where}: the value ${JSON.stringify(value)} carries a quote, a backslash, a newline ` +
+        `or a template-literal metacharacter, which this emitter will not put inside a ` +
+        `generated string literal`
+    );
+  }
+}
+
+/** Refuse a name that cannot become a TypeScript property. */
+function checkIdentifier(where, name) {
+  if (!IDENTIFIER.test(name)) {
+    throw new SurfaceError(
+      `${where}: ${JSON.stringify(name)} is not a valid TypeScript identifier, so it cannot ` +
+        `become an interface member this emitter writes unquoted`
+    );
+  }
+  if (RESERVED_FIELD_NAMES.has(name)) {
+    throw new SurfaceError(
+      `${where}: ${JSON.stringify(name)} is a member every object already carries; a ` +
+        `generated validator writing to it would write over machinery the runtime owns`
+    );
+  }
+}
+
+/** Read a numeric bound, refusing one that would silently do nothing. */
+function parseBound(where, member, raw) {
+  if (!(member in raw)) return 0;
+  const value = raw[member];
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new SurfaceError(`${where}: \`${member}\` must be a JSON integer, got ${value}`);
+  }
+  if (value < 0) {
+    throw new SurfaceError(
+      `${where}: \`${member}\` is ${value}; a negative bound reads as a constraint and ` +
+        `disables one`
+    );
+  }
+  return value;
+}
+
 // ---------------------------------------------------------------------------
 // Parsing
 // ---------------------------------------------------------------------------
@@ -100,7 +198,7 @@ class SurfaceError extends Error {}
  */
 function rejectUnknown(where, obj, known) {
   const unknown = Object.keys(obj)
-    .filter((key) => !known.has(key))
+    .filter(key => !known.has(key))
     .sort();
   if (unknown.length > 0) {
     throw new SurfaceError(
@@ -135,15 +233,52 @@ function parseField(where, raw) {
   if (typeof raw.name !== 'string' || raw.name === '') {
     throw new SurfaceError(`${where}: a field must be named`);
   }
+  const at = `${where}.${raw.name}`;
+  checkIdentifier(at, raw.name);
+  const doc = raw.doc || '';
+  checkDoc(at, doc);
+  const constValue = raw.const || '';
+  if (constValue) checkLiteral(`${at}.const`, constValue);
+  // `required` is read STRICTLY, matching the sibling emitter. A coerced read
+  // (Python's `bool("false")` is True) makes the string "false" mean required in
+  // one SDK and optional in the other, from one artifact, with both regeneration
+  // gates green.
+  if ('required' in raw && typeof raw.required !== 'boolean') {
+    throw new SurfaceError(`${at}: \`required\` must be a JSON boolean, got ${raw.required}`);
+  }
+  const type = parseTypeRef(at, raw.type);
+  const minItems = parseBound(at, 'min_items', raw);
+  const minLength = parseBound(at, 'min_length', raw);
+  // A bound the emitter would silently drop is worse than one it cannot render:
+  // a `min_length` on a bool looks like a live constraint in the artifact and
+  // enforces nothing in the SDK.
+  if (minItems && type.kind !== 'array') {
+    throw new SurfaceError(
+      `${at}: \`min_items\` is declared on a ${type.kind} field; it is only meaningful on ` +
+        `an array, and emitting nothing for it would leave a constraint the artifact ` +
+        `declares and no SDK enforces`
+    );
+  }
+  if (minLength && type.kind !== 'string' && type.kind !== 'enum') {
+    throw new SurfaceError(
+      `${at}: \`min_length\` is declared on a ${type.kind} field; it is only meaningful on ` +
+        `a string, and emitting nothing for it would leave a constraint the artifact ` +
+        `declares and no SDK enforces`
+    );
+  }
+  const requiresMembers = raw.requires_members || [];
+  if (new Set(requiresMembers).size !== requiresMembers.length) {
+    throw new SurfaceError(`${at}: \`requires_members\` names the same member twice`);
+  }
   return {
     name: raw.name,
     required: raw.required === true,
-    type: parseTypeRef(`${where}.${raw.name}`, raw.type),
-    doc: raw.doc || '',
-    minItems: raw.min_items || 0,
-    minLength: raw.min_length || 0,
-    requiresMembers: raw.requires_members || [],
-    const: raw.const || '',
+    type,
+    doc,
+    minItems,
+    minLength,
+    requiresMembers,
+    const: constValue,
   };
 }
 
@@ -161,7 +296,10 @@ function parseEnum(raw, seen) {
     throw new SurfaceError(`enum "${name}" repeats a value`);
   }
   seen.add(name);
-  return { name, values, doc: raw.doc || '' };
+  const doc = raw.doc || '';
+  checkDoc(`enum ${name}`, doc);
+  values.forEach(value => checkLiteral(`enum ${name}`, value));
+  return { name, values, doc };
 }
 
 function parseType(raw, seen) {
@@ -173,19 +311,25 @@ function parseType(raw, seen) {
   if (!name) throw new SurfaceError('a type must be named');
   if (seen.has(name)) throw new SurfaceError(`the artifact declares the type "${name}" twice`);
   seen.add(name);
-  const fields = (raw.fields || []).map((field) => parseField(name, field));
+  const fields = (raw.fields || []).map(field => parseField(name, field));
   if (fields.length === 0) throw new SurfaceError(`type "${name}" has no fields`);
-  const fieldNames = fields.map((field) => field.name);
+  const fieldNames = fields.map(field => field.name);
   if (new Set(fieldNames).size !== fieldNames.length) {
     throw new SurfaceError(`type "${name}" declares a field twice`);
   }
-  const exactlyOneOf = (raw.exactly_one_of || []).map((group) => {
+  const exactlyOneOf = (raw.exactly_one_of || []).map(group => {
     if (group.length < 2) {
       throw new SurfaceError(
         `type "${name}" has an exactly-one-of group with ${group.length} members`
       );
     }
-    group.forEach((member) => {
+    if (new Set(group).size !== group.length) {
+      throw new SurfaceError(
+        `type "${name}" names the same member twice in an exactly-one-of group; one member ` +
+          `cannot be present exactly twice, so the emitted type could never be built`
+      );
+    }
+    group.forEach(member => {
       if (!fieldNames.includes(member)) {
         throw new SurfaceError(
           `type "${name}" names "${member}" in an exactly-one-of group but has no such field`
@@ -194,7 +338,9 @@ function parseType(raw, seen) {
     });
     return group;
   });
-  return { name, fields, doc: raw.doc || '', exactlyOneOf };
+  const doc = raw.doc || '';
+  checkDoc(`type ${name}`, doc);
+  return { name, fields, doc, exactlyOneOf };
 }
 
 /**
@@ -218,9 +364,9 @@ function parseSurface(rawText) {
   rejectUnknown('artifact', doc, SURFACE_MEMBERS);
 
   const enumNames = new Set();
-  const enums = (doc.enums || []).map((raw) => parseEnum(raw, enumNames));
+  const enums = (doc.enums || []).map(raw => parseEnum(raw, enumNames));
   const typeNames = new Set();
-  const types = (doc.types || []).map((raw) => parseType(raw, typeNames));
+  const types = (doc.types || []).map(raw => parseType(raw, typeNames));
 
   const surface = {
     artifact: doc.artifact || '',
@@ -237,18 +383,18 @@ function parseSurface(rawText) {
 }
 
 function checkReferences(surface, types, enums) {
-  surface.types.forEach((type) => {
-    type.fields.forEach((field) => {
+  surface.types.forEach(type => {
+    type.fields.forEach(field => {
       checkRef(`${type.name}.${field.name}`, field.type, types, enums);
-      field.requiresMembers.forEach((member) => {
+      field.requiresMembers.forEach(member => {
         if (field.type.kind !== 'ref' || !field.type.ref) {
           throw new SurfaceError(
             `${type.name}.${field.name} declares requires_members on a non-reference field; ` +
               `there is no type to require them of`
           );
         }
-        const referenced = surface.types.find((candidate) => candidate.name === field.type.ref);
-        if (!referenced.fields.some((candidate) => candidate.name === member)) {
+        const referenced = surface.types.find(candidate => candidate.name === field.type.ref);
+        if (!referenced.fields.some(candidate => candidate.name === member)) {
           throw new SurfaceError(
             `${type.name}.${field.name} requires the member "${member}" of ` +
               `"${field.type.ref}", which has no such field`
@@ -257,6 +403,23 @@ function checkReferences(surface, types, enums) {
       });
     });
   });
+}
+
+/**
+ * Refuse a container nested inside a container.
+ *
+ * The artifact declares none today. Refusing rather than rendering keeps the two
+ * SDKs in step: a construct one emitter generates for and the other refuses is a
+ * release where four SDKs ship and one does not build.
+ */
+function checkContainerItem(where, item) {
+  if (item.kind === 'array' || item.kind === 'map') {
+    throw new SurfaceError(
+      `${where} nests a ${item.kind} inside a container; no SDK emitter renders that yet, ` +
+        `and generating for it in one language and not another is how a five-SDK release ` +
+        `becomes a four-SDK release`
+    );
+  }
 }
 
 function checkRef(where, ref, types, enums) {
@@ -277,10 +440,12 @@ function checkRef(where, ref, types, enums) {
       return;
     case 'array':
       if (!ref.items) throw new SurfaceError(`${where} is an array with no item type`);
+      checkContainerItem(`${where}[]`, ref.items);
       checkRef(`${where}[]`, ref.items, types, enums);
       return;
     case 'map':
       if (!ref.value) throw new SurfaceError(`${where} is a map with no value type`);
+      checkContainerItem(`${where}{}`, ref.value);
       checkRef(`${where}{}`, ref.value, types, enums);
       return;
     case 'object':
@@ -313,7 +478,7 @@ function pascal(text) {
     .replace(/[.\-]/g, '_')
     .split('_')
     .filter(Boolean)
-    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .map(part => part[0].toUpperCase() + part.slice(1))
     .join('');
 }
 
@@ -366,7 +531,7 @@ function wrap(text, width) {
   if (words.length === 0) return [];
   const lines = [];
   let current = words[0];
-  words.slice(1).forEach((word) => {
+  words.slice(1).forEach(word => {
     if (current.length + 1 + word.length > width) {
       lines.push(current);
       current = word;
@@ -382,12 +547,12 @@ function docComment(out, indent, text) {
   const lines = wrap(text, 84 - indent.length);
   if (lines.length === 0) return;
   out.push(`${indent}/**`);
-  lines.forEach((line) => out.push(`${indent} * ${line}`));
+  lines.forEach(line => out.push(`${indent} * ${line}`));
   out.push(`${indent} */`);
 }
 
 function lineComment(out, indent, text) {
-  wrap(text, 84 - indent.length).forEach((line) => out.push(`${indent}// ${line}`));
+  wrap(text, 84 - indent.length).forEach(line => out.push(`${indent}// ${line}`));
 }
 
 function tsType(ref) {
@@ -488,13 +653,9 @@ function emitEnum(out, enumDef) {
     pushConst(out, enumConstName(enumDef.name, value), alias, `'${value}'`);
   });
   out.push('');
-  lineComment(
-    out,
-    '',
-    `Every value of ${enumDef.name} this build knows, in the artifact's order.`
-  );
+  lineComment(out, '', `Every value of ${enumDef.name} this build knows, in the artifact's order.`);
   out.push(`export const ${valuesConst}: readonly ${alias}[] = [`);
-  enumDef.values.forEach((value) => out.push(`  ${enumConstName(enumDef.name, value)},`));
+  enumDef.values.forEach(value => out.push(`  ${enumConstName(enumDef.name, value)},`));
   out.push('];');
   out.push('');
 }
@@ -540,7 +701,7 @@ function emitValidator(out, type) {
     type.fields.map(field => field.name)
   );
 
-  type.fields.forEach((field) => {
+  type.fields.forEach(field => {
     const member = fieldName(field.name);
     const pointer = `\`\${at}/${field.name}\``;
     const access = `obj['${field.name}']`;
@@ -578,9 +739,7 @@ function emitValidator(out, type) {
     field.requiresMembers.forEach(member => {
       out.push(`  if (obj['${field.name}'] !== undefined) {`);
       out.push(`    const nested = obj['${field.name}'] as Record<string, unknown>;`);
-      out.push(
-        `    if (nested['${member}'] === undefined || nested['${member}'] === null) {`
-      );
+      out.push(`    if (nested['${member}'] === undefined || nested['${member}'] === null) {`);
       pushFail(
         out,
         '      ',
@@ -603,7 +762,8 @@ function emitFieldChecks(field, access, pointer, indent) {
   if (ref.kind === 'string' || ref.kind === 'enum') {
     // The binding is emitted only when something reads it: an unused `raw`
     // is a lint error on a file nobody is allowed to hand-fix.
-    const reads = field.minLength > 0 || Boolean(field.const);
+    // `const` no longer emits a check (see below), so only a minLength reads it.
+    const reads = field.minLength > 0;
     lines.push(
       reads
         ? `${indent}const raw = authzenString(${access}, ${pointer});`
@@ -619,15 +779,17 @@ function emitFieldChecks(field, access, pointer, indent) {
       );
       lines.push(`${indent}}`);
     }
-    if (field.const) {
-      // The const is CHECKED but the message is deliberately plain: the client
-      // refuses an unreadable profile with a message that names the version it
-      // does speak, and this is the fallback for a caller that reached the
-      // validator directly.
-      lines.push(`${indent}if (raw !== '${field.const}') {`);
-      lines.push(`${indent}  authzenFail(${pointer}, \`must be '${field.const}', got '\${raw}'\`);`);
-      lines.push(`${indent}}`);
-    }
+    // `const` is DELIBERATELY not enforced here, and the sibling emitter makes
+    // the same choice.
+    //
+    // The only const in the contract is the response context's profile, and the
+    // hand-written client already refuses a profile it cannot read with a
+    // message that names the version it does speak and tells the caller to
+    // upgrade - which is exactly the guidance wanted at the v11 cutover.
+    // Enforcing it here too put a second check in front of the first: the
+    // generated one fired, the actionable message became dead code, and the
+    // test named for it passed on the generated message instead. One rule, one
+    // enforcement site, and the constant is emitted so that site can name it.
     return lines;
   }
   if (ref.kind === 'bool') {
@@ -674,9 +836,7 @@ function emitFieldChecks(field, access, pointer, indent) {
     }
     if (ref.items.kind === 'ref') {
       lines.push(`${indent}${access} = items.map((item, index) =>`);
-      lines.push(
-        `${indent}  ${validatorName(ref.items.ref)}(item, \`\${${pointer}}/\${index}\`)`
-      );
+      lines.push(`${indent}  ${validatorName(ref.items.ref)}(item, \`\${${pointer}}/\${index}\`)`);
       lines.push(`${indent});`);
     } else {
       lines.push(`${indent}items.forEach((item, index) => {`);
@@ -782,7 +942,7 @@ const RUNTIME_HELPERS = [
   '  public readonly pointer: string;',
   '',
   '  constructor(pointer: string, detail: string) {',
-  '    super(`${pointer || \'/\'} ${detail}`);',
+  "    super(`${pointer || '/'} ${detail}`);",
   "    this.name = 'AuthZENSchemaError';",
   '    this.pointer = pointer;',
   '    Object.setPrototypeOf(this, AuthZENSchemaError.prototype);',
@@ -848,7 +1008,7 @@ const RUNTIME_HELPERS = [
   '    .filter(key => !known.includes(key))',
   '    .sort();',
   '  if (extra.length > 0) {',
-  '    authzenFail(at, `carries members this build does not understand: ${extra.join(\', \')}`);',
+  "    authzenFail(at, `carries members this build does not understand: ${extra.join(', ')}`);",
   '  }',
   '}',
 ];
@@ -857,9 +1017,9 @@ function emit(surface) {
   checkEmittable(surface);
   const out = [];
   emitHeader(out, surface);
-  surface.enums.forEach((enumDef) => emitEnum(out, enumDef));
-  surface.types.forEach((type) => emitInterface(out, type));
-  surface.types.forEach((type) => emitValidator(out, type));
+  surface.enums.forEach(enumDef => emitEnum(out, enumDef));
+  surface.types.forEach(type => emitInterface(out, type));
+  surface.types.forEach(type => emitValidator(out, type));
 
   let rendered = out.join('\n');
   while (rendered.includes('\n\n\n')) {
@@ -870,7 +1030,7 @@ function emit(surface) {
   const tooLong = rendered
     .split('\n')
     .map((line, index) => ({ line, index: index + 1 }))
-    .filter((entry) => entry.line.length > MAX_COLUMNS);
+    .filter(entry => entry.line.length > MAX_COLUMNS);
   if (tooLong.length > 0) {
     // Fail rather than emit something the formatter would rewrite: a file the
     // formatter reformats is a file the regeneration gate reports as drift on
@@ -883,9 +1043,32 @@ function emit(surface) {
   return rendered;
 }
 
+/**
+ * Refuse a vendored artifact that is not the one this SDK was pinned to.
+ *
+ * Without this the regeneration gate is a closed loop: edit the artifact,
+ * regenerate, and both the CI check and the byte-comparison test are green while
+ * the SDK now describes a contract the platform never published. This is the
+ * only check that looks OUTSIDE the file.
+ */
+function verifyVendoredDigest(raw) {
+  const digest = crypto.createHash('sha256').update(raw).digest('hex');
+  if (digest !== VENDORED_ARTIFACT_SHA256) {
+    throw new SurfaceError(
+      `${SURFACE_REL} has sha256 ${digest}, not the pinned ${VENDORED_ARTIFACT_SHA256}. The ` +
+        `vendored artifact is a COPY of the platform's canonical surface, so editing it here ` +
+        `silently forks the contract this SDK describes. If you are re-vendoring on purpose: ` +
+        `copy the file from the platform again, update VENDORED_ARTIFACT_SHA256 in this ` +
+        `script, regenerate, and name the platform commit in the pull request.`
+    );
+  }
+}
+
 function main(argv) {
   const check = argv.includes('--check');
-  const surface = parseSurface(fs.readFileSync(SURFACE_PATH, 'utf8'));
+  const raw = fs.readFileSync(SURFACE_PATH, 'utf8');
+  verifyVendoredDigest(raw);
+  const surface = parseSurface(raw);
   const rendered = emit(surface);
 
   if (check) {
@@ -911,6 +1094,8 @@ function main(argv) {
 
 module.exports = {
   SurfaceError,
+  VENDORED_ARTIFACT_SHA256,
+  verifyVendoredDigest,
   SURFACE_PATH,
   OUTPUT_PATH,
   parseSurface,
@@ -924,6 +1109,25 @@ module.exports = {
   main,
 };
 
+/**
+ * Run `main` and report a refusal as a message, not a stack trace.
+ *
+ * The value of these gates is telling a maintainer what to do about the
+ * failure. A stack trace in a CI log buries the one sentence that matters under
+ * frames from this script.
+ */
+function cli(argv) {
+  try {
+    return main(argv);
+  } catch (err) {
+    if (!(err instanceof SurfaceError)) throw err;
+    process.stderr.write(`gen-authzen-types: ${err.message}\n`);
+    return 1;
+  }
+}
+
+module.exports.cli = cli;
+
 if (require.main === module) {
-  process.exit(main(process.argv.slice(2)));
+  process.exit(cli(process.argv.slice(2)));
 }

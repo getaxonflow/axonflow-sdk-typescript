@@ -913,10 +913,7 @@ export function validateAuthZENResponseContext(value: unknown, at: string): Auth
   if (obj['profile'] === undefined || obj['profile'] === null) {
     authzenFail(`${at}/profile`, 'is required');
   } else {
-    const raw = authzenString(obj['profile'], `${at}/profile`);
-    if (raw !== 'axonflow-authzen-profile-2026-08-29') {
-      authzenFail(`${at}/profile`, `must be 'axonflow-authzen-profile-2026-08-29', got '${raw}'`);
-    }
+    authzenString(obj['profile'], `${at}/profile`);
   }
   if (obj['state'] === undefined || obj['state'] === null) {
     authzenFail(`${at}/state`, 'is required');

@@ -63,17 +63,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OpenAPI schemas, fails closed on unresolvable bindings, and names the
   deprecated fiction fields as curated debt.
 
-- **`AuditToolCallRequest.callerName`** - identifies which client made a
+- **`AuditToolCallRequest.callerName`** — identifies which client made a
   tool call (e.g. `claude_code`, `codex`, `cursor`, `openclaw`), sent to the
   orchestrator as `caller_name` (getaxonflow/axonflow-enterprise#2912,
   sub-issue of epic #2905). Replaces the misleadingly-named `toolType`
   field, which every real caller used to identify the calling client rather
   than any property of the tool itself. `toolType` is kept as a deprecated
-  input fallback - not removed, not renamed - so existing callers keep
+  input fallback — not removed, not renamed — so existing callers keep
   working during the deprecation window; the server resolves `callerName`
   if supplied, else falls back to legacy `toolType`, else defaults to
   `"unknown"` for an unidentified caller (getaxonflow/axonflow-enterprise#2903
-  - an unidentified caller is no longer silently attributed to the specific
+  — an unidentified caller is no longer silently attributed to the specific
   client `"claude_code"`).
 
 ### Deprecated
@@ -109,7 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `connectorTypeFn`.
 
   **Migration.** Policies or per-connector settings matching the old
-  concatenated value - e.g. `connectorType == "filesystem.read_file"` - stop
+  concatenated value — e.g. `connectorType == "filesystem.read_file"` — stop
   matching after upgrade. Re-scope them to match `connectorType ==
   "filesystem"` together with the `tool` field (e.g. `tool == "read_file"`).
   The `connectorTypeFn` option is the compatibility lever: a caller can
@@ -133,13 +133,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Minimum platform.** The `tool` field is consumed on `POST
   /api/v1/mcp/check-input` by **AxonFlow platform v9.10.0+**. On platforms
   below v9.10.0 the `tool` field is silently dropped and identity degrades to
-  the bare server name - coarser than the old concatenated value - so
+  the bare server name — coarser than the old concatenated value — so
   **upgrade the platform to v9.10.0+ before adopting this SDK major.**
   Response-plane (`check-output`) `tool` scoping requires **AxonFlow platform
   v9.11.0+**; until then the SDK sends it forward-compatibly and older
   platforms ignore it.
 
-## [8.5.1] - 2026-07-09 - getPlanStatus auth + queryConnector user token + example fixes
+## [8.5.1] - 2026-07-09 — getPlanStatus auth + queryConnector user token + example fixes
 
 Hostile-testing sweep ahead of the BukuWarung integration
 (getaxonflow/axonflow-enterprise#2861).
@@ -147,7 +147,7 @@ Hostile-testing sweep ahead of the BukuWarung integration
 ### Fixed
 
 - **`getPlanStatus` sends the Basic auth header.** It was the only client
-  method calling `_fetch` without `buildAuthHeaders()` - every call 401'd
+  method calling `_fetch` without `buildAuthHeaders()` — every call 401'd
   ("Authorization header required") against a live stack. Regression test
   asserts the header on the wire; `runtime-e2e/plan_status_auth/` proves the
   round-trip against a real agent.
@@ -157,7 +157,7 @@ Hostile-testing sweep ahead of the BukuWarung integration
   Cross-SDK parity with Go's `QueryConnector(userToken, …)`.
 - **Examples pass `AXONFLOW_USER_TOKEN` and fail honestly.** Enterprise
   stacks validate user tokens as JWTs; `basic`, `proxy-mode`, `planning` and
-  `connectors` passed hardcoded non-JWT literals - every governed call
+  `connectors` passed hardcoded non-JWT literals — every governed call
   401'd while the examples still printed "completed" and exited 0. They now
   read `AXONFLOW_USER_TOKEN`, thread it through `generatePlan`/`executePlan`
   and `queryConnector`, and set a non-zero exit code on unexpected failures
@@ -165,34 +165,34 @@ Hostile-testing sweep ahead of the BukuWarung integration
 
 ### Added
 
-- `runtime-e2e/plan_status_auth/` - live-agent assertion: generatePlan →
+- `runtime-e2e/plan_status_auth/` — live-agent assertion: generatePlan →
   getPlanStatus authenticated round-trip + wrong-credentials 401 control.
 
-## [8.5.0] - 2026-06-09 - Decision Mode PEP: decide → fulfill → forward
+## [8.5.0] - 2026-06-09 — Decision Mode PEP: decide → fulfill → forward
 
 Adds the SDK analog of the platform PEP client (`platform/shared/pep`,
-ADR-056, epic #2563). A Policy Enforcement Point now follows one path -
-**decide → fulfill → forward** - and the SDK makes the engine-fulfillable
+ADR-056, epic #2563). A Policy Enforcement Point now follows one path —
+**decide → fulfill → forward** — and the SDK makes the engine-fulfillable
 obligation contract impossible to misuse: there is **no local redaction
 path**, so a `redact_pii` obligation can only be discharged by round-tripping
 content through the engine endpoint the obligation names.
 
 ### Added
 
-- **`AxonFlow.decide(request)`** - the PDP step. `POST /api/v1/decide` returns a
+- **`AxonFlow.decide(request)`** — the PDP step. `POST /api/v1/decide` returns a
   `DecideResponse` whose `obligations` is an array of self-describing
   `Obligation`s. Decision Mode auth is HTTP Basic (org:license), which the
   client already sends; wrong/demo credentials are refused with
   `AuthenticationError`. A deny verdict is returned in the body (HTTP 200), not
   thrown.
-- **`AxonFlow.fulfillRequest(decision, statement)`** - discharges every
+- **`AxonFlow.fulfillRequest(decision, statement)`** — discharges every
   request-phase `redact_pii` obligation by POSTing the statement to the engine's
   `check-input` endpoint and returning the **engine-redacted** statement as
   `[content, didRedact]`. Fails closed with `ObligationNotFulfillableError` when
   an obligation names no request-phase fulfillment, advertises a content-type the
   PEP is not holding, names an endpoint the client will not call, the engine call
   fails, or the engine reports `redaction_evaluated=false`. Never redacts locally.
-- **`AxonFlow.decideAndFulfill(request)`** - the blessed one-call path (decide,
+- **`AxonFlow.decideAndFulfill(request)`** — the blessed one-call path (decide,
   then fulfill any request-phase obligation), returning
   `[verdict, content, decision]`; fail-closed by construction.
 - **New types**: `DecideRequest`, `DecideResponse`, `Obligation`,
@@ -206,10 +206,10 @@ content through the engine endpoint the obligation names.
   constants), all exported from the package root.
 - **`redacted` / `redacted_statement` / `redaction_evaluated` on
   `MCPCheckInputResponse`** and **`redaction_evaluated` on
-  `MCPCheckOutputResponse`** - the request-redaction contract fields the agent
+  `MCPCheckOutputResponse`** — the request-redaction contract fields the agent
   emits (ADR-056). A PEP fulfilling an obligation fails closed when
   `redaction_evaluated` is false.
-- **`contentType` on `MCPCheckInputOptions` / `mcpCheckInput(...)`** - selects
+- **`contentType` on `MCPCheckInputOptions` / `mcpCheckInput(...)`** — selects
   the request-redaction detector (maps to the snake_case `content_type` wire
   field; defaults to `text/plain` server-side).
 
@@ -221,13 +221,13 @@ content through the engine endpoint the obligation names.
   pending the OpenAPI spec catching up; the pinned `openapi_specs_sha` is
   unchanged.
 
-## [8.4.0] - 2026-05-30 - Decision request context + Pasal 56(b) transfer basis
+## [8.4.0] - 2026-05-30 — Decision request context + Pasal 56(b) transfer basis
 
 Targets AxonFlow platform **v8.5.0**.
 
 ### Added
 
-- **`context` field on `DecisionSummary` and `DecisionExplanation`** -
+- **`context` field on `DecisionSummary` and `DecisionExplanation`** —
   `Record<string, string>`. Surfaces the sanitized request context a PEP attaches
   to a Decision Mode call (canonical `lower_snake_case` keys such as `x_ai_agent`,
   `x_session_id`, `x_leader_identity`, and `x-bukuwarung-*`), persisted by the
@@ -235,7 +235,7 @@ Targets AxonFlow platform **v8.5.0**.
   returns the platform-truncated summary (5 keys); `explainDecision()` returns the
   full map. The `parseDecisionSummary` / `parseDecisionExplanation` decoders map
   the new wire fields through. Absent for pre-v8.4.0 audit rows.
-- **`contextTruncated` field on `DecisionExplanation`** - `boolean`. True when the
+- **`contextTruncated` field on `DecisionExplanation`** — `boolean`. True when the
   agent dropped surplus context keys at write time.
 - **`TransferBasis` union type** (`'adequacy' | 'safeguards' | 'pasal_56b_dpa' |
   'consent'`), exported from the package root. Names the Indonesia UU PDP Pasal 56
@@ -245,11 +245,11 @@ Targets AxonFlow platform **v8.5.0**.
 
 - **`AuditLogEntry.transferBasis`** is now typed `TransferBasis` (was `string`) and
   accepts `pasal_56b_dpa` (Pasal 56(b) explicit DPA tag) alongside `adequacy`,
-  `safeguards`, and `consent`. The union is a compile-time hint only - the runtime
+  `safeguards`, and `consent`. The union is a compile-time hint only — the runtime
   decoder passes the value through verbatim, so existing `safeguards` consumers are
   unaffected and an unknown future value still parses.
 
-## [8.3.0] - 2026-05-27 - Indonesia PII category + cross-border audit fields
+## [8.3.0] - 2026-05-27 — Indonesia PII category + cross-border audit fields
 
 ### Added
 
@@ -262,7 +262,7 @@ Targets AxonFlow platform **v8.5.0**.
   `transferBasis` is one of `adequacy`, `safeguards`, or `consent`.
   Both are optional for backward compatibility with older platform versions.
 
-## [8.2.0] - 2026-05-23 - `createHITLRequest` for explicit HITL row creation
+## [8.2.0] - 2026-05-23 — `createHITLRequest` for explicit HITL row creation
 
 Enables agent-framework plugins (Google ADK, n8n, OpenAI Agents SDK) to
 implement the full 4-step HITL approval flow against AxonFlow:
@@ -286,7 +286,7 @@ surface was missing.
   framework, an expiry override, and the new `notify_url` callback.
   Server-side `X-Org-ID` / `X-Tenant-ID` headers are derived by the
   platform's auth middleware from the SDK client's configured
-  credentials - callers do not pass them through this method.
+  credentials — callers do not pass them through this method.
 - **`HITLCreateInput` interface** in `src/types/hitl.ts` mirroring
   `platform/agent/hitl/handler.go:86 CreateRequestInput`. Exported
   from the top-level package alongside the existing HITL types.
@@ -317,12 +317,12 @@ and `Idempotency-Key` request deduplication.
 
 Cross-SDK parity sweep: getaxonflow/axonflow-enterprise#2421.
 
-## [8.1.0] - 2026-05-22 - `X-Client-ID` header on every outbound request + `org_id` in telemetry heartbeat + single-attempt HTTP contract documented
+## [8.1.0] - 2026-05-22 — `X-Client-ID` header on every outbound request + `org_id` in telemetry heartbeat + single-attempt HTTP contract documented
 
 Companion release to the v9 identity cleanup on the platform. Every
 governed request now carries an `X-Client-ID: <effective_client_id>`
 header alongside the existing Basic Auth + `X-Axonflow-Client` headers.
-Value matches the SDK's Basic Auth username - smart default `community`
+Value matches the SDK's Basic Auth username — smart default `community`
 when no `clientId` is configured.
 
 ### Added
@@ -332,7 +332,7 @@ when no `clientId` is configured.
  middleware overwrites the header with its own auth-derived value, so
  caller-supplied values are harmless (no spoofing surface).
 - **`org_id` field in the telemetry heartbeat body.** Brings the TypeScript
- SDK telemetry up to parity with the platform - every heartbeat now
+ SDK telemetry up to parity with the platform — every heartbeat now
  identifies which deployment-organization emitted it. Two sources in
  precedence order:
  1. The `ORG_ID` env var when set (the explicit configuration
@@ -349,14 +349,14 @@ when no `clientId` is configured.
 - **Regression tests covering the single-attempt HTTP contract.** Two
  new test files lock in that `auditToolCall` and the portal request
  helper each issue exactly one outbound `fetch` and never retry on HTTP
- 401 (or 403, for the portal helper) - the storm-prevention behaviour
+ 401 (or 403, for the portal helper) — the storm-prevention behaviour
  customers rely on when credentials are invalid or expired.
 
 ### Changed
 
 - **Telemetry-enabled log line** softened from "Anonymous telemetry
  enabled" to "Telemetry enabled" to stay coherent with the `org_id`
- addition - the configured `ORG_ID` on self-hosted deployments is not
+ addition — the configured `ORG_ID` on self-hosted deployments is not
  anonymized; only the `instance_id` and `cs_<uuid>` Community SaaS
  identifier remain anonymous-by-design.
 - **README "A note on HTTP retries"** clarifies that the SDK does not
@@ -364,24 +364,24 @@ when no `clientId` is configured.
  caller-side retry wrapper MUST exclude `AuthenticationError`. The
  previous example block in "Configuration Options" showed a `retry: {
  enabled, maxAttempts, delay }` config that the SDK accepts on the
- constructor but never wires into the underlying fetch path - removed
+ constructor but never wires into the underlying fetch path — removed
  from the example so customers don't write retry-storm code against a
  config that does nothing. The config type (`AxonFlowConfig.retry`) is
  retained for backward compatibility; it is silently ignored.
 - **`SDK_ARCHITECTURE.md`, `TECHNICAL_SPECIFICATION.md`, `TEST_PLAN.md`
- retry sections** corrected to reflect single-attempt semantics - the
+ retry sections** corrected to reflect single-attempt semantics — the
  prior text referenced a `RetryConfig` interface and exponential-backoff
  behaviour that the SDK does not implement. Section headers retained so
  readers searching for "retry" land on the negation rather than nothing.
 
 ### Deprecated
 
-- **`AxonFlowConfig.tenant` field - `@deprecated` strengthened.** The
+- **`AxonFlowConfig.tenant` field — `@deprecated` strengthened.** The
  field will be REMOVED in v10. Use `clientId` for both authentication
- identity and tenant routing - the platform derives tenant scope from
+ identity and tenant routing — the platform derives tenant scope from
  the authenticated `client_id`. Wire-level `tenant_id` JSON fields on
  request payloads remain unchanged.
-- **`AxonFlowConfig.retry` field and `RetryConfig` interface - marked
+- **`AxonFlowConfig.retry` field and `RetryConfig` interface — marked
  `@deprecated` in `src/types/config.ts`.** IDE hover / IntelliSense was
  the last surface still presenting "Retry configuration" with three
  working-looking fields. The fields had never been wired into the fetch
@@ -392,23 +392,23 @@ when no `clientId` is configured.
 
 - Backward-compatible against v8 and v9 platforms: v8 agents ignore the
  unknown header; v9 agents derive identity from Basic Auth regardless.
-- `org_id` is an additive field - older receivers ignore it cleanly,
+- `org_id` is an additive field — older receivers ignore it cleanly,
  legacy SDK builds keep working unchanged.
 - No removed fields. No changed defaults.
 
-## [8.0.0] - 2026-05-09 - Decision History API + policy_version recorded on every decision + telemetry simplification
+## [8.0.0] - 2026-05-09 — Decision History API + policy_version recorded on every decision + telemetry simplification
 
 **Major release.** The headline feature is the new decision-history client API:
 `listDecisions` for paging through recorded decisions, plus a runnable example
 showing the full record → list → explain audit flow. Bundled into a major
-because the v8 line also tightens the telemetry contract - see `Removed` at
+because the v8 line also tightens the telemetry contract — see `Removed` at
 the bottom of this entry for that.
 
 ### Added
 
 - **`listDecisions(opts?: ListDecisionsOptions)` client method.** Pages over
  recorded decision history from the orchestrator, mirroring `GET
- /api/v1/decisions`. Companion to the v7.4.0 `explainDecision` method -
+ /api/v1/decisions`. Companion to the v7.4.0 `explainDecision` method —
  callers can now both list and drill in. Returns `DecisionSummary[]`.
  See `examples/list-decisions/`.
 - **`examples/explain-decision/`** end-to-end runnable example covering
@@ -416,7 +416,7 @@ the bottom of this entry for that.
 - **Typed `RateLimitError` envelope** on `listDecisions` 429 responses.
  `RateLimitError.fromTierEnvelope()` parses the V1 limit/tier/upgrade
  envelope (`limitType`, `tier`, `upgrade.{wording,compareUrl,buyUrl}`)
- so callers can route Free → Pro upgrade hints. Backward-compatible -
+ so callers can route Free → Pro upgrade hints. Backward-compatible —
  the existing daily-quota positional constructor still works.
 - **Public re-exports.** `ListDecisionsOptions`, `DecisionSummary`,
  `UpgradeInfo`, `ExplainPolicy`, `ExplainRule` are now exported from
@@ -427,7 +427,7 @@ the bottom of this entry for that.
 - **`AxonFlowConfig.telemetry` field removed.** TypeScript code referencing
  this field will fail to typecheck. Migration: remove the field from your
  `AxonFlowConfig` literal. If you were using it to disable telemetry,
- set `AXONFLOW_TELEMETRY=off` in the environment instead - that's the
+ set `AXONFLOW_TELEMETRY=off` in the environment instead — that's the
  sole opt-out lever as of v8. If you were using it to force-enable, the
  default is now ON for every mode so the field is no longer needed.
 - **No public method-signature changes** beyond the field removal above.
@@ -437,9 +437,9 @@ the bottom of this entry for that.
 ### Telemetry
 
 - **`AXONFLOW_TELEMETRY=off` is the sole opt-out.** `AxonFlowConfig.telemetry` field removed; sandbox-mode clients now fire on the same 7-day heartbeat schedule as production (was suppressed pre-v8), tagged `stream="sandbox"` so dev pings stay distinguishable.
-- **Heartbeat payload v1 schema additions** on the wire: new `telemetry_type` and `deployment_mode` fields. Existing receivers continue working unchanged - strictly additive.
+- **Heartbeat payload v1 schema additions** on the wire: new `telemetry_type` and `deployment_mode` fields. Existing receivers continue working unchanged — strictly additive.
 
-## [7.1.0] - 2026-05-06 - X-Axonflow-Client header + scope-aware license validation
+## [7.1.0] - 2026-05-06 — X-Axonflow-Client header + scope-aware license validation
 
 **Companion release to platform v7.7.0.** The TypeScript SDK now sends an
 `X-Axonflow-Client` identification header on every governed request, which
@@ -469,23 +469,23 @@ license token's audience claim per the license matrix.
 
 ### Companion releases (same day)
 
-- **Platform v7.7.0** - V1 SaaS Plugin Pro launch, license matrix,
+- **Platform v7.7.0** — V1 SaaS Plugin Pro launch, license matrix,
  per-tenant tier resolution, GDPR right-to-erasure
  ([CHANGELOG](https://github.com/getaxonflow/axonflow/blob/main/CHANGELOG.md))
 - **Go SDK v7.1.0** / **Python SDK v7.1.0** /
- **Java SDK v7.1.0** - same `X-Axonflow-Client` injection
-- **Plugins** - Claude Code / Cursor / Codex v1.2.0; OpenClaw v2.2.0
+ **Java SDK v7.1.0** — same `X-Axonflow-Client` injection
+- **Plugins** — Claude Code / Cursor / Codex v1.2.0; OpenClaw v2.2.0
  with Pro license token paste activating Pro features
 
 axonflow-sdk-rust remains at v0.1.0 (preview); SDK-Rust will gain the
 header in a future preview release.
 
-## [7.0.0] - 2026-04-29 - Production, quality, and security hardening - upgrade encouraged
+## [7.0.0] - 2026-04-29 — Production, quality, and security hardening — upgrade encouraged
 
-**Upgrade strongly recommended.** Over the past month we've shipped substantial production, quality, and security hardening across the AxonFlow SDKs and platform - upgrade to the latest major for a more secure, reliable, and bug-free experience.
+**Upgrade strongly recommended.** Over the past month we've shipped substantial production, quality, and security hardening across the AxonFlow SDKs and platform — upgrade to the latest major for a more secure, reliable, and bug-free experience.
 
 **Security highlights from this release cycle:**
-- **Webhook signing-key now exposed by SDK response type** (this release). The `secret` (HMAC-SHA256) field on `WebhookSubscription` - returned by `createWebhook` - was missing from the SDK type, so callers had no way to retrieve the signing key and webhook signature verification was effectively un-implementable. The field is now wired through end-to-end. Documented in [`GHSA-mph8-9v29-pm42`](https://github.com/getaxonflow/axonflow-sdk-typescript/security/advisories/GHSA-mph8-9v29-pm42).
+- **Webhook signing-key now exposed by SDK response type** (this release). The `secret` (HMAC-SHA256) field on `WebhookSubscription` — returned by `createWebhook` — was missing from the SDK type, so callers had no way to retrieve the signing key and webhook signature verification was effectively un-implementable. The field is now wired through end-to-end. Documented in [`GHSA-mph8-9v29-pm42`](https://github.com/getaxonflow/axonflow-sdk-typescript/security/advisories/GHSA-mph8-9v29-pm42).
 - **`DO_NOT_TRACK` opt-out removed in favor of `AXONFLOW_TELEMETRY=off`** (this release). `DO_NOT_TRACK` was unreliable because host CLIs and runtimes commonly inject `DO_NOT_TRACK=1` regardless of user intent; an explicit AxonFlow-scoped opt-out is the only signal we honor now. JSDoc on `AxonFlowConfig` was updated so npm/IDE consumers no longer see the stale "honored" claim.
 - **`prefer-nullish-coalescing` lint enforcement** (last cycle, v6.x). Blocks falsey-clobber bugs (`x.field || default` swallowing `false` / `0` / `""`) at PR time across the SDK source.
 
@@ -502,53 +502,53 @@ Major release across the AxonFlow SDK family. Companion releases ship the same d
 
 ### Changed
 
-- **Telemetry switched to a 7-day delivered-heartbeat.** At most one anonymous ping per environment every 7 days, with the stamp advanced only after the POST returns 2xx - a transient network failure doesn't silence telemetry until the next window. Concurrent stampedes are de-duplicated by an in-flight Promise. Restricted environments where no cache dir is available (e.g. AWS Lambda) fall back transparently to the previous "one ping per process" behavior.
+- **Telemetry switched to a 7-day delivered-heartbeat.** At most one anonymous ping per environment every 7 days, with the stamp advanced only after the POST returns 2xx — a transient network failure doesn't silence telemetry until the next window. Concurrent stampedes are de-duplicated by an in-flight Promise. Restricted environments where no cache dir is available (e.g. AWS Lambda) fall back transparently to the previous "one ping per process" behavior.
 
 ### Fixed
 
 - The `DO_NOT_TRACK=1 is deprecated.` `console.warn` is no longer emitted on every client construction when `DO_NOT_TRACK=1` is set.
 
-## [6.2.0] - 2026-04-28 - listProviders() + example modernization
+## [6.2.0] - 2026-04-28 — listProviders() + example modernization
 
 Minor release. New LLM-provider listing API closes the parity gap with the Java + Python SDKs; the rest of the cycle is example modernization and a non-breaking default-endpoint correction. Coordinated cycle: Python v6.9.0 / Go v6.0.0 (major: see SDKCompatibility breaking type change in that release) / Java v6.2.0 ship same day.
 
 ### Added
 
-- **`client.listProviders(options?)`** - list configured LLM providers and their per-provider health snapshot. Calls `GET /api/v1/llm-providers`. New `LLMProvider`, `LLMProviderHealth`, and `ListProvidersOptions` types in `@axonflow/sdk`. Supports `type` and `enabled` filters. Closes the parity gap with the Java SDK's `listLLMProviders()` and the Python SDK's `list_providers()`.
+- **`client.listProviders(options?)`** — list configured LLM providers and their per-provider health snapshot. Calls `GET /api/v1/llm-providers`. New `LLMProvider`, `LLMProviderHealth`, and `ListProvidersOptions` types in `@axonflow/sdk`. Supports `type` and `enabled` filters. Closes the parity gap with the Java SDK's `listLLMProviders()` and the Python SDK's `list_providers()`.
 
 ### Fixed
 
-- **`examples/basic/`** - rewritten to use the modern Gateway-Mode (`getPolicyApprovedContext` + `auditLLMCall`) and Proxy-Mode (`proxyLLMCall`) APIs. The previous version used the deprecated `protect()` helper (deprecated in v6.0.0).
-- **`examples/connectors/`** - `installConnector()` now uses the correct snake-case `connector_id` (was `connectorId`) and supplies the required `tenant_id` (sourced from `AXONFLOW_TENANT_ID`, falls back to `AXONFLOW_CLIENT_ID`).
-- **`examples/planning/`** - `PlanStep` field rename: `step.dependsOn` (was `step.dependencies`).
-- **`examples/proxy-mode/`** - `client.executeQuery(.)` → `client.proxyLLMCall(.)` (renamed in v6.0.0).
-- **All examples** - standardized on `import { AxonFlow } from '@axonflow/sdk'`; replaced the decommissioned `staging-eu.getaxonflow.com` default with `http://localhost:8080`.
-- **`examples/README.md`** - corrected env-var names (`AXONFLOW_CLIENT_ID` / `AXONFLOW_CLIENT_SECRET`, not `AXONFLOW_API_KEY` / `AXONFLOW_TENANT`); runner instructions use `tsx` instead of `ts-node`.
+- **`examples/basic/`** — rewritten to use the modern Gateway-Mode (`getPolicyApprovedContext` + `auditLLMCall`) and Proxy-Mode (`proxyLLMCall`) APIs. The previous version used the deprecated `protect()` helper (deprecated in v6.0.0).
+- **`examples/connectors/`** — `installConnector()` now uses the correct snake-case `connector_id` (was `connectorId`) and supplies the required `tenant_id` (sourced from `AXONFLOW_TENANT_ID`, falls back to `AXONFLOW_CLIENT_ID`).
+- **`examples/planning/`** — `PlanStep` field rename: `step.dependsOn` (was `step.dependencies`).
+- **`examples/proxy-mode/`** — `client.executeQuery(.)` → `client.proxyLLMCall(.)` (renamed in v6.0.0).
+- **All examples** — standardized on `import { AxonFlow } from '@axonflow/sdk'`; replaced the decommissioned `staging-eu.getaxonflow.com` default with `http://localhost:8080`.
+- **`examples/README.md`** — corrected env-var names (`AXONFLOW_CLIENT_ID` / `AXONFLOW_CLIENT_SECRET`, not `AXONFLOW_API_KEY` / `AXONFLOW_TENANT`); runner instructions use `tsx` instead of `ts-node`.
 
 ### Changed
 
 - **SDK default endpoint** is now `http://localhost:8080` (was `https://staging-eu.getaxonflow.com`). Constructing `new AxonFlow({.})` without an explicit `endpoint` previously routed every request to a host that was decommissioned 2026-04-09. Production callers passing an explicit `endpoint` are unaffected.
 - **`AxonFlow.sandbox(.)`** now targets `http://localhost:8080` for the same reason. Override via the regular constructor for hosted environments.
 
-## [6.1.0] - 2026-04-25 - Plugin Batch 1 explainability fields on MCP responses
+## [6.1.0] - 2026-04-25 — Plugin Batch 1 explainability fields on MCP responses
 
-Minor release. Surfaces fields the AxonFlow agent has emitted since v7.1.0 (Plugin Batch 1) but the SDK didn't declare. Pure field-additions on existing methods - no new SDK methods, no breaking changes. Documented in OpenAPI via platform v7.4.3.
+Minor release. Surfaces fields the AxonFlow agent has emitted since v7.1.0 (Plugin Batch 1) but the SDK didn't declare. Pure field-additions on existing methods — no new SDK methods, no breaking changes. Documented in OpenAPI via platform v7.4.3.
 
 Coordinated cycle: Python v6.8.0 / Go v5.8.0 / Java v6.1.0 ship same day with the same field set.
 
 ### Added
 
 - **`MCPCheckInputResponse`** gains 5 optional Plugin Batch 1 fields:
- - `decision_id?: string` - audit correlator
+ - `decision_id?: string` — audit correlator
  - `risk_level?: 'low' | 'medium' | 'high' | 'critical'`
- - `policy_matches?: MCPExplainPolicy[]` - per-policy explainability records (snake_case wire shape)
- - `override_available?: boolean` - whether session override is permitted for the matched policies
- - `override_existing_id?: string` - already-active override consumed by this decision (if any)
+ - `policy_matches?: MCPExplainPolicy[]` — per-policy explainability records (snake_case wire shape)
+ - `override_available?: boolean` — whether session override is permitted for the matched policies
+ - `override_existing_id?: string` — already-active override consumed by this decision (if any)
 - **`MCPCheckOutputResponse`** gains 3 optional fields:
  - `decision_id?: string`
  - `policy_matches?: MCPExplainPolicy[]`
- - `redacted_message?: string` - text-redaction counterpart to `redacted_data` (used when the connector returned a string message rather than tabular rows; e.g. execute-style responses)
-- **`MCPExplainPolicy`** - new exported interface for the per-policy explainability record on MCP responses (snake_case wire shape). Fields: `policy_id`, `policy_name?`, `action?`, `risk_level?`, `allow_override?`, `policy_description?`. Distinct from the existing camelCase `ExplainPolicy` (in `src/types/decisions.ts`), which is the hand-decoded view returned by `client.explainDecision()`. Both describe the same logical record; the dual-name distinction follows the SDK's existing wire-vs-decoded convention. A future release may consolidate.
+ - `redacted_message?: string` — text-redaction counterpart to `redacted_data` (used when the connector returned a string message rather than tabular rows; e.g. execute-style responses)
+- **`MCPExplainPolicy`** — new exported interface for the per-policy explainability record on MCP responses (snake_case wire shape). Fields: `policy_id`, `policy_name?`, `action?`, `risk_level?`, `allow_override?`, `policy_description?`. Distinct from the existing camelCase `ExplainPolicy` (in `src/types/decisions.ts`), which is the hand-decoded view returned by `client.explainDecision()`. Both describe the same logical record; the dual-name distinction follows the SDK's existing wire-vs-decoded convention. A future release may consolidate.
 
 All fields are optional. Pre-v7.1.0 platforms return `undefined` for every field; callers should treat absence as "context not available" rather than an error.
 
@@ -556,16 +556,16 @@ All fields are optional. Pre-v7.1.0 platforms return `undefined` for every field
 
 `client.explainDecision(decisionId)` and the full `ExplainRule` / `DecisionExplanation` shapes (returned by the `explain_decision` MCP tool) are tracked separately as feature work. This release ships only the field-surfacing on existing methods.
 
-## [6.0.0] - 2026-04-25 - Major: PolicyInfo / MCPPolicyInfo rename + wire-shape canonicalization
+## [6.0.0] - 2026-04-25 — Major: PolicyInfo / MCPPolicyInfo rename + wire-shape canonicalization
 
 This is a major release. Coordinated with the Java SDK v6.0.0 release as a v6 alignment cycle for the SDKs that needed breaking changes; Python (v6.7.0) and Go (v5.7.0) ship as minor on the same day because their changes are purely additive.
 
-### BREAKING - `PolicyInfo` reassignment
+### BREAKING — `PolicyInfo` reassignment
 
 `PolicyInfo` and `MCPPolicyInfo` referred to two different concepts in v5.x:
 
-- `PolicyInfo` (in `src/types/proxy.ts`) was the proxy-mode shape returned by `/api/request` - fields like `policiesEvaluated`, `staticChecks`, `processingTime`, `tenantId`, `codeArtifact`.
-- `MCPPolicyInfo` (in `src/types/connector.ts`) was the MCP shape returned by `/api/v1/mcp/check-input` and friends - fields like `policies_evaluated`, `blocked`, `block_reason`, `processing_time_ms`, `matched_policies`. **This is what the OpenAPI spec calls `PolicyInfo`.**
+- `PolicyInfo` (in `src/types/proxy.ts`) was the proxy-mode shape returned by `/api/request` — fields like `policiesEvaluated`, `staticChecks`, `processingTime`, `tenantId`, `codeArtifact`.
+- `MCPPolicyInfo` (in `src/types/connector.ts`) was the MCP shape returned by `/api/v1/mcp/check-input` and friends — fields like `policies_evaluated`, `blocked`, `block_reason`, `processing_time_ms`, `matched_policies`. **This is what the OpenAPI spec calls `PolicyInfo`.**
 
 The naming has been swapped to align with the OpenAPI spec:
 
@@ -579,35 +579,35 @@ Migration:
 - If you imported `PolicyInfo` to read proxy-mode `/api/request` responses, change to `ProxyPolicyInfo` (or use the `PolicyInfoLegacyProxyShape` type alias as a one-major-version shim).
 - If you imported `MCPPolicyInfo` for MCP responses, change to `PolicyInfo`. The `MCPPolicyInfo` name is kept as a `type` alias for one major-version migration window and will be removed in v7.0.0.
 
-This was previously hidden by the naming collision - code reading `response.policyInfo` on `ExecuteQueryResponse` continues to work because the property type is now `ProxyPolicyInfo` with the same fields. The break only affects code that imported the type names by hand.
+This was previously hidden by the naming collision — code reading `response.policyInfo` on `ExecuteQueryResponse` continues to work because the property type is now `ProxyPolicyInfo` with the same fields. The break only affects code that imported the type names by hand.
 
 ### Added
 
-- **`WebhookSubscription.secret`** - HMAC-SHA256 signing key now exposed on the response from `createWebhook`. Required to verify the `X-AxonFlow-Signature` header on inbound webhook deliveries; without it, callers couldn't validate payload authenticity. Also adds `org_id` and `tenant_id` (ownership scoping).
+- **`WebhookSubscription.secret`** — HMAC-SHA256 signing key now exposed on the response from `createWebhook`. Required to verify the `X-AxonFlow-Signature` header on inbound webhook deliveries; without it, callers couldn't validate payload authenticity. Also adds `org_id` and `tenant_id` (ownership scoping).
 - **`StepGateRequest`** carries `cost_usd`, `tokens_in`, `tokens_out` so budget-based policies can evaluate gate-time cost estimates.
-- **`StepGateResponse.decision_id`** - unique audit correlator that links a gate response to its audit row (previously absent on the SDK, present on the wire).
+- **`StepGateResponse.decision_id`** — unique audit correlator that links a gate response to its audit row (previously absent on the SDK, present on the wire).
 - **`StepGateResponse.policies_evaluated` / `policies_matched`** (snake_case wire-canonical). The previous camelCase `policiesEvaluated` / `policiesMatched` always read `undefined` because the gate decoder is JSON.parse passthrough; both forms are kept (camel marked `@deprecated`) to preserve type-compat. Removed in v7.
-- **`ListWorkflowsResponse.limit` / `offset`** - pagination echo, surfaced on the response.
-- **`StaticPolicy.policy_id` / `priority` / `has_override`** - wire-canonical fields surfaced. `hasOverride` (camelCase) kept as `@deprecated` alias; it has always read `undefined` against the JSON.parse passthrough decoder.
-- **`CreateStaticPolicyRequest.priority` / `tags`** and **`UpdateStaticPolicyRequest.priority` / `tags`** - match the spec.
-- **`UpdatePlanRequest.metadata`** - accept arbitrary plan metadata, opaque to the platform.
-- **`UsageBreakdownItem.group_by`** - dimension name (provider/model/agent/etc.) is now exposed on each item.
-- **`BudgetAlert.acknowledged`** - alert dismissal flag.
-- **`Budget.org_id` / `tenant_id`** - ownership scoping.
+- **`ListWorkflowsResponse.limit` / `offset`** — pagination echo, surfaced on the response.
+- **`StaticPolicy.policy_id` / `priority` / `has_override`** — wire-canonical fields surfaced. `hasOverride` (camelCase) kept as `@deprecated` alias; it has always read `undefined` against the JSON.parse passthrough decoder.
+- **`CreateStaticPolicyRequest.priority` / `tags`** and **`UpdateStaticPolicyRequest.priority` / `tags`** — match the spec.
+- **`UpdatePlanRequest.metadata`** — accept arbitrary plan metadata, opaque to the platform.
+- **`UsageBreakdownItem.group_by`** — dimension name (provider/model/agent/etc.) is now exposed on each item.
+- **`BudgetAlert.acknowledged`** — alert dismissal flag.
+- **`Budget.org_id` / `tenant_id`** — ownership scoping.
 - **`UsageRecord`** gains `created_at`, `success`, `error_message`, `latency_ms`, `team_id`, `tenant_id`, `user_id`, `workflow_id` to match the wire. The legacy `timestamp` field is `@deprecated`; the decoder reads `r.timestamp`, but the wire emits `created_at`, so `timestamp` has always read `undefined`.
-- **`WorkflowStatusResponse.metadata`** - arbitrary workflow metadata.
-- **`CreateWorkflowResponse.started_at`** - wire-canonical timestamp. Legacy `created_at` and `source` are `@deprecated`; they have always read `undefined` (wire emits neither).
-- **`ExecutionSnapshot.retryCount`** - number of retry attempts on a step.
-- **`Finding.article`** - regulatory article reference (e.g. MAS FEAT principle number).
-- **`PolicyOverride.id` / `enabled_override`** - wire-canonical fields. `active` is `@deprecated`; the wire emits `enabled_override`, so `active` has always read `undefined`.
-- **`PolicyVersion.id` / `policy_id` / `change_summary` / `snapshot`** - match the wire shape (versions are immutable snapshots, not before/after diffs). `changeDescription`, `previousValues`, `newValues` are `@deprecated` orphan-reads.
-- **`DynamicPolicyMatch.message`** - wire-canonical name. `reason` is `@deprecated` (read `undefined` today).
-- **`ExfiltrationCheckInfo.exceeded` / `limit_type`** - match the wire. `within_limits` is `@deprecated`.
-- **`CancelPlanResponse.success`** - wire-canonical boolean. `message` is `@deprecated` (orphan read).
+- **`WorkflowStatusResponse.metadata`** — arbitrary workflow metadata.
+- **`CreateWorkflowResponse.started_at`** — wire-canonical timestamp. Legacy `created_at` and `source` are `@deprecated`; they have always read `undefined` (wire emits neither).
+- **`ExecutionSnapshot.retryCount`** — number of retry attempts on a step.
+- **`Finding.article`** — regulatory article reference (e.g. MAS FEAT principle number).
+- **`PolicyOverride.id` / `enabled_override`** — wire-canonical fields. `active` is `@deprecated`; the wire emits `enabled_override`, so `active` has always read `undefined`.
+- **`PolicyVersion.id` / `policy_id` / `change_summary` / `snapshot`** — match the wire shape (versions are immutable snapshots, not before/after diffs). `changeDescription`, `previousValues`, `newValues` are `@deprecated` orphan-reads.
+- **`DynamicPolicyMatch.message`** — wire-canonical name. `reason` is `@deprecated` (read `undefined` today).
+- **`ExfiltrationCheckInfo.exceeded` / `limit_type`** — match the wire. `within_limits` is `@deprecated`.
+- **`CancelPlanResponse.success`** — wire-canonical boolean. `message` is `@deprecated` (orphan read).
 - **`PlanResponse`** gains the wire top-level fields `success`, `version`, `result`, `error`, `workflow_execution_id`, `policy_info`. The decoder is JSON.parse passthrough, so consumers can now read these directly.
 - **`EffectivePoliciesResponse`** gains the tier-stratified wire shape (`static`, `dynamic`, `tenant_id`, `organization_id`, `computed_at`). Legacy `policies` flat array and `inheritance` summary kept as SDK-side conveniences.
 - **`Policy`** gains the rich wire shape (`policy_id`, `category`, `tier`, `pattern`, `severity`, `action`, `actions`, `conditions`, `description`, `organization_id`, `tenant_id`, `created_at`/`_by`, `updated_at`/`_by`, `version`). The legacy rules-only shape has only seen ~5 of 21 wire fields.
-- **`ResumePlanResponse.result`** - final aggregated result (canonical wire field). The interface previously declared 5 fields (`workflowId`, `message`, `stepResult`, `nextStep`, `nextStepName`, `totalSteps`) that the transformer never populated; all 5 are now `@deprecated`.
+- **`ResumePlanResponse.result`** — final aggregated result (canonical wire field). The interface previously declared 5 fields (`workflowId`, `message`, `stepResult`, `nextStep`, `nextStepName`, `totalSteps`) that the transformer never populated; all 5 are now `@deprecated`.
 
 ### Fixed
 
@@ -615,31 +615,31 @@ This was previously hidden by the naming collision - code reading `response.poli
 
 ### Notes
 
-The above is an audit-driven sweep against the wire-shape contract gate. The validator now snake_case-normalizes TS interface field names against transformer evidence in `client.ts` (matching what pydantic alias / Go `json:"…"` tag / Java `@JsonProperty(…)` do natively in the other SDKs). The `@deprecated` marks above are set on fields that historically read `undefined` against the JSON.parse-passthrough decoder paths - keeping the typed name kept compile-time compat for callers that referenced the now-dead names. Removal scheduled for v7.
+The above is an audit-driven sweep against the wire-shape contract gate. The validator now snake_case-normalizes TS interface field names against transformer evidence in `client.ts` (matching what pydantic alias / Go `json:"…"` tag / Java `@JsonProperty(…)` do natively in the other SDKs). The `@deprecated` marks above are set on fields that historically read `undefined` against the JSON.parse-passthrough decoder paths — keeping the typed name kept compile-time compat for callers that referenced the now-dead names. Removal scheduled for v7.
 
-Two platform-side spec corrections filed alongside this work, for issues the audit surfaced where the spec was wrong (server emits the SDK's name): `AISystemRegistry.materiality_classification` and `DynamicPolicyInfo` schema. No SDK change for those - the SDK is correct.
+Two platform-side spec corrections filed alongside this work, for issues the audit surfaced where the spec was wrong (server emits the SDK's name): `AISystemRegistry.materiality_classification` and `DynamicPolicyInfo` schema. No SDK change for those — the SDK is correct.
 
 ## [5.6.0] - 2026-04-22
 
 ### Added
 
-- **Rich `ApproveStepResponse` / `RejectStepResponse`** - both types now carry
+- **Rich `ApproveStepResponse` / `RejectStepResponse`** — both types now carry
  the same shape as the step-gate response: `decision` resolves to `"allow"` /
  `"block"`, `retry_context` mirrors the gate retry state, `approved_by` /
  `approved_at` / `rejected_by` / `rejected_at` carry reviewer identity,
  `approval_id` is the deterministic HITL queue UUID, `policies_matched`
  reconstructs the governance trail. Legacy fields (`workflow_id`, `step_id`,
  `status`) are preserved for back-compat.
-- **`plan_id` on both approve/reject responses** - populated when the response
+- **`plan_id` on both approve/reject responses** — populated when the response
  comes from the MAP plan-scoped endpoint (`/api/v1/plans/{id}/steps/{step_id}/approve|reject`);
  empty on WCP plane responses. Same SDK types work across both endpoints.
-- **`getPendingPlanApprovals`** - new client method that lists MAP-plane
+- **`getPendingPlanApprovals`** — new client method that lists MAP-plane
  pending approvals (`GET /api/v1/plans/approvals/pending`), the counterpart
  of `getPendingApprovals` for the WCP plane. Accepts an optional `plan_id`
  filter via `PendingApprovalsOptions` so reviewer tools can scope the listing
  to one plan. Available on Evaluation+ licenses (same tier gate as the MAP
  step approve/reject endpoints).
-- **`PendingApproval.plan_id`** - populated on MAP-plane entries, absent on
+- **`PendingApproval.plan_id`** — populated on MAP-plane entries, absent on
  WCP-plane entries. Mirrors the approve/reject asymmetry. `PendingApproval`
  also gains `step_index`, `decision`, `decision_reason`, `policies_matched`,
  `step_input`, and `approval_status` so reviewer tools can render the full
@@ -647,13 +647,13 @@ Two platform-side spec corrections filed alongside this work, for issues the aud
 
 ### Fixed
 
-- **`approveStep` / `rejectStep` / `getPendingApprovals` endpoint URLs** - all
+- **`approveStep` / `rejectStep` / `getPendingApprovals` endpoint URLs** — all
  three previously targeted non-existent paths under `/api/v1/workflow-control/`
  and would fail against a real AxonFlow server. Corrected to the canonical
  `/api/v1/workflows/{id}/steps/{step_id}/(approve|reject)` and
  `/api/v1/workflows/approvals/pending` routes. Customers using these methods
  against a live deployment were receiving 404s; this release makes them work.
-- **`PendingApprovalsResponse` field names aligned with the wire shape** - the
+- **`PendingApprovalsResponse` field names aligned with the wire shape** — the
  interface previously declared `approvals` and `total`, which never matched
  the server response (`pending_approvals` and `count`). Renamed to
  `pending_approvals` / `count`. Callers that read `response.approvals` or
@@ -661,77 +661,77 @@ Two platform-side spec corrections filed alongside this work, for issues the aud
 
 ### Deprecated
 
-- `DO_NOT_TRACK=1` as an AxonFlow telemetry opt-out - scheduled for removal after 2026-05-05 in the next major release. Use `AXONFLOW_TELEMETRY=off` instead. The SDK emits a one-line migration warning when `DO_NOT_TRACK=1` is the active control and `AXONFLOW_TELEMETRY=off` is not also set.
+- `DO_NOT_TRACK=1` as an AxonFlow telemetry opt-out — scheduled for removal after 2026-05-05 in the next major release. Use `AXONFLOW_TELEMETRY=off` instead. The SDK emits a one-line migration warning when `DO_NOT_TRACK=1` is the active control and `AXONFLOW_TELEMETRY=off` is not also set.
 
 ### Unchanged
 
 - `approveStep(workflowId, stepId)` / `rejectStep(workflowId, stepId, reason?)`
- signatures are unchanged - only the response fields grew. Callers that only
+ signatures are unchanged — only the response fields grew. Callers that only
  read `workflow_id` / `step_id` / `status` keep working.
 
 ## [5.5.0] - 2026-04-21
 
 ### Added
 
-- **`retry_context` and `idempotency_key` support on the step gate** - `StepGateResponse`
+- **`retry_context` and `idempotency_key` support on the step gate** — `StepGateResponse`
  now carries a non-nullable `retry_context` object on every gate call with the true
  `(workflow_id, step_id)` lifecycle: `gate_count`, `completion_count`,
  `prior_completion_status` (`'none' | 'completed' | 'gated_not_completed'`),
  `prior_output_available`, `prior_output`, `prior_completion_at`, `first_attempt_at`,
  `last_attempt_at`, `last_decision`, and `idempotency_key`. Prefer these fields to
  the legacy `cached` / `decision_source` fields.
-- **`stepGate(., options)`** - new optional fourth argument
+- **`stepGate(., options)`** — new optional fourth argument
  `{ includePriorOutput?: boolean }`. When `true`, the SDK sends
  `?include_prior_output=true` and `retry_context.prior_output` is populated when a
  prior `/complete` has landed. Existing callers that omit `options` behave unchanged.
-- **`StepGateRequest.idempotency_key`** - caller-supplied opaque business-level key
+- **`StepGateRequest.idempotency_key`** — caller-supplied opaque business-level key
  (max 255 chars). Immutable once recorded on the first gate call for a
  `(workflow_id, step_id)`; subsequent gate/complete calls must pass the same key.
-- **`MarkStepCompletedRequest.idempotency_key`** - must match the key set on the
+- **`MarkStepCompletedRequest.idempotency_key`** — must match the key set on the
  corresponding gate call, if any. Mismatch (including missing-vs-set on either side)
  surfaces as a typed `IdempotencyKeyMismatchError`.
-- **`IdempotencyKeyMismatchError`** - typed error thrown by `stepGate` and
+- **`IdempotencyKeyMismatchError`** — typed error thrown by `stepGate` and
  `markStepCompleted` when the platform returns HTTP 409 with
  `error.code === "IDEMPOTENCY_KEY_MISMATCH"`. Surfaces `workflowId`, `stepId`,
  `expectedIdempotencyKey`, `receivedIdempotencyKey`, and the human-readable `message`.
-- **`RetryContext`, `PriorCompletionStatus`, `StepGateOptions`** - exported TypeScript
+- **`RetryContext`, `PriorCompletionStatus`, `StepGateOptions`** — exported TypeScript
  types.
 
 ### Deprecated
 
-- **`StepGateResponse.cached`** and **`StepGateResponse.decision_source`** - still
+- **`StepGateResponse.cached`** and **`StepGateResponse.decision_source`** — still
  populated but deprecated in favor of `retry_context.gate_count > 1` and
  `retry_context.prior_completion_status`. Planned for removal in a future major version.
 
 ### Compatibility
 
 Companion to the platform change that introduces `retry_context` on
-`POST /api/v1/workflows/{workflow_id}/steps/{step_id}/gate`. Additive only - existing
+`POST /api/v1/workflows/{workflow_id}/steps/{step_id}/gate`. Additive only — existing
 callers that never set `idempotency_key` or `includePriorOutput` see no behavior change.
 
 ## [5.4.0] - 2026-04-18
 
 ### Added
 
-- **Execution boundary semantics** - `RetryPolicy` type union
+- **Execution boundary semantics** — `RetryPolicy` type union
  (`'idempotent' | 'reevaluate'`). Step gate requests accept `retry_policy`
  to control cached vs fresh evaluation behavior.
-- **Step gate response metadata** - `cached` (boolean) and `decision_source`
+- **Step gate response metadata** — `cached` (boolean) and `decision_source`
  (string) fields on `StepGateResponse`.
-- **Workflow checkpoints** - `getCheckpoints(workflowId)` lists step-gate
+- **Workflow checkpoints** — `getCheckpoints(workflowId)` lists step-gate
  checkpoints. `resumeFromCheckpoint(workflowId, checkpointId)` resumes
  from a specific checkpoint with fresh policy evaluation (Enterprise).
-- **Checkpoint types** - `Checkpoint`, `CheckpointListResponse`, and
+- **Checkpoint types** — `Checkpoint`, `CheckpointListResponse`, and
  `ResumeFromCheckpointResponse` interfaces.
-- **`AxonFlow.explainDecision(decisionId)`** - fetches the full explanation for a
+- **`AxonFlow.explainDecision(decisionId)`** — fetches the full explanation for a
  previously-made policy decision via `GET /api/v1/decisions/:id/explain`.
  Returns a `DecisionExplanation` with matched policies, risk level, reason,
  override availability, existing override ID (if any), and a rolling-24h
  session hit count for the matched rule. Shape is frozen; additive-only
  fields ensure forward compatibility.
-- **`DecisionExplanation`, `ExplainPolicy`, `ExplainRule`** - new TypeScript
+- **`DecisionExplanation`, `ExplainPolicy`, `ExplainRule`** — new TypeScript
  interfaces exported from `@axonflow/sdk`.
-- **`AuditSearchRequest.decisionId`, `.policyName`, `.overrideId`** - three
+- **`AuditSearchRequest.decisionId`, `.policyName`, `.overrideId`** — three
  new optional filter fields on `searchAuditLogs`. Use `decisionId` to gather
  every record tied to one decision; `policyName` to find everything matched
  by a specific policy; `overrideId` to reconstruct an override's full
@@ -763,7 +763,7 @@ server-side filtering activates on v7.1.0+ platforms.
 
 ### Changed
 
-- Examples and documentation updated to reflect the new AxonFlow platform v6.2.0 defaults for `PII_ACTION` (now `warn` - was `redact`) and the new `AXONFLOW_PROFILE` env var. No SDK API changes.
+- Examples and documentation updated to reflect the new AxonFlow platform v6.2.0 defaults for `PII_ACTION` (now `warn` — was `redact`) and the new `AXONFLOW_PROFILE` env var. No SDK API changes.
 
 ---
 
@@ -771,8 +771,8 @@ server-side filtering activates on v7.1.0+ platforms.
 
 ### Added
 
-- **`GovernedTool` adapter** - framework-agnostic tool governance wrapper. Wraps any `ToolDefinition` with input/output policy enforcement (`mcpCheckInput` before execution, `mcpCheckOutput` after). Helper: `governTools(tools, client)`.
-- **`checkToolInput()` / `checkToolOutput()`** - generic aliases for tool governance. Existing `mcpCheckInput()` / `mcpCheckOutput()` remain supported.
+- **`GovernedTool` adapter** — framework-agnostic tool governance wrapper. Wraps any `ToolDefinition` with input/output policy enforcement (`mcpCheckInput` before execution, `mcpCheckOutput` after). Helper: `governTools(tools, client)`.
+- **`checkToolInput()` / `checkToolOutput()`** — generic aliases for tool governance. Existing `mcpCheckInput()` / `mcpCheckOutput()` remain supported.
 
 ### Changed
 
@@ -801,9 +801,9 @@ server-side filtering activates on v7.1.0+ platforms.
 
 ### Security
 
-- Bumped `handlebars` from 4.7.8 to 4.7.9 - fixes 7 vulnerabilities including JS injection via AST type confusion, prototype pollution leading to XSS, and DoS via malformed decorator syntax
-- Bumped `picomatch` from 2.3.1 to 2.3.2 - fixes ReDoS via extglob quantifiers and method injection in POSIX character classes
-- Bumped `brace-expansion` from 1.1.12 to 1.1.13 and 2.0.2 to 2.0.3 - fixes memory exhaustion via zero-step sequences
+- Bumped `handlebars` from 4.7.8 to 4.7.9 — fixes 7 vulnerabilities including JS injection via AST type confusion, prototype pollution leading to XSS, and DoS via malformed decorator syntax
+- Bumped `picomatch` from 2.3.1 to 2.3.2 — fixes ReDoS via extglob quantifiers and method injection in POSIX character classes
+- Bumped `brace-expansion` from 1.1.12 to 1.1.13 and 2.0.2 to 2.0.3 — fixes memory exhaustion via zero-step sequences
 
 ---
 
@@ -811,9 +811,9 @@ server-side filtering activates on v7.1.0+ platforms.
 
 ### Added
 
-- `simulatePolicies()` - dry-run all active policies against an input query. Returns allowed/blocked status, applied policies, risk score, and daily usage. Requires Evaluation tier or above.
-- `getPolicyImpactReport()` - test a single policy against multiple inputs and get aggregate match/block statistics.
-- `detectPolicyConflicts()` - analyze active policies for contradictions, shadows, and redundancies. Optionally filter to conflicts involving a specific policy.
+- `simulatePolicies()` — dry-run all active policies against an input query. Returns allowed/blocked status, applied policies, risk score, and daily usage. Requires Evaluation tier or above.
+- `getPolicyImpactReport()` — test a single policy against multiple inputs and get aggregate match/block statistics.
+- `detectPolicyConflicts()` — analyze active policies for contradictions, shadows, and redundancies. Optionally filter to conflicts involving a specific policy.
 - Types: `SimulatePoliciesRequest`, `SimulatePoliciesResponse`, `SimulationDailyUsage`, `ImpactReportInput`, `ImpactReportRequest`, `ImpactReportResult`, `ImpactReportResponse`, `PolicyConflictRef`, `PolicyConflict`, `PolicyConflictResponse`
 
 ### Fixed
@@ -822,10 +822,10 @@ server-side filtering activates on v7.1.0+ platforms.
 
 ### Security
 
-- Bumped `flatted` from 3.3.3 to 3.4.2 - fixes Prototype Pollution via `parse()` (GHSA-rf6f-7fwh-wjgh) and unbounded recursion DoS (GHSA-25h7-pfq9-p65f)
-- Bumped `fast-xml-parser` from 5.3.6 to 5.5.8 via `@aws-sdk/xml-builder` 3.972.15 - fixes entity expansion limit bypass (GHSA-jp2q-39xq-3w4g, GHSA-8gc5-j5rx-235r) and stack overflow in XMLBuilder (GHSA-fj3w-jwp8-x2g3)
-- Bumped `minimatch` from 3.1.2 to 3.1.5 and 9.0.5 to 9.0.9 - fixes multiple ReDoS vulnerabilities (GHSA-3ppc-4f35-3m26, GHSA-7r86-cg39-jmmj, GHSA-23c5-xmqv-rm74)
-- Bumped `ajv` from 6.12.6 to 6.14.0 - fixes ReDoS when using `$data` option (GHSA-2g4f-4pwh-qvx6)
+- Bumped `flatted` from 3.3.3 to 3.4.2 — fixes Prototype Pollution via `parse()` (GHSA-rf6f-7fwh-wjgh) and unbounded recursion DoS (GHSA-25h7-pfq9-p65f)
+- Bumped `fast-xml-parser` from 5.3.6 to 5.5.8 via `@aws-sdk/xml-builder` 3.972.15 — fixes entity expansion limit bypass (GHSA-jp2q-39xq-3w4g, GHSA-8gc5-j5rx-235r) and stack overflow in XMLBuilder (GHSA-fj3w-jwp8-x2g3)
+- Bumped `minimatch` from 3.1.2 to 3.1.5 and 9.0.5 to 9.0.9 — fixes multiple ReDoS vulnerabilities (GHSA-3ppc-4f35-3m26, GHSA-7r86-cg39-jmmj, GHSA-23c5-xmqv-rm74)
+- Bumped `ajv` from 6.12.6 to 6.14.0 — fixes ReDoS when using `$data` option (GHSA-2g4f-4pwh-qvx6)
 
 ---
 
@@ -833,18 +833,18 @@ server-side filtering activates on v7.1.0+ platforms.
 
 ### Added
 
-- `AxonFlowLangGraphAdapter` class - wraps LangGraph workflows with AxonFlow governance gates and per-tool policy enforcement. Includes:
- - `checkGate()` / `stepCompleted()` - step-level governance at LangGraph node boundaries
- - `checkToolGate()` / `toolCompleted()` - per-tool governance within tool_call nodes (each tool gets its own gate check)
- - `mcpToolInterceptor()` - factory returning an interceptor that enforces `mcp_check_input → handler → mcp_check_output` around every MCP tool call
- - `waitForApproval()` - poll until a step is approved or rejected
- - `startWorkflow()` / `completeWorkflow()` / `abortWorkflow()` / `failWorkflow()` - workflow lifecycle management
+- `AxonFlowLangGraphAdapter` class — wraps LangGraph workflows with AxonFlow governance gates and per-tool policy enforcement. Includes:
+ - `checkGate()` / `stepCompleted()` — step-level governance at LangGraph node boundaries
+ - `checkToolGate()` / `toolCompleted()` — per-tool governance within tool_call nodes (each tool gets its own gate check)
+ - `mcpToolInterceptor()` — factory returning an interceptor that enforces `mcp_check_input → handler → mcp_check_output` around every MCP tool call
+ - `waitForApproval()` — poll until a step is approved or rejected
+ - `startWorkflow()` / `completeWorkflow()` / `abortWorkflow()` / `failWorkflow()` — workflow lifecycle management
 - `WorkflowBlockedError` and `WorkflowApprovalRequiredError` exception classes
 - `MCPInterceptorOptions` and `LangGraphAdapterOptions` configuration interfaces
-- `getCircuitBreakerStatus()` - query active circuit breaker circuits and emergency stop state
-- `getCircuitBreakerHistory(limit)` - retrieve circuit breaker trip/reset audit trail
-- `getCircuitBreakerConfig(tenantId)` - get effective circuit breaker config (global or tenant-specific)
-- `updateCircuitBreakerConfig(config)` - update per-tenant circuit breaker thresholds
+- `getCircuitBreakerStatus()` — query active circuit breaker circuits and emergency stop state
+- `getCircuitBreakerHistory(limit)` — retrieve circuit breaker trip/reset audit trail
+- `getCircuitBreakerConfig(tenantId)` — get effective circuit breaker config (global or tenant-specific)
+- `updateCircuitBreakerConfig(config)` — update per-tenant circuit breaker thresholds
 
 ---
 
@@ -852,9 +852,9 @@ server-side filtering activates on v7.1.0+ platforms.
 
 ### Added
 
-- `auditToolCall()` - record non-LLM tool calls (API, MCP, function) in the audit trail. Returns audit ID, status, and timestamp. Requires Platform v5.1.0+
-- `getAuditLogsByTenant()` - retrieve audit logs for a tenant with optional pagination
-- `searchAuditLogs()` - search audit logs with filters (client ID, request type, limit)
+- `auditToolCall()` — record non-LLM tool calls (API, MCP, function) in the audit trail. Returns audit ID, status, and timestamp. Requires Platform v5.1.0+
+- `getAuditLogsByTenant()` — retrieve audit logs for a tenant with optional pagination
+- `searchAuditLogs()` — search audit logs with filters (client ID, request type, limit)
 
 ### Fixed
 

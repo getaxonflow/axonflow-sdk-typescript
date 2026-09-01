@@ -318,14 +318,161 @@ describe('the emitter refuses an unsupported artifact', () => {
   });
 });
 
-describe('the vendored artifact matches the platform', () => {
-  it('carries the digest, profile and contract version into the types', () => {
-    // The three identifiers that make drift detectable at all. A vendored copy
-    // with no provenance is a fork nobody has noticed yet.
+describe('the vendored artifact is the pinned one', () => {
+  // R3 round 1 renamed this block. It used to be called "the vendored artifact
+  // matches the platform" while asserting only that three strings INSIDE the
+  // artifact were copied into the emitted module - a property that survives any
+  // edit to the artifact, because those strings move with it. A reviewer asking
+  // "is the vendored copy verified?" found the old name and concluded yes.
+
+  it('matches the pinned digest', () => {
+    expect(() => gen.verifyVendoredDigest(fs.readFileSync(gen.SURFACE_PATH, 'utf8'))).not.toThrow();
+  });
+
+  it('refuses an edited artifact even though everything still regenerates', () => {
+    // The guard test. Without the digest the regeneration gate is a closed loop:
+    // edit the artifact, regenerate, and both the CI check and the
+    // byte-comparison test go green over a contract the platform never
+    // published.
+    const doc = JSON.parse(fs.readFileSync(gen.SURFACE_PATH, 'utf8'));
+    const subject = doc.types.find((t: any) => t.name === 'authzen_subject');
+    subject.fields.find((f: any) => f.name === 'id').required = false;
+    const edited = JSON.stringify(doc);
+
+    // The edited artifact still PARSES and still GENERATES cleanly - which is
+    // exactly why the other gates cannot see it.
+    expect(gen.emit(gen.parseSurface(edited))).not.toBe(committed());
+    expect(() => gen.verifyVendoredDigest(edited)).toThrow(/not the pinned/);
+  });
+
+  it('runs the digest check from the command CI invokes', () => {
+    // A control on the wiring, not on the function: a helper nothing calls is a
+    // comment.
+    const source = fs.readFileSync(
+      path.join(REPO_ROOT, 'scripts', 'gen-authzen-types', 'generate.js'),
+      'utf8'
+    );
+    expect(source.slice(source.indexOf('function main('))).toContain('verifyVendoredDigest(raw)');
+  });
+
+  it("carries the artifact's self-declared strings into the types", () => {
+    // Named for what it asserts: a COPY check, not a fidelity check. It catches
+    // an emitter that forgot to carry the provenance through, and establishes
+    // nothing about where the artifact came from - that is the digest above.
     const s = surface();
     expect(s.profile).toBe(generated.AUTHZEN_PROFILE_V1);
     expect(s.contractSchemaVersion).toBe(generated.AUTHZEN_CONTRACT_SCHEMA_VERSION);
     expect(s.sourceSchemaSha256).toBe(generated.AUTHZEN_SOURCE_SCHEMA_SHA256);
     expect(generated.AUTHZEN_SOURCE_SCHEMA_SHA256.startsWith('sha256:')).toBe(true);
+  });
+});
+
+describe('the emitter refuses what it cannot render', () => {
+  // R3 round 1: the generator interpolated artifact strings with no escaping and
+  // never checked that an emitted field name was a usable property. The artifact
+  // is first-party, so the realistic failure is the benign one - a `*​/` in a
+  // platform doc comment emitting a module that does not compile. "The emitter
+  // refuses what it cannot render" is this file's own claim, and it did not hold
+  // for any string it copied.
+
+  function mutated(mutate: (doc: any) => void): string {
+    const doc = JSON.parse(fs.readFileSync(gen.SURFACE_PATH, 'utf8'));
+    mutate(doc);
+    return JSON.stringify(doc);
+  }
+
+  it.each([
+    [
+      'a comment terminator in a doc',
+      (d: any) => {
+        d.types[0].doc = 'ends the comment */ and starts something else';
+      },
+      /doc text contains/,
+    ],
+    [
+      'a quote in an enum value',
+      (d: any) => {
+        d.enums[0].values.push("it's");
+      },
+      /carries a quote/,
+    ],
+    [
+      'a field name that is not an identifier',
+      (d: any) => {
+        d.types[0].fields[0].name = 'x-trace';
+      },
+      /not a valid TypeScript identifier/,
+    ],
+    [
+      'a field name every object already carries',
+      (d: any) => {
+        d.types[0].fields[0].name = 'constructor';
+      },
+      /every object already carries/,
+    ],
+    [
+      'a min_length on a kind it cannot constrain',
+      (d: any) => {
+        const t = d.types.find((x: any) => x.name === 'authzen_action');
+        t.fields.find((f: any) => f.name === 'properties').min_length = 1;
+      },
+      /min_length/,
+    ],
+    [
+      'a min_items on a kind it cannot constrain',
+      (d: any) => {
+        const t = d.types.find((x: any) => x.name === 'authzen_action');
+        t.fields.find((f: any) => f.name === 'name').min_items = 2;
+      },
+      /min_items/,
+    ],
+    [
+      'a negative bound',
+      (d: any) => {
+        const t = d.types.find((x: any) => x.name === 'authzen_bulk');
+        t.fields.find((f: any) => f.name === 'evaluations').min_items = -1;
+      },
+      /negative bound/,
+    ],
+    [
+      'a non-boolean required',
+      (d: any) => {
+        d.types[0].fields[0].required = 'false';
+      },
+      /JSON boolean/,
+    ],
+    [
+      'a container nested in a container',
+      (d: any) => {
+        const t = d.types.find((x: any) => x.name === 'authzen_bulk');
+        t.fields.find((f: any) => f.name === 'evaluations').type = {
+          kind: 'array',
+          items: { kind: 'array', items: { kind: 'string' } },
+        };
+      },
+      /nests a/,
+    ],
+    [
+      'a duplicated exactly-one-of member',
+      (d: any) => {
+        const t = d.types.find((x: any) => x.name === 'authzen_envelope');
+        t.exactly_one_of = [['evaluation', 'evaluation']];
+      },
+      /same member twice/,
+    ],
+  ])('refuses %s', (_name, mutate, pattern) => {
+    expect(() => gen.parseSurface(mutated(mutate as (d: any) => void))).toThrow(pattern as RegExp);
+  });
+
+  it('does not enforce const, leaving one enforcement site for the profile', () => {
+    // R3 round 1: the generated const check fired BEFORE the hand-written
+    // profile refusal, so the actionable message - the one that names the
+    // version this build speaks and says to upgrade - was dead code, and the
+    // test named for it passed on the generated message instead. The constant is
+    // still emitted; only the check is gone. The Python sibling makes the same
+    // choice, so both SDKs answer an unreadable profile identically.
+    expect(committed()).toContain("AUTHZEN_PROFILE_V1 = 'axonflow-authzen-profile-2026-08-29'");
+    const block = committed().split('export function validateAuthZENResponseContext')[1];
+    expect(block).not.toContain("must be 'axonflow-authzen-profile-2026-08-29'");
   });
 });

@@ -56,6 +56,9 @@ export interface Surface {
 
 export declare const SURFACE_PATH: string;
 export declare const OUTPUT_PATH: string;
+export declare const VENDORED_ARTIFACT_SHA256: string;
+
+export declare function verifyVendoredDigest(raw: string): void;
 
 export declare function parseSurface(rawText: string): Surface;
 export declare function emit(surface: Surface): string;
