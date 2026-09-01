@@ -239,6 +239,36 @@ describe('license_tier on the telemetry wire (#3619)', () => {
     }
   });
 
+  // Regression: fetch() resolves on HEADERS, so clearing the abort timer there
+  // left `resp.json()` with no bound and an AbortController that could never
+  // fire again. A platform answering 200 + headers and then stalling mid-body
+  // blocked the probe FOREVER — measured at 4003ms against a 400ms budget.
+  // The timer is now cleared in `finally`.
+  //
+  // The sibling test above uses a server that never responds at all, so it
+  // only covers the PRE-HEADERS half of the deadline and stayed green through
+  // this defect. This one covers the post-headers half.
+  it('bounds a body that stalls after the headers, not just a silent server', async () => {
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.write('{"version":"10.3.0",'); // partial body, never ended
+    });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const port = (server.address() as AddressInfo).port;
+
+    try {
+      const started = Date.now();
+      await expect(probePlatformHealth(`http://127.0.0.1:${port}`, 400)).resolves.toEqual({
+        platformVersion: null,
+        licenseTier: null,
+      });
+      expect(Date.now() - started).toBeLessThan(400 + 600);
+    } finally {
+      server.closeAllConnections?.();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+    }
+  });
+
   it('leaves deployment_mode unchanged whether or not a tier was reported', async () => {
     for (const body of [
       JSON.stringify({ version: '10.3.0', tier: 'Enterprise' }),

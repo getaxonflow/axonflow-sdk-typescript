@@ -383,6 +383,20 @@ function expandIPv6(addr: string): string {
  * state.
  */
 /**
+ * The single definition of "the platform told us this".
+ *
+ * A value counts as learned only when it is a NON-EMPTY string. Used by both
+ * the probe (deciding what to promote out of the `/health` body) and by
+ * `applyHealthProbe` (deciding what reaches the wire), so the omit-vs-populate
+ * rule cannot drift between the two levels — a `null`-only check at the outer
+ * level would let an empty string through and put a meaningless
+ * `"license_tier":""` on the wire.
+ */
+function isLearned(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+/**
  * Apply a health-probe result onto a telemetry payload.
  *
  * This module has TWO ping paths (`sendTelemetryPingNow` and
@@ -397,10 +411,10 @@ function expandIPv6(addr: string): string {
  */
 function applyHealthProbe(payload: TelemetryPayload, probe: PlatformHealthProbe): void {
   payload.platform_version = probe.platformVersion;
-  if (probe.licenseTier !== null) {
+  // Both ping paths build `payload` as a fresh object literal per call, so
+  // there is never a stale value to remove — assign only when learned.
+  if (isLearned(probe.licenseTier)) {
     payload.license_tier = probe.licenseTier;
-  } else {
-    delete payload.license_tier;
   }
 }
 
@@ -601,7 +615,8 @@ export interface PlatformHealthProbe {
 /**
  * Probe the agent's `/health` endpoint ONCE and extract every telemetry
  * dimension it carries. Returns both fields null on any failure —
- * unreachable endpoint, non-2xx, unparseable body, oversized body — so
+ * unreachable endpoint, non-2xx, unparseable body, or a body that stalls
+ * past the supplied budget — so
  * telemetry degrades to omitting the fields and never fails the ping or
  * surfaces an error to the caller.
  *
@@ -622,15 +637,23 @@ export async function probePlatformHealth(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+  // The timer is cleared in `finally`, NOT as soon as fetch() resolves.
+  // fetch() resolves on HEADERS, so clearing it there disarmed the only
+  // bound on `resp.json()` and left the AbortController unable to fire
+  // again: a platform that answered 200 + headers and then stalled
+  // mid-body blocked this call FOREVER, measured at 4s+ against a 400ms
+  // budget. That defeats the shared-deadline contract (enterprise#1707)
+  // and can hang a caller awaiting `client.heartbeatReady`.
   try {
     const resp = await fetch(`${endpoint}/health`, {
       method: 'GET',
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
     if (!resp.ok) return empty;
 
+    // Still covered by the abort signal above — an abort here rejects, and
+    // the catch below turns it into the ordinary not-learned result.
     const body: unknown = await resp.json();
     if (typeof body !== 'object' || body === null) return empty;
     const record = body as Record<string, unknown>;
@@ -643,14 +666,15 @@ export async function probePlatformHealth(
     const version = record.version;
     const tier = record.tier;
     return {
-      platformVersion: typeof version === 'string' && version ? version : null,
+      platformVersion: isLearned(version) ? version : null,
       // Verbatim, including the transient "starting" the agent returns
       // before its licence is validated. "starting" is a real signal the
       // receiver buckets deliberately, not an error to filter client-side.
-      licenseTier: typeof tier === 'string' && tier ? tier : null,
+      licenseTier: isLearned(tier) ? tier : null,
     };
   } catch {
-    clearTimeout(timeoutId);
     return empty;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

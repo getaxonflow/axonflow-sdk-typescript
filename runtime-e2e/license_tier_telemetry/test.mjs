@@ -119,7 +119,22 @@ async function runAgainstRealPlatform(endpoint) {
 
   console.log(`Live /health tier: ${JSON.stringify(health.tier)}\n`);
   if (!health.tier) {
-    fail('live platform reported no tier — cannot cross-check');
+    // A platform predating the `tier` field is a LEGITIMATE contract case,
+    // not a harness error: the SDK must degrade to omission. Assert that
+    // instead of failing the run.
+    console.log('Live platform reports no tier -> asserting the omission contract instead.\n');
+    const body = await captureOnePing(endpoint);
+    if (!body) {
+      fail('the ping was SUPPRESSED — telemetry must degrade, not stop');
+      return;
+    }
+    console.log(`Telemetry wire body: ${body}\n`);
+    const { present, value } = tierOnWire(body);
+    if (present) {
+      fail(`license_tier present as ${JSON.stringify(value)} though the platform reported none`);
+      return;
+    }
+    pass('platform reports no tier: ping delivered, license_tier omitted (not defaulted)');
     return;
   }
 
