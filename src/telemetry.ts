@@ -142,6 +142,46 @@ export interface TelemetryPayload {
    * commitment that covers this field.
    */
   org_id: string;
+  /**
+   * Licence tier the connected platform reported on its own `/health`
+   * response — `"community"`, `"evaluation"`, `"Enterprise"`, the csaas
+   * `"Plus"` alias for EnterprisePlus, or the transient `"starting"`.
+   * Coarse adoption signal only: no licence key, no expiry, no seat count,
+   * no customer name. Issue #3619.
+   *
+   * THREE SIMILARLY-NAMED CONCEPTS LIVE NEARBY. Do not merge them:
+   *
+   * 1. `deployment_mode` (this interface) — SDK-derived TOPOLOGY:
+   *    `self_hosted | community_saas | unknown`, classified from the
+   *    endpoint URL. Says WHERE the platform runs.
+   * 2. The platform's own `DEPLOYMENT_MODE` env var — a server-side
+   *    setting deciding which schema/tables the binary uses. Never read by
+   *    this SDK and never sent on this field.
+   * 3. `license_tier` (this field) — what the platform REPORTED about its
+   *    own licensing, for adoption analytics.
+   *
+   * ITEM 3 IS NOT AN ENTITLEMENT FACT. This SDK relays whatever `/health`
+   * returned, and the receiver cannot verify the relay: whoever operates
+   * the endpoint the client was pointed at controls the value completely.
+   * It must never gate entitlement, unlock a feature, or enter any
+   * authorization or billing decision. See axonflow-enterprise#3619.
+   *
+   * A community-mode binary can run on any topology and vice versa, so
+   * neither field is derivable from the other.
+   *
+   * Sent verbatim. Casing and alias folding is the receiver's job
+   * (checkpoint-service `NormalizeLicenseTier`) and is deliberately NOT
+   * duplicated here — a client that folded locally would silently mask a
+   * tier this SDK build predates.
+   *
+   * ABSENT (property omitted) means NOT LEARNED — `/health` unreachable,
+   * non-2xx, unparseable, or carrying no `tier` key. Absent must never
+   * become a known value: emitting `"community"` for a platform we could
+   * not reach would be a false claim about a customer's deployment. The
+   * receiver preserves omission for legacy pings, so an omitted field
+   * reads as "unknown", not as any particular tier.
+   */
+  license_tier?: string;
 }
 
 /**
@@ -348,6 +388,48 @@ function expandIPv6(addr: string): string {
  * NOT consult `AXONFLOW_TELEMETRY`, the stamp file, or any rate-limit
  * state.
  */
+/**
+ * The single definition of "the platform told us this".
+ *
+ * A value counts as learned only when it is a NON-EMPTY string. Used by the
+ * probe, which is where it is load-bearing: it decides what gets promoted out
+ * of the `/health` body, and a mutant relaxing it is killed.
+ *
+ * `applyHealthProbe` also calls it, but there it is belt-and-braces that NO
+ * test can pin: `applyHealthProbe` is module-private, its only two call sites
+ * pass a probe built by `probePlatformHealth`, and that already maps `""` to
+ * `null`. A mutant relaxing the check there survives by construction. It is
+ * kept so the omit-vs-populate rule reads the same at both levels, not
+ * because a test proves it — said plainly so a reader does not assume it is
+ * covered. (Java differs: `buildPayload` there is genuinely package-visible,
+ * so the equivalent check IS reachable and its mutant IS killed.)
+ */
+function isLearned(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+/**
+ * Apply a health-probe result onto a telemetry payload.
+ *
+ * This module has TWO ping paths (`sendTelemetryPingNow` and
+ * `sendTelemetryPing`) that build the same payload independently. Both call
+ * THIS function so the omit-vs-populate rule cannot drift between them —
+ * patching one copy of a duplicated decision is how the two paths come to
+ * disagree.
+ *
+ * `platform_version` is an explicit `null` when unlearned (its long-standing
+ * wire shape); `license_tier` is OMITTED entirely, never set to `""` and
+ * never defaulted to a guessed tier.
+ */
+function applyHealthProbe(payload: TelemetryPayload, probe: PlatformHealthProbe): void {
+  payload.platform_version = probe.platformVersion;
+  // Both ping paths build `payload` as a fresh object literal per call, so
+  // there is never a stale value to remove — assign only when learned.
+  if (isLearned(probe.licenseTier)) {
+    payload.license_tier = probe.licenseTier;
+  }
+}
+
 export async function sendTelemetryPingNow(options: {
   mode: string;
   endpoint: string;
@@ -385,7 +467,7 @@ export async function sendTelemetryPingNow(options: {
     try {
       const healthBudget = Math.min(HEALTH_BUDGET_CAP_MS, Math.max(0, deadline - Date.now()));
       if (options.endpoint && healthBudget > MIN_BUDGET_MS) {
-        payload.platform_version = await detectPlatformVersion(options.endpoint, healthBudget);
+        applyHealthProbe(payload, await probePlatformHealth(options.endpoint, healthBudget));
       }
     } catch {
       /* platform_version remains null on failure */
@@ -494,7 +576,7 @@ export function sendTelemetryPing(options: {
         // blackholed endpoint and consumes the full probe budget.
         const healthBudget = Math.min(HEALTH_BUDGET_CAP_MS, Math.max(0, deadline - Date.now()));
         if (options.endpoint && healthBudget > MIN_BUDGET_MS) {
-          payload.platform_version = await detectPlatformVersion(options.endpoint, healthBudget);
+          applyHealthProbe(payload, await probePlatformHealth(options.endpoint, healthBudget));
         }
       } catch {
         // Silent — platform version remains null
@@ -532,30 +614,85 @@ export function sendTelemetryPing(options: {
 }
 
 /**
- * Detect the platform version by calling the agent's /health endpoint.
- * Returns the version string or null on any failure.
+ * What a single `/health` fetch established. Each field is INDEPENDENT: a
+ * response carrying one but not the other yields a partially-populated
+ * result rather than discarding both. `null` means "not learned" — it never
+ * degrades to a default (see `TelemetryPayload.license_tier`).
+ */
+export interface PlatformHealthProbe {
+  platformVersion: string | null;
+  licenseTier: string | null;
+}
+
+/**
+ * Probe the agent's `/health` endpoint ONCE and extract every telemetry
+ * dimension it carries. Returns both fields null on any failure —
+ * unreachable endpoint, non-2xx, unparseable body, or a body that stalls
+ * past the supplied budget — so
+ * telemetry degrades to omitting the fields and never fails the ping or
+ * surfaces an error to the caller.
+ *
+ * This is the SDK's only `/health` fetch on the telemetry path; the licence
+ * tier rides along on the response already being fetched for the version.
+ * Adding a second request here would double the telemetry path's blocking
+ * budget and its failure surface — do not.
  *
  * @param timeoutMs — derived from the shared telemetry deadline so the health
  * probe and the checkpoint POST don't stack into a larger combined budget.
  * See enterprise#1707.
  */
-async function detectPlatformVersion(endpoint: string, timeoutMs: number): Promise<string | null> {
+export async function probePlatformHealth(
+  endpoint: string,
+  timeoutMs: number
+): Promise<PlatformHealthProbe> {
+  const empty: PlatformHealthProbe = { platformVersion: null, licenseTier: null };
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  // Belt to the `finally`'s braces. If this timer were ever left pending it
+  // would hold the Node event loop open for its full duration after an
+  // otherwise-finished ping — the "telemetry delays process exit" symptom in
+  // a CLI or Lambda. unref() means a pending timer can never be the reason
+  // the process stays alive. Node-only API, hence the optional call.
+  (timeoutId as unknown as { unref?: () => void }).unref?.();
 
+  // The timer is cleared in `finally`, NOT as soon as fetch() resolves.
+  // fetch() resolves on HEADERS, so clearing it there disarmed the only
+  // bound on `resp.json()` and left the AbortController unable to fire
+  // again: a platform that answered 200 + headers and then stalled
+  // mid-body blocked this call FOREVER, measured at 4s+ against a 400ms
+  // budget. That defeats the shared-deadline contract (enterprise#1707)
+  // and can hang a caller awaiting `client.heartbeatReady`.
   try {
     const resp = await fetch(`${endpoint}/health`, {
       method: 'GET',
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
-    if (!resp.ok) return null;
+    if (!resp.ok) return empty;
 
-    const body = await resp.json();
-    return typeof body.version === 'string' && body.version ? body.version : null;
+    // Still covered by the abort signal above — an abort here rejects, and
+    // the catch below turns it into the ordinary not-learned result.
+    const body: unknown = await resp.json();
+    if (typeof body !== 'object' || body === null) return empty;
+    const record = body as Record<string, unknown>;
+
+    // Each field is promoted independently and only when it is a non-empty
+    // string. A TypeScript interface is erased at runtime, so the shape of a
+    // parsed body is a claim, not a check — these guards are the check. An
+    // absent key, a non-string value and an explicit "" are all "not learned",
+    // leaving null rather than putting a meaningless value on the wire.
+    const version = record.version;
+    const tier = record.tier;
+    return {
+      platformVersion: isLearned(version) ? version : null,
+      // Verbatim, including the transient "starting" the agent returns
+      // before its licence is validated. "starting" is a real signal the
+      // receiver buckets deliberately, not an error to filter client-side.
+      licenseTier: isLearned(tier) ? tier : null,
+    };
   } catch {
+    return empty;
+  } finally {
     clearTimeout(timeoutId);
-    return null;
   }
 }
