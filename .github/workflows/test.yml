@@ -38,6 +38,20 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      # ADR-065: src/types/authzen.gen.ts is generated from the vendored copy of
+      # the platform's canonical AuthZEN surface artifact. It is committed so an
+      # `npm install @axonflow/sdk` receives working types AND runtime
+      # validators without running a generator - which is only trustworthy if
+      # something proves the committed bytes are the output of the committed
+      # input. This is that proof, and it fails on BOTH edits: an artifact
+      # bumped without regenerating, and a hand edit of the generated module.
+      #
+      # tests/authzen-generator.test.ts asserts the same property in the test
+      # job and asserts that THIS command agrees with it, so the two gates
+      # cannot report different answers.
+      - name: Check the AuthZEN types are regenerated from the surface artifact
+        run: node scripts/gen-authzen-types/generate.js --check
+
   test:
     name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
