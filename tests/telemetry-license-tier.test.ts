@@ -20,7 +20,10 @@ import { probePlatformHealth, sendTelemetryPing, sendTelemetryPingNow } from '..
 const originalEnv = { ...process.env };
 
 /** A stand-in platform whose /health returns a fixed status and raw body. */
-async function startStandInPlatform(status: number, body: string): Promise<{ url: string; close: () => Promise<void> }> {
+async function startStandInPlatform(
+  status: number,
+  body: string
+): Promise<{ url: string; close: () => Promise<void> }> {
   const server = http.createServer((req, res) => {
     if (req.url !== '/health') {
       res.writeHead(404).end();
@@ -29,32 +32,36 @@ async function startStandInPlatform(status: number, body: string): Promise<{ url
     res.writeHead(status, { 'Content-Type': 'application/json' });
     res.end(body);
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = (server.address() as AddressInfo).port;
   return {
     url: `http://127.0.0.1:${port}`,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    close: () => new Promise<void>(resolve => server.close(() => resolve())),
   };
 }
 
 /** A stand-in checkpoint receiver that records the raw POST body. */
-async function startCheckpoint(): Promise<{ url: string; body: () => string; close: () => Promise<void> }> {
+async function startCheckpoint(): Promise<{
+  url: string;
+  body: () => string;
+  close: () => Promise<void>;
+}> {
   let captured = '';
   const server = http.createServer((req, res) => {
     const chunks: Buffer[] = [];
-    req.on('data', (c) => chunks.push(c as Buffer));
+    req.on('data', c => chunks.push(c as Buffer));
     req.on('end', () => {
       captured = Buffer.concat(chunks).toString('utf8');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ latest_version: '0.0.0' }));
     });
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = (server.address() as AddressInfo).port;
   return {
     url: `http://127.0.0.1:${port}/v1/ping`,
     body: () => captured,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    close: () => new Promise<void>(resolve => server.close(() => resolve())),
   };
 }
 
@@ -86,8 +93,11 @@ describe('license_tier on the telemetry wire (#3619)', () => {
 
   it.each(platformEmittedTiers)(
     'forwards the platform-reported tier %p to the wire verbatim',
-    async (tier) => {
-      const platform = await startStandInPlatform(200, JSON.stringify({ status: 'healthy', version: '10.3.0', tier }));
+    async tier => {
+      const platform = await startStandInPlatform(
+        200,
+        JSON.stringify({ status: 'healthy', version: '10.3.0', tier })
+      );
       try {
         const body = await captureWire(platform.url);
         // Assert on the literal JSON rather than a parsed object: a mutation
@@ -101,11 +111,23 @@ describe('license_tier on the telemetry wire (#3619)', () => {
 
   describe('omits the field whenever the tier was not learned', () => {
     const cases: Array<[string, () => Promise<{ url: string; close: () => Promise<void> }>]> = [
-      ['health returns 500', () => startStandInPlatform(500, JSON.stringify({ tier: 'Enterprise' }))],
+      [
+        'health returns 500',
+        () => startStandInPlatform(500, JSON.stringify({ tier: 'Enterprise' })),
+      ],
       ['health returns malformed JSON', () => startStandInPlatform(200, '{"tier":"Enterprise"')],
-      ['health returns no tier key', () => startStandInPlatform(200, JSON.stringify({ status: 'healthy', version: '10.3.0' }))],
-      ['health returns an empty tier', () => startStandInPlatform(200, JSON.stringify({ version: '10.3.0', tier: '' }))],
-      ['health returns a non-string tier', () => startStandInPlatform(200, JSON.stringify({ version: '10.3.0', tier: 42 }))],
+      [
+        'health returns no tier key',
+        () => startStandInPlatform(200, JSON.stringify({ status: 'healthy', version: '10.3.0' })),
+      ],
+      [
+        'health returns an empty tier',
+        () => startStandInPlatform(200, JSON.stringify({ version: '10.3.0', tier: '' })),
+      ],
+      [
+        'health returns a non-string tier',
+        () => startStandInPlatform(200, JSON.stringify({ version: '10.3.0', tier: 42 })),
+      ],
       ['health returns a JSON array', () => startStandInPlatform(200, '[1,2,3]')],
     ];
 
@@ -142,10 +164,16 @@ describe('license_tier on the telemetry wire (#3619)', () => {
 
   it('learns version and tier independently, so one absence never discards the other', async () => {
     const cases: Array<[string, { platformVersion: string | null; licenseTier: string | null }]> = [
-      [JSON.stringify({ version: '10.3.0', tier: 'Enterprise' }), { platformVersion: '10.3.0', licenseTier: 'Enterprise' }],
+      [
+        JSON.stringify({ version: '10.3.0', tier: 'Enterprise' }),
+        { platformVersion: '10.3.0', licenseTier: 'Enterprise' },
+      ],
       // The pre-#3619 probe returned early when `version` was empty; had the
       // tier been read after that guard, this row would report no tier at all.
-      [JSON.stringify({ tier: 'Enterprise' }), { platformVersion: null, licenseTier: 'Enterprise' }],
+      [
+        JSON.stringify({ tier: 'Enterprise' }),
+        { platformVersion: null, licenseTier: 'Enterprise' },
+      ],
       [JSON.stringify({ version: '10.3.0' }), { platformVersion: '10.3.0', licenseTier: null }],
       [JSON.stringify({ status: 'healthy' }), { platformVersion: null, licenseTier: null }],
     ];
@@ -165,7 +193,7 @@ describe('license_tier on the telemetry wire (#3619)', () => {
     const server = http.createServer(() => {
       /* deliberately never responds */
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
     const port = (server.address() as AddressInfo).port;
 
     try {
@@ -180,7 +208,7 @@ describe('license_tier on the telemetry wire (#3619)', () => {
       // stacked second timeout would produce.
       expect(elapsed).toBeLessThan(400 + 600);
     } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await new Promise<void>(resolve => server.close(() => resolve()));
     }
   });
 
@@ -190,7 +218,10 @@ describe('license_tier on the telemetry wire (#3619)', () => {
   // drives the SECOND, because a fix applied to only one copy of a
   // duplicated decision is exactly how the two paths come to disagree.
   it('carries the tier on the fire-and-forget path too, not only the awaitable one', async () => {
-    const platform = await startStandInPlatform(200, JSON.stringify({ version: '10.3.0', tier: 'Enterprise' }));
+    const platform = await startStandInPlatform(
+      200,
+      JSON.stringify({ version: '10.3.0', tier: 'Enterprise' })
+    );
     const checkpoint = await startCheckpoint();
     process.env.AXONFLOW_CHECKPOINT_URL = checkpoint.url;
     try {
@@ -199,7 +230,7 @@ describe('license_tier on the telemetry wire (#3619)', () => {
       // the API deliberately does not return.
       const deadline = Date.now() + 5000;
       while (Date.now() < deadline && checkpoint.body() === '') {
-        await new Promise((r) => setTimeout(r, 25));
+        await new Promise(r => setTimeout(r, 25));
       }
       expect(checkpoint.body()).toContain('"license_tier":"Enterprise"');
     } finally {
