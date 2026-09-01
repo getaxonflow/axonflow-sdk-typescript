@@ -142,6 +142,40 @@ export interface TelemetryPayload {
    * commitment that covers this field.
    */
   org_id: string;
+  /**
+   * Licence tier the connected platform reported on its own `/health`
+   * response — `"community"`, `"evaluation"`, `"Enterprise"`, the csaas
+   * `"Plus"` alias for EnterprisePlus, or the transient `"starting"`.
+   * Coarse adoption signal only: no licence key, no expiry, no seat count,
+   * no customer name. Issue #3619.
+   *
+   * THREE SIMILARLY-NAMED CONCEPTS LIVE NEARBY. Do not merge them:
+   *
+   * 1. `deployment_mode` (this interface) — SDK-derived TOPOLOGY:
+   *    `self_hosted | community_saas | unknown`, classified from the
+   *    endpoint URL. Says WHERE the platform runs.
+   * 2. The platform's own `DEPLOYMENT_MODE` env var — a server-side
+   *    setting deciding which schema/tables the binary uses. Never read by
+   *    this SDK and never sent on this field.
+   * 3. `license_tier` (this field) — the platform's EDITION/entitlement.
+   *    Says WHAT the platform is licensed for.
+   *
+   * A community-mode binary can run on any topology and vice versa, so
+   * neither field is derivable from the other.
+   *
+   * Sent verbatim. Casing and alias folding is the receiver's job
+   * (checkpoint-service `NormalizeLicenseTier`) and is deliberately NOT
+   * duplicated here — a client that folded locally would silently mask a
+   * tier this SDK build predates.
+   *
+   * ABSENT (property omitted) means NOT LEARNED — `/health` unreachable,
+   * non-2xx, unparseable, or carrying no `tier` key. Absent must never
+   * become a known value: emitting `"community"` for a platform we could
+   * not reach would be a false claim about a customer's deployment. The
+   * receiver preserves omission for legacy pings, so an omitted field
+   * reads as "unknown", not as any particular tier.
+   */
+  license_tier?: string;
 }
 
 /**
@@ -348,6 +382,28 @@ function expandIPv6(addr: string): string {
  * NOT consult `AXONFLOW_TELEMETRY`, the stamp file, or any rate-limit
  * state.
  */
+/**
+ * Apply a health-probe result onto a telemetry payload.
+ *
+ * This module has TWO ping paths (`sendTelemetryPingNow` and
+ * `sendTelemetryPing`) that build the same payload independently. Both call
+ * THIS function so the omit-vs-populate rule cannot drift between them —
+ * patching one copy of a duplicated decision is how the two paths come to
+ * disagree.
+ *
+ * `platform_version` is an explicit `null` when unlearned (its long-standing
+ * wire shape); `license_tier` is OMITTED entirely, never set to `""` and
+ * never defaulted to a guessed tier.
+ */
+function applyHealthProbe(payload: TelemetryPayload, probe: PlatformHealthProbe): void {
+  payload.platform_version = probe.platformVersion;
+  if (probe.licenseTier !== null) {
+    payload.license_tier = probe.licenseTier;
+  } else {
+    delete payload.license_tier;
+  }
+}
+
 export async function sendTelemetryPingNow(options: {
   mode: string;
   endpoint: string;
@@ -385,7 +441,7 @@ export async function sendTelemetryPingNow(options: {
     try {
       const healthBudget = Math.min(HEALTH_BUDGET_CAP_MS, Math.max(0, deadline - Date.now()));
       if (options.endpoint && healthBudget > MIN_BUDGET_MS) {
-        payload.platform_version = await detectPlatformVersion(options.endpoint, healthBudget);
+        applyHealthProbe(payload, await probePlatformHealth(options.endpoint, healthBudget));
       }
     } catch {
       /* platform_version remains null on failure */
@@ -494,7 +550,7 @@ export function sendTelemetryPing(options: {
         // blackholed endpoint and consumes the full probe budget.
         const healthBudget = Math.min(HEALTH_BUDGET_CAP_MS, Math.max(0, deadline - Date.now()));
         if (options.endpoint && healthBudget > MIN_BUDGET_MS) {
-          payload.platform_version = await detectPlatformVersion(options.endpoint, healthBudget);
+          applyHealthProbe(payload, await probePlatformHealth(options.endpoint, healthBudget));
         }
       } catch {
         // Silent — platform version remains null
@@ -532,14 +588,37 @@ export function sendTelemetryPing(options: {
 }
 
 /**
- * Detect the platform version by calling the agent's /health endpoint.
- * Returns the version string or null on any failure.
+ * What a single `/health` fetch established. Each field is INDEPENDENT: a
+ * response carrying one but not the other yields a partially-populated
+ * result rather than discarding both. `null` means "not learned" — it never
+ * degrades to a default (see `TelemetryPayload.license_tier`).
+ */
+export interface PlatformHealthProbe {
+  platformVersion: string | null;
+  licenseTier: string | null;
+}
+
+/**
+ * Probe the agent's `/health` endpoint ONCE and extract every telemetry
+ * dimension it carries. Returns both fields null on any failure —
+ * unreachable endpoint, non-2xx, unparseable body, oversized body — so
+ * telemetry degrades to omitting the fields and never fails the ping or
+ * surfaces an error to the caller.
+ *
+ * This is the SDK's only `/health` fetch on the telemetry path; the licence
+ * tier rides along on the response already being fetched for the version.
+ * Adding a second request here would double the telemetry path's blocking
+ * budget and its failure surface — do not.
  *
  * @param timeoutMs — derived from the shared telemetry deadline so the health
  * probe and the checkpoint POST don't stack into a larger combined budget.
  * See enterprise#1707.
  */
-async function detectPlatformVersion(endpoint: string, timeoutMs: number): Promise<string | null> {
+export async function probePlatformHealth(
+  endpoint: string,
+  timeoutMs: number
+): Promise<PlatformHealthProbe> {
+  const empty: PlatformHealthProbe = { platformVersion: null, licenseTier: null };
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -550,12 +629,28 @@ async function detectPlatformVersion(endpoint: string, timeoutMs: number): Promi
     });
     clearTimeout(timeoutId);
 
-    if (!resp.ok) return null;
+    if (!resp.ok) return empty;
 
-    const body = await resp.json();
-    return typeof body.version === 'string' && body.version ? body.version : null;
+    const body: unknown = await resp.json();
+    if (typeof body !== 'object' || body === null) return empty;
+    const record = body as Record<string, unknown>;
+
+    // Each field is promoted independently and only when it is a non-empty
+    // string. A TypeScript interface is erased at runtime, so the shape of a
+    // parsed body is a claim, not a check — these guards are the check. An
+    // absent key, a non-string value and an explicit "" are all "not learned",
+    // leaving null rather than putting a meaningless value on the wire.
+    const version = record.version;
+    const tier = record.tier;
+    return {
+      platformVersion: typeof version === 'string' && version ? version : null,
+      // Verbatim, including the transient "starting" the agent returns
+      // before its licence is validated. "starting" is a real signal the
+      // receiver buckets deliberately, not an error to filter client-side.
+      licenseTier: typeof tier === 'string' && tier ? tier : null,
+    };
   } catch {
     clearTimeout(timeoutId);
-    return null;
+    return empty;
   }
 }
