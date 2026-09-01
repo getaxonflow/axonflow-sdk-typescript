@@ -258,14 +258,45 @@ describe('license_tier on the telemetry wire (#3619)', () => {
 
     try {
       const started = Date.now();
-      await expect(probePlatformHealth(`http://127.0.0.1:${port}`, 400)).resolves.toEqual({
-        platformVersion: null,
-        licenseTier: null,
-      });
+      // Raced against an explicit timer rather than awaited directly. Jest's
+      // own timeout does not abort a test body, so on the defect this test
+      // exists to catch the probe never settles, `finally` never runs, and
+      // the listening server plus the pending fetch keep the worker alive —
+      // the run HANGS instead of going red. Racing makes the failure finite.
+      const outcome = await Promise.race([
+        probePlatformHealth(`http://127.0.0.1:${port}`, 400),
+        new Promise(resolve => setTimeout(() => resolve('DID_NOT_SETTLE'), 3000)),
+      ]);
+      expect(outcome).toEqual({ platformVersion: null, licenseTier: null });
       expect(Date.now() - started).toBeLessThan(400 + 600);
     } finally {
       server.closeAllConnections?.();
       await new Promise<void>(resolve => server.close(() => resolve()));
+    }
+  });
+
+  // Only the timer's PLACEMENT was pinned (via the stall test above); nothing
+  // pinned that it is cleared at all. Deleting the whole
+  // `finally { clearTimeout(timeoutId) }` left every test green, while
+  // leaving a pending timer after each successful ping — which holds the Node
+  // event loop open and shows up as "telemetry delays process exit" in a CLI
+  // or Lambda. This asserts the clear happens on the SUCCESS path.
+  it('clears its abort timer on the success path, so no timer outlives the probe', async () => {
+    const platform = await startStandInPlatform(
+      200,
+      JSON.stringify({ version: '10.3.0', tier: 'Enterprise' })
+    );
+    const clearSpy = jest.spyOn(global, 'clearTimeout');
+    try {
+      const before = clearSpy.mock.calls.length;
+      await expect(probePlatformHealth(platform.url, 2000)).resolves.toEqual({
+        platformVersion: '10.3.0',
+        licenseTier: 'Enterprise',
+      });
+      expect(clearSpy.mock.calls.length).toBeGreaterThan(before);
+    } finally {
+      clearSpy.mockRestore();
+      await platform.close();
     }
   });
 

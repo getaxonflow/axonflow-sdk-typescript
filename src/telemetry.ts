@@ -385,12 +385,18 @@ function expandIPv6(addr: string): string {
 /**
  * The single definition of "the platform told us this".
  *
- * A value counts as learned only when it is a NON-EMPTY string. Used by both
- * the probe (deciding what to promote out of the `/health` body) and by
- * `applyHealthProbe` (deciding what reaches the wire), so the omit-vs-populate
- * rule cannot drift between the two levels — a `null`-only check at the outer
- * level would let an empty string through and put a meaningless
- * `"license_tier":""` on the wire.
+ * A value counts as learned only when it is a NON-EMPTY string. Used by the
+ * probe, which is where it is load-bearing: it decides what gets promoted out
+ * of the `/health` body, and a mutant relaxing it is killed.
+ *
+ * `applyHealthProbe` also calls it, but there it is belt-and-braces that NO
+ * test can pin: `applyHealthProbe` is module-private, its only two call sites
+ * pass a probe built by `probePlatformHealth`, and that already maps `""` to
+ * `null`. A mutant relaxing the check there survives by construction. It is
+ * kept so the omit-vs-populate rule reads the same at both levels, not
+ * because a test proves it — said plainly so a reader does not assume it is
+ * covered. (Java differs: `buildPayload` there is genuinely package-visible,
+ * so the equivalent check IS reachable and its mutant IS killed.)
  */
 function isLearned(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
@@ -636,6 +642,12 @@ export async function probePlatformHealth(
   const empty: PlatformHealthProbe = { platformVersion: null, licenseTier: null };
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  // Belt to the `finally`'s braces. If this timer were ever left pending it
+  // would hold the Node event loop open for its full duration after an
+  // otherwise-finished ping — the "telemetry delays process exit" symptom in
+  // a CLI or Lambda. unref() means a pending timer can never be the reason
+  // the process stays alive. Node-only API, hence the optional call.
+  (timeoutId as unknown as { unref?: () => void }).unref?.();
 
   // The timer is cleared in `finally`, NOT as soon as fetch() resolves.
   // fetch() resolves on HEADERS, so clearing it there disarmed the only

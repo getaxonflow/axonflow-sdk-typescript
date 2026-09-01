@@ -97,11 +97,20 @@ async function runAgainstRealPlatform(endpoint) {
 
   let health;
   try {
-    const resp = await fetch(`${endpoint}/health`);
+    // BOTH a timeout and a status check. Without the timeout this harness —
+    // the one meant to prove the deadline bound in a real environment — was
+    // itself unbounded: against a platform that sends headers then stalls
+    // mid-body it ran forever, which in CI is a hung job rather than a red
+    // one. Without the status check a 503 was reported as a healthy platform
+    // that merely lacked a tier, and the run exited 0.
+    const resp = await fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(5000) });
+    if (!resp.ok) {
+      throw new Error(`platform answered HTTP ${resp.status}`);
+    }
     health = await resp.json();
   } catch (err) {
     // Platform DOWN — a first-class real-world case, not a harness error.
-    console.log(`Platform unreachable at ${endpoint} (${err})\n  -> asserting the DOWN contract instead.\n`);
+    console.log(`No usable /health at ${endpoint} (${err})\n  -> asserting the DOWN contract instead.\n`);
     const body = await captureOnePing(endpoint);
     if (!body) {
       fail('platform down: the ping was SUPPRESSED — telemetry must degrade, not stop');
