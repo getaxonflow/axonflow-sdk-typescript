@@ -362,6 +362,17 @@ function parseSurface(rawText) {
     throw new SurfaceError('the surface artifact must be a JSON object');
   }
   rejectUnknown('artifact', doc, SURFACE_MEMBERS);
+  // The class, not the enumerated sites. The first pass swept type, field and
+  // enum strings; these five are copied into code by the header emitter and
+  // were left unchecked, so a quote in `profile` still emitted a module that
+  // does not compile.
+  [
+    'artifact',
+    'profile',
+    'contract_schema_version',
+    'source_schema_id',
+    'source_schema_sha256',
+  ].forEach(member => checkLiteral(`artifact.${member}`, String(doc[member] ?? '')));
 
   const enumNames = new Set();
   const enums = (doc.enums || []).map(raw => parseEnum(raw, enumNames));
@@ -379,7 +390,40 @@ function parseSurface(rawText) {
     types,
   };
   checkReferences(surface, typeNames, enumNames);
+  checkConstsAreEnforced(surface);
   return surface;
+}
+
+/**
+ * Refuse a `const` no enforcement site covers.
+ *
+ * The emitter deliberately renders no check for `const`: the only one the
+ * contract declares is the response context's profile, and the hand-written
+ * client refuses an unreadable profile with a message that names the version it
+ * does speak. Two checks put the generated one in front of the actionable one
+ * and made the actionable one dead code.
+ *
+ * That is right for the profile and wrong for anything else, and the emitter's
+ * own rule for bounds says why: a constraint the artifact declares and no SDK
+ * enforces is worse than one the emitter cannot render, because it looks
+ * enforced. So a const whose value is the profile passes through to the client's
+ * check, and any OTHER const fails here - loudly, when the platform adds it,
+ * rather than silently in five SDKs.
+ */
+function checkConstsAreEnforced(surface) {
+  surface.types.forEach(type => {
+    type.fields.forEach(field => {
+      if (field.const && field.const !== surface.profile) {
+        throw new SurfaceError(
+          `${type.name}.${field.name} declares const "${field.const}", which no enforcement ` +
+            `site covers. The one const this emitter generates through is the negotiated ` +
+            `profile, which the client refuses by name; any other would be a constraint the ` +
+            `artifact declares and no SDK enforces. Teach the emitter to render it, or the ` +
+            `client to check it, before adding it to the contract.`
+        );
+      }
+    });
+  });
 }
 
 function checkReferences(surface, types, enums) {

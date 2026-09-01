@@ -464,6 +464,44 @@ describe('the emitter refuses what it cannot render', () => {
     expect(() => gen.parseSurface(mutated(mutate as (d: any) => void))).toThrow(pattern as RegExp);
   });
 
+  it.each(['artifact', 'profile', 'contract_schema_version', 'source_schema_sha256'])(
+    'refuses an unsafe artifact-level %s',
+    member => {
+      // R3 round 2: the first pass swept type, field and enum strings and left
+      // the artifact's own top-level ones unchecked - so a quote in `profile`
+      // still emitted a module that does not compile. Answering the enumerated
+      // sites is not answering the class.
+      expect(() =>
+        gen.parseSurface(
+          mutated((d: any) => {
+            d[member] = "ends the literal ' here";
+          })
+        )
+      ).toThrow(/carries a quote/);
+    }
+  );
+
+  it('refuses a const no enforcement site covers', () => {
+    // By the emitter's own rule for bounds: a constraint the artifact declares
+    // and no SDK enforces is worse than one the emitter cannot render, because
+    // it looks enforced. The profile const passes through - the client refuses
+    // an unreadable profile by name - and any other fails here.
+    expect(() =>
+      gen.parseSurface(
+        mutated((d: any) => {
+          const t = d.types.find((x: any) => x.name === 'authzen_action');
+          t.fields.find((f: any) => f.name === 'name').const = 'llm.completion';
+        })
+      )
+    ).toThrow(/no enforcement site covers/);
+  });
+
+  it("the control: the contract's own profile const still passes", () => {
+    // A rule that refused every const would refuse today's artifact, and this
+    // is the only test that would say so.
+    expect(() => gen.parseSurface(fs.readFileSync(gen.SURFACE_PATH, 'utf8'))).not.toThrow();
+  });
+
   it('does not enforce const, leaving one enforcement site for the profile', () => {
     // R3 round 1: the generated const check fired BEFORE the hand-written
     // profile refusal, so the actionable message - the one that names the

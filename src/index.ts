@@ -447,6 +447,7 @@ export * from './types/authzen.gen';
 // The hand-written half: the tri-state attribute, the decision readings, the
 // two error classes and the envelope helpers.
 export {
+  AUTHZEN_ATTRIBUTE_MARKER,
   AUTHZEN_PATH,
   AUTHZEN_PROFILE_HEADER,
   AUTHZEN_UNKNOWN_CLOSURE_TRUNCATED,
@@ -461,6 +462,7 @@ export {
   AuthZENDecision,
   AuthZENProtocolError,
   AuthZENRefusal,
+  buildEnvelope,
   toWire,
 } from './authzen';
 export type { AuthZENAttributeState, AuthZENRefusedBy, AuthZENTransport } from './authzen';

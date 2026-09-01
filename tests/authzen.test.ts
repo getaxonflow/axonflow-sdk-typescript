@@ -14,11 +14,14 @@
  * `runtime-e2e/authzen_evaluation/test.mjs`, which drives a live agent.
  */
 
+import { AxonFlow } from '../src/client';
 import {
   AUTHZEN_PATH,
   AUTHZEN_PROFILE_HEADER,
   assertFullyResolved,
+  buildEnvelope,
   AUTHZEN_UNKNOWN_RESOLUTION_FAILED,
+  AUTHZEN_ATTRIBUTE_MARKER,
   AuthZENAttribute,
   AuthZENDecision,
   AuthZENProtocolError,
@@ -328,17 +331,44 @@ describe('the tri-state', () => {
     expect(recorder.sent.evaluation.context).toEqual({ args: { query: 'q' } });
   });
 
-  it('recognises an attribute across a duplicated module copy', () => {
-    // A bundler that split this package across two chunks gives two distinct
-    // classes, and a bare `instanceof` would then report a resolver's output as
-    // ordinary data - serialising the attribute's internal shape onto the wire.
-    // The brand is a `Symbol.for` key, so the second copy's attributes still
-    // register.
-    const fromAnotherCopy = { state: 'absent', value: undefined, reason: '' };
-    Object.defineProperty(fromAnotherCopy, Symbol.for('axonflow.authzen.attribute'), {
-      value: true,
-    });
+  it('recognises an attribute across every ordinary copy', () => {
+    // R3 round 2: the first fix used a NON-ENUMERABLE Symbol brand, which every
+    // ordinary copy strips - so structuredClone, a spread, a JSON round trip or
+    // a worker boundary turned an UNKNOWN attribute back into ordinary data and
+    // the SDK SENT it. Confirmed then against the live gateway. That is the
+    // dangerous direction, and the marker is enumerable so it survives.
+    const unknown = AuthZENAttribute.unknown('could not resolve');
+    expect(AuthZENAttribute.is(unknown)).toBe(true);
+    expect(AuthZENAttribute.is({ ...unknown })).toBe(true);
+    expect(AuthZENAttribute.is(structuredClone(unknown))).toBe(true);
+    expect(AuthZENAttribute.is(JSON.parse(JSON.stringify(unknown)))).toBe(true);
+    expect(AuthZENAttribute.is(Object.assign({}, unknown))).toBe(true);
+
+    // A duplicated module copy - the case the check existed for in the first
+    // place - still registers, because the marker is a plain string key.
+    const fromAnotherCopy = {
+      state: 'absent',
+      value: undefined,
+      reason: '',
+      [AUTHZEN_ATTRIBUTE_MARKER]: true,
+    };
     expect(AuthZENAttribute.is(fromAnotherCopy)).toBe(true);
+  });
+
+  it('refuses a COPIED unknown attribute instead of sending it', async () => {
+    // The end-to-end form of the case above: the copy must never reach the
+    // network. This is the assertion the Symbol brand silently broke.
+    const recorder = new Recorder();
+    const copied = structuredClone(AuthZENAttribute.unknown('could not resolve'));
+    const refusal = await expectRefusal(
+      evaluate(
+        recorder,
+        singular({ context: { args: { query: 'q' }, correlation: { dept: copied } } })
+      )
+    );
+    expect(recorder.calls).toHaveLength(0);
+    expect(refusal.code).toBe('unevaluable_attribute');
+    expect(refusal.pointer).toBe('/evaluation/context/correlation/dept');
   });
 
   it("does NOT mistake a caller's ordinary data for an attribute", () => {
@@ -1004,5 +1034,113 @@ describe('refusal decoding is forward-compatible', () => {
     // The control. Leniency must not fabricate a refusal the server never made.
     const recorder = new Recorder(500, { detail: 'boom' });
     await expect(evaluate(recorder, singular())).rejects.not.toBeInstanceOf(AuthZENRefusal);
+  });
+});
+
+describe('the belt is WIRED, not merely present', () => {
+  // R3 round 2: the belt's own tests called it directly, so deleting BOTH call
+  // sites left the whole suite green - the round-1 state restored with a green
+  // CI. These drive the public entry points and distinguish the belt's error
+  // from the validator's, so removing the call flips the exception class.
+
+  // An attribute on a member the contract does not declare: the resolver
+  // spreads it through without visiting it, the belt catches it, and the
+  // generated validator would catch it too - as a DIFFERENT error. That is the
+  // seam that makes the call site observable.
+  function smuggled(): AuthZENRequest {
+    return {
+      ...singular(),
+      undeclared: AuthZENAttribute.unknown('never resolved'),
+    } as unknown as AuthZENRequest;
+  }
+
+  it('evaluateEnvelope calls it', async () => {
+    const recorder = new Recorder();
+    await expect(evaluateEnvelope(recorder.send, { evaluation: smuggled() })).rejects.toThrow(
+      /unresolved AuthZENAttribute/
+    );
+    expect(recorder.calls).toHaveLength(0);
+    // Without the call the generated validator refuses it instead, as
+    // AuthZENRefusal(malformed_envelope) - fail-closed either way, which is
+    // exactly why only the error CLASS can tell the two apart.
+  });
+
+  it('buildEnvelope calls it', () => {
+    expect(() => buildEnvelope(smuggled())).toThrow(/unresolved AuthZENAttribute/);
+  });
+
+  it('toWire calls it', () => {
+    expect(() => toWire({ evaluation: smuggled() })).toThrow(/unresolved AuthZENAttribute/);
+  });
+
+  it('the control: a clean envelope passes all three', async () => {
+    const recorder = new Recorder();
+    await evaluate(recorder, singular());
+    expect(recorder.calls).toHaveLength(1);
+    expect(() => buildEnvelope(singular())).not.toThrow();
+    expect(() => toWire({ evaluation: singular() })).not.toThrow();
+  });
+});
+
+describe('the client refuses without sending', () => {
+  // Named for what it asserts. R3 round 2 found the AuthZEN unit tests drove a
+  // MIRROR of the client's path rather than the client, so nothing pinned the
+  // real method's behaviour at all; these drive `AxonFlow.evaluate` itself with
+  // a stubbed fetch.
+  //
+  // They do NOT pin the buildEnvelope WIRING: `evaluateEnvelope` performs the
+  // same resolve/complete/belt sequence itself, so building the envelope inline
+  // is behaviourally identical here and a mutant that reverts the wiring is not
+  // killed. Verified, and stated rather than implied - buildEnvelope earns its
+  // place by giving the two entry points and the sibling SDK one owner for that
+  // order, not by being independently observable.
+
+  function clientWith(status: number, body: unknown): { client: AxonFlow; calls: string[] } {
+    const calls: string[] = [];
+    const client = new AxonFlow({ endpoint: 'http://example.invalid' });
+    (client as unknown as { _fetch: unknown })._fetch = async (_url: string, init: RequestInit) => {
+      calls.push(String(init.body));
+      return new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
+    };
+    return { client, calls };
+  }
+
+  it('client.evaluate refuses an incomplete request without sending it', async () => {
+    const { client, calls } = clientWith(200, {});
+    await expect(client.evaluate({ subject: { type: 'gateway', id: 'g1' } })).rejects.toMatchObject(
+      { code: 'incomplete_evaluation', refusedBy: 'client' }
+    );
+    expect(calls).toHaveLength(0);
+  });
+
+  it('client.evaluate refuses an unresolvable attribute without sending it', async () => {
+    const { client, calls } = clientWith(200, {});
+    await expect(
+      client.evaluate(
+        singular({ context: { args: { query: 'q' }, t: AuthZENAttribute.unknown('stale') } })
+      )
+    ).rejects.toMatchObject({ code: 'unevaluable_attribute', refusedBy: 'client' });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('client.evaluate sends a good request and reads the decision', async () => {
+    // The control. Without it the two refusal cases above would pass over a
+    // client that refused everything.
+    const { client, calls } = clientWith(200, { decision: true, context: ALLOW_CONTEXT });
+    const decision = await client.evaluate(singular());
+    expect(decision.allowed).toBe(true);
+    expect(JSON.parse(calls[0]).evaluation.subject.id).toBe('llm-gateway-01');
+  });
+
+  it('client.evaluateAll refuses an incomplete entry without sending it', async () => {
+    const { client, calls } = clientWith(200, {});
+    await expect(
+      client.evaluateAll({
+        subject: { type: 'gateway', id: 'g1' },
+        context: { args: { query: 'q' } },
+        evaluations: [{ resource: { type: 'tool', id: 'jira/a' } }],
+      })
+    ).rejects.toMatchObject({ code: 'incomplete_evaluation', refusedBy: 'client' });
+    expect(calls).toHaveLength(0);
   });
 });

@@ -1,7 +1,7 @@
 import { VERSION } from './version';
 import { maybeSendHeartbeat, flushHeartbeat } from './heartbeat';
 import { sendTelemetryPingNow } from './telemetry';
-import { AuthZENDecision, AuthZENTransport, evaluateEnvelope } from './authzen';
+import { AuthZENDecision, AuthZENTransport, buildEnvelope, evaluateEnvelope } from './authzen';
 import { AuthZENBulk, AuthZENRequest } from './types/authzen.gen';
 import {
   AxonFlowConfig,
@@ -2890,7 +2890,7 @@ export class AxonFlow {
    *   before the route ran.
    */
   async evaluate(request: AuthZENRequest): Promise<AuthZENDecision> {
-    return evaluateEnvelope(this.sendAuthZEN, { evaluation: request });
+    return evaluateEnvelope(this.sendAuthZEN, buildEnvelope(request));
   }
 
   /**
@@ -2920,7 +2920,7 @@ export class AxonFlow {
    * ```
    */
   async evaluateAll(bulk: AuthZENBulk): Promise<AuthZENDecision> {
-    return evaluateEnvelope(this.sendAuthZEN, { evaluations: bulk });
+    return evaluateEnvelope(this.sendAuthZEN, buildEnvelope(undefined, bulk));
   }
 
   /**

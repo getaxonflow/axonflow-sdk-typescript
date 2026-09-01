@@ -41,6 +41,7 @@ import {
   AUTHZEN_PROFILE_V1,
   AuthZENAction,
   AuthZENApprovalRequirement,
+  AuthZENBulk,
   AuthZENCategory,
   AuthZENEnvelope,
   AuthZENError,
@@ -58,6 +59,14 @@ import {
   validateAuthZENError,
   validateAuthZENResponse,
 } from './types/authzen.gen';
+
+/**
+ * The marker every tri-state attribute carries. See {@link AuthZENAttribute}.
+ *
+ * Exported so a caller building attributes across a serialisation boundary can
+ * reconstruct one the SDK will still recognise.
+ */
+export const AUTHZEN_ATTRIBUTE_MARKER = '__axonflow_authzen_attribute__';
 
 /** The AuthZEN evaluation endpoint. */
 export const AUTHZEN_PATH = '/api/v1/access/evaluation';
@@ -231,33 +240,35 @@ export type AuthZENAttributeState = 'known' | 'absent' | 'unknown';
  * ```
  */
 export class AuthZENAttribute {
-  /**
-   * The brand.
-   *
-   * A cross-realm marker, because `instanceof` is not one: a bundler that split
-   * this package across two chunks gives two distinct classes, and a bare
-   * `instanceof` would then report a resolver's output as ordinary data and
-   * serialise the attribute's internal shape onto the wire.
-   *
-   * It is a `Symbol.for` key rather than a structural shape check for the
-   * mirror-image reason. Structural detection - "has state, value and reason" -
-   * misreads a caller's ORDINARY data as an attribute, and that direction is
-   * worse: a `JSON.parse`d bag carrying `{"state":"unknown","reason":"n/a"}`
-   * made the SDK refuse to send a legitimate request, with a message asserting
-   * the caller could not establish a value it had established. A symbol
-   * survives a duplicated module and cannot be produced by `JSON.parse`.
-   */
-  public static readonly BRAND = Symbol.for('axonflow.authzen.attribute');
-
   public readonly state: AuthZENAttributeState;
   public readonly value: unknown;
   public readonly reason: string;
+  /**
+   * The marker, carried as an ordinary ENUMERABLE property.
+   *
+   * Recognising an attribute by `instanceof` alone has a silent failure in the
+   * dangerous direction: a bundler that duplicated this package gives two
+   * distinct classes. A non-enumerable Symbol brand fixes that and introduces
+   * the same failure by another route - every ordinary copy strips it, so
+   * `structuredClone`, a spread, a JSON round trip or a worker boundary turned
+   * an UNKNOWN attribute back into ordinary data and SENT it. Measured against
+   * a live gateway.
+   *
+   * Recognising it by SHAPE alone has the mirror failure: a caller's own bag
+   * carrying `state`/`value`/`reason` is read as an attribute, and a legitimate
+   * request is refused with a message asserting the caller could not establish
+   * a value it did establish.
+   *
+   * An enumerable marker closes both. It survives every ordinary copy, and no
+   * caller's data carries it by accident. The Python sibling uses the same key
+   * for the same reason.
+   */
+  public readonly [AUTHZEN_ATTRIBUTE_MARKER] = true;
 
   private constructor(state: AuthZENAttributeState, value: unknown, reason: string) {
     this.state = state;
     this.value = value;
     this.reason = reason;
-    Object.defineProperty(this, AuthZENAttribute.BRAND, { value: true, enumerable: false });
   }
 
   /** The source returned this value. */
@@ -288,11 +299,20 @@ export class AuthZENAttribute {
     return new AuthZENAttribute('unknown', undefined, reason);
   }
 
-  /** Whether `value` is a tri-state attribute. See {@link AuthZENAttribute.BRAND}. */
+  /**
+   * Whether `value` is a tri-state attribute, however it was copied.
+   *
+   * See the marker above for why this is neither a bare `instanceof` nor a
+   * structural shape check.
+   */
   static is(value: unknown): value is AuthZENAttribute {
     if (value instanceof AuthZENAttribute) return true;
     if (typeof value !== 'object' || value === null) return false;
-    return (value as Record<symbol, unknown>)[AuthZENAttribute.BRAND] === true;
+    const candidate = value as Record<string, unknown>;
+    if (candidate[AUTHZEN_ATTRIBUTE_MARKER] !== true) return false;
+    return (
+      candidate.state === 'known' || candidate.state === 'absent' || candidate.state === 'unknown'
+    );
   }
 }
 
@@ -747,6 +767,27 @@ function validateDecision(response: AuthZENResponse, body: string): void {
 }
 
 /**
+ * Validate the envelope, reporting a schema violation as a TYPED refusal.
+ *
+ * Shared by `evaluateEnvelope` and `toWire` so the two cannot answer the same
+ * malformed envelope differently. `toWire` used to leak the raw
+ * `AuthZENSchemaError` while `evaluateEnvelope` converted it, which made the
+ * function documented as "the exact document this SDK would send" throw
+ * something the send path never throws.
+ */
+function validateEnvelopeOrRefuse(resolved: AuthZENEnvelope): AuthZENEnvelope {
+  try {
+    return validateAuthZENEnvelope(stripUndefined(resolved), '');
+  } catch (err) {
+    if (!(err instanceof AuthZENSchemaError)) throw err;
+    throw new AuthZENRefusal(AUTHZEN_ERROR_CODE_MALFORMED_ENVELOPE, err.message, {
+      refusedBy: 'client',
+      pointer: err.pointer,
+    });
+  }
+}
+
+/**
  * Decode a structured refusal document, or undefined if the body is not one.
  *
  * Decoded LENIENTLY, unlike the decision path, and the asymmetry is deliberate.
@@ -794,6 +835,30 @@ export type AuthZENTransport = (
 ) => Promise<{ status: number; body: string }>;
 
 /**
+ * Build an envelope: RESOLVE, check completeness, then validate.
+ *
+ * The counterpart of the Python sibling's `build_envelope`, and it exists for
+ * the same reason: `evaluate` and `evaluateAll` must not each assemble an
+ * envelope inline, or the two entry points drift on the order these steps run
+ * in - and that order decides which of two problems a caller with two problems
+ * is told about.
+ */
+export function buildEnvelope(
+  evaluation?: AuthZENRequest,
+  evaluations?: AuthZENBulk
+): AuthZENEnvelope {
+  const envelope: AuthZENEnvelope = {};
+  if (evaluation !== undefined) envelope.evaluation = evaluation;
+  if (evaluations !== undefined) envelope.evaluations = evaluations;
+  const resolved = resolveEnvelope(envelope);
+  if (resolved.evaluation === undefined || resolved.evaluations === undefined) {
+    checkEnvelopeComplete(resolved);
+  }
+  assertFullyResolved(resolved);
+  return validateEnvelopeOrRefuse(resolved);
+}
+
+/**
  * Run one envelope through `send` and interpret the answer.
  *
  * `send` is the SDK's own transport — the same authenticated fetch wrapper,
@@ -823,16 +888,7 @@ export async function evaluateEnvelope(
 
   assertFullyResolved(resolved);
 
-  let wire: AuthZENEnvelope;
-  try {
-    wire = validateAuthZENEnvelope(stripUndefined(resolved), '');
-  } catch (err) {
-    if (!(err instanceof AuthZENSchemaError)) throw err;
-    throw new AuthZENRefusal(AUTHZEN_ERROR_CODE_MALFORMED_ENVELOPE, err.message, {
-      refusedBy: 'client',
-      pointer: err.pointer,
-    });
-  }
+  const wire = validateEnvelopeOrRefuse(resolved);
 
   const { status, body } = await send(AUTHZEN_PATH, wire, {
     [AUTHZEN_PROFILE_HEADER]: AUTHZEN_PROFILE_V1,
@@ -927,7 +983,18 @@ function stripUndefined(value: unknown): unknown {
  * The Python sibling carries the same control, and had exactly this defect:
  * there the check ran after serialisation and could never fire.
  */
-export function assertFullyResolved(value: unknown, path = ''): void {
+export function assertFullyResolved(value: unknown, path = '', depth = 0): void {
+  if (depth > MAX_ATTRIBUTE_DEPTH) {
+    // Bounded for the same reason the resolver is, and by the same number. Two
+    // walkers that disagree on their bound is how a cycle reaching only the
+    // unbounded one comes back as a RangeError - the error type the bound
+    // exists to remove.
+    throw new AuthZENProtocolError(
+      `the structure at ${path || '/'} nests deeper than ${MAX_ATTRIBUTE_DEPTH} levels; ` +
+        `this SDK will not walk it, and a structure that refers to itself would ` +
+        `otherwise recurse until the engine stopped`
+    );
+  }
   if (AuthZENAttribute.is(value)) {
     throw new AuthZENProtocolError(
       `an unresolved AuthZENAttribute reached the wire at ${path || '/'}. Tri-state ` +
@@ -936,14 +1003,15 @@ export function assertFullyResolved(value: unknown, path = ''): void {
     );
   }
   if (Array.isArray(value)) {
-    value.forEach((item, index) => assertFullyResolved(item, `${path}/${index}`));
+    value.forEach((item, index) => assertFullyResolved(item, `${path}/${index}`, depth + 1));
     return;
   }
   if (typeof value === 'object' && value !== null) {
     Object.keys(value as Record<string, unknown>).forEach(key => {
       assertFullyResolved(
         (value as Record<string, unknown>)[key],
-        `${path}/${escapePointerToken(key)}`
+        `${path}/${escapePointerToken(key)}`,
+        depth + 1
       );
     });
   }
@@ -962,5 +1030,5 @@ export function toWire(envelope: AuthZENEnvelope): AuthZENEnvelope {
     checkEnvelopeComplete(resolved);
   }
   assertFullyResolved(resolved);
-  return validateAuthZENEnvelope(stripUndefined(resolved), '');
+  return validateEnvelopeOrRefuse(resolved);
 }
