@@ -25,7 +25,7 @@ Add invisible AI governance to your applications in 3 lines of code. No UI chang
 
 This SDK is a client library for interacting with a running AxonFlow control plane. It is used from application or agent code to send execution context, policies, and requests at runtime.
 
-A deployed AxonFlow platform (self-hosted or cloud) is required for end-to-end AI governance. SDKs alone are not sufficient—the platform and SDKs are designed to be used together.
+A deployed AxonFlow platform (self-hosted or cloud) is required for end-to-end AI governance. SDKs alone are not sufficient-the platform and SDKs are designed to be used together.
 
 ### See AxonFlow in Action
 
@@ -60,18 +60,18 @@ Need more capacity than Community without moving to Enterprise? Evaluation uses 
 | Audit retention | 3 days | 14 days | 3650 days |
 | Concurrent executions | 5 | 25 | Unlimited |
 | Pending execution approvals | 5 | 25 | Unlimited |
-| Evidence export (CSV / JSON) | — | 5,000 records · 14d window · 3/day | Unlimited |
-| Policy simulation | — | 300 / day | Unlimited |
+| Evidence export (CSV / JSON) | - | 5,000 records · 14d window · 3/day | Unlimited |
+| Policy simulation | - | 300 / day | Unlimited |
 
 Concurrent executions applies to MAP and WCP executions per tenant. Pending execution approvals applies to MAP confirm/step mode and WCP approval queues.
 
-> **Note:** Evidence export and policy simulation are licensed AxonFlow platform capabilities available alongside the SDK on your deployed platform — not language-specific SDK helpers. Access them via the platform API or customer portal. The SDK row is included to show what your licensed deployment unlocks at each tier.
+> **Note:** Evidence export and policy simulation are licensed AxonFlow platform capabilities available alongside the SDK on your deployed platform - not language-specific SDK helpers. Access them via the platform API or customer portal. The SDK row is included to show what your licensed deployment unlocks at each tier.
 
 [Get a free Evaluation license](https://getaxonflow.com/evaluation-license?utm_source=readme_sdk_typescript_eval) · [Run a paid production program](https://getaxonflow.com/design-partner?utm_source=readme_sdk_typescript_eval) · [Full feature matrix](https://docs.getaxonflow.com/docs/features/community-vs-enterprise?utm_source=readme_sdk_typescript_eval)
 
 ## Try Without Installing
 
-Skip local setup entirely — try AxonFlow instantly at [**try.getaxonflow.com**](https://docs.getaxonflow.com/docs/deployment/community-saas):
+Skip local setup entirely - try AxonFlow instantly at [**try.getaxonflow.com**](https://docs.getaxonflow.com/docs/deployment/community-saas):
 
 ```bash
 # 1. Register (30 seconds)
@@ -461,6 +461,85 @@ export default async function handler(req, res) {
 }
 ```
 
+## AuthZEN-Native Authorization
+
+`axonflow.evaluate` asks the gateway an AuthZEN question - may this subject perform this action on this resource? - over `POST /api/v1/access/evaluation`. It is the surface to write **new** integrations against: at v11 the engine behind it becomes AxonFlow's new Policy Decision Point with no wire change, so an integration written here migrates once rather than twice. Nothing is deprecated by it today; `decide` and the gateway/proxy methods are wire-stable through all of v11.
+
+```typescript
+import { AuthZENRefusal, AxonFlow } from '@axonflow/sdk';
+
+const decision = await axonflow.evaluate({
+  subject: { type: 'gateway', id: 'llm-gateway-01' },
+  action: { name: 'llm.completion' },
+  resource: { type: 'llm', id: 'llm' },
+  context: { args: { query: userPrompt } },
+});
+
+if (!decision.allowed) {
+  throw new Error(`blocked: ${decision.state} (${decision.reason})`);
+}
+for (const obligation of decision.mandatoryObligations) {
+  // an allow you cannot discharge is not an allow
+}
+```
+
+Several preconditions of **one** operation go in a bulk envelope, which returns **one** decision - a denied entry denies the operation, so a caller cannot act on the entry it liked:
+
+```typescript
+const decision = await axonflow.evaluateAll({
+  subject: { type: 'gateway', id: 'llm-gateway-01' },
+  action: { name: 'tool.call' },
+  context: { args: { query: userPrompt } },
+  evaluations: [
+    { resource: { type: 'tool', id: 'jira/move_issue' } },
+    { resource: { type: 'tool', id: 'jira/update_project' } },
+  ],
+});
+```
+
+### Known gotchas
+
+**A refusal is not a denial.** This surface refuses anything it cannot evaluate rather than evaluating around it - send a subject property or an unrecognised context member and you get an `AuthZENRefusal` naming the exact member, not a decision computed without it. Treating every error as a deny fails closed, which is safe, but blocks traffic that would be allowed once the request is corrected.
+
+```typescript
+try {
+  const decision = await axonflow.evaluate(request);
+} catch (err) {
+  if (err instanceof AuthZENRefusal) {
+    err.code; // e.g. 'unevaluable_attribute' - a closed, generated set
+    err.pointer; // '/evaluation/subject/properties' - the member to fix
+    err.refusedBy; // 'client' (this SDK) or 'gateway'
+    err.retryable; // only a gateway dependency failure is
+  }
+}
+```
+
+`AuthZENProtocolError` is separate and means something else: the gateway answered `200` with a body this build cannot safely act on - no profile context, a profile it cannot read, or a decision boolean that disagrees with its operational state. It is always fail-closed, and the fix is an upgrade or an operator, not a corrected request. A `401` surfaces as the SDK's ordinary `AuthenticationError`, because the gateway answers authentication before this route runs.
+
+**`decision.allowed`, never `decision.decision`.** The bare boolean is AuthZEN 1.0's collapsed rendering; `allowed` additionally requires the operational state to be `ALLOW`, so a `CHALLENGE` or an `ERROR` can never be read as permission.
+
+**Three states, not two.** `undefined` cannot express the difference between "the source established there is no value" and "the source could not be reached", and collapsing them is how an attribute nobody resolved gets recorded as one that was weighed. Attributes inside the `context` and `properties` bags may be explicit:
+
+```typescript
+import { AUTHZEN_UNKNOWN_RESOLUTION_FAILED, AuthZENAttribute } from '@axonflow/sdk';
+
+const context = {
+  args: { query: userPrompt },
+  correlation: {
+    session_id: AuthZENAttribute.absent(), // a fact: omitted, request sent
+    trace_id: AuthZENAttribute.unknown(AUTHZEN_UNKNOWN_RESOLUTION_FAILED), // refused locally
+  },
+};
+```
+
+The tri-state applies to attribute **data**, not to the structural members (`subject.id`, `action.name`, …): those are the identity of the question being asked, and an identity you cannot resolve is not an attribute whose absence a policy could evaluate - there is no request to make.
+
+**Wire member names are `snake_case`, not `camelCase`.** These interfaces ARE the wire documents - they are serialised verbatim - so `source_policy`, `decision_id` and `schema_version` keep the names the server uses. That is deliberate: a server refusal's JSON Pointer names a member, and the pointer is this surface's whole diagnosis, so it has to name a member the caller can find in their own code.
+
+**Today's mapping is deliberately narrow.** `subject.type` must be `'gateway'` (an end-user subject needs the identity plane, which activates at v11); an `llm` or `agent` resource id must be the stage name itself, not a provider/model pair, because nothing on the serving path reads a provider or a model; a `tool` resource id is `'server/tool'`, because both halves ARE read. Everything else is refused by name.
+
+The wire types AND their runtime validators are **generated** from the platform's canonical contract artifact (`scripts/gen-authzen-types/generate.js`); CI fails if the committed module is not what the artifact produces. A TypeScript interface is erased at runtime, so the validators are what actually refuses a body this build cannot interpret. Runnable example: [`examples/authzen/index.ts`](examples/authzen/index.ts). Migration notes: [`docs/AUTHZEN_MIGRATION_DRAFT.md`](docs/AUTHZEN_MIGRATION_DRAFT.md).
+
 ## Configuration Options
 
 ```typescript
@@ -488,7 +567,7 @@ const axonflow = new AxonFlow({
 > `proxyLLMCall`, `mcpCheckInput`, etc. issues exactly one outbound
 > request and surfaces the response (or throws on error) to the caller.
 >
-> In particular, **401 Unauthorized is terminal** — the SDK throws
+> In particular, **401 Unauthorized is terminal** - the SDK throws
 > `AuthenticationError` and does not retry. Retrying a 401 with the
 > same credential just compounds load on the agent; refresh the token
 > via the customer portal and reconfigure the SDK instead. If you need
@@ -537,7 +616,7 @@ try {
 }
 ```
 
-> Sandbox-mode clients fire telemetry like every other client — anonymous SDK
+> Sandbox-mode clients fire telemetry like every other client - anonymous SDK
 > heartbeat, classification-only payload, opt-out via `AXONFLOW_TELEMETRY=off`.
 > Pings are tagged `stream="sandbox"` server-side so dev/test usage is
 > distinguishable from production heartbeat. Pre-v8 sandbox mode silently
@@ -1026,7 +1105,7 @@ distinguishable from production heartbeat).
 
 ### Scope of `AXONFLOW_TELEMETRY=off`
 
-`AXONFLOW_TELEMETRY=off` disables the anonymous SDK heartbeat (version, OS, architecture). On **self-hosted** and **in-VPC** deployments, that heartbeat is the only data the SDK sends to AxonFlow, so setting `=off` means we receive nothing. On **Community SaaS** (`try.getaxonflow.com`) the hosted service also processes operational data — registrations, audit logs, policy enforcement records, workflow state, plan data, and request-header metadata aggregated for usage analytics — as part of running the platform; that operational data flow is governed by the [Privacy Policy](https://getaxonflow.com/privacy/), not by `AXONFLOW_TELEMETRY`.
+`AXONFLOW_TELEMETRY=off` disables the anonymous SDK heartbeat (version, OS, architecture). On **self-hosted** and **in-VPC** deployments, that heartbeat is the only data the SDK sends to AxonFlow, so setting `=off` means we receive nothing. On **Community SaaS** (`try.getaxonflow.com`) the hosted service also processes operational data - registrations, audit logs, policy enforcement records, workflow state, plan data, and request-header metadata aggregated for usage analytics - as part of running the platform; that operational data flow is governed by the [Privacy Policy](https://getaxonflow.com/privacy/), not by `AXONFLOW_TELEMETRY`.
 
 `DO_NOT_TRACK` is **not** honored as an opt-out for AxonFlow telemetry. It is commonly inherited from host tools and developer environments, which makes it an unreliable expression of user intent.
 

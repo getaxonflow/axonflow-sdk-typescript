@@ -1,6 +1,8 @@
 import { VERSION } from './version';
 import { maybeSendHeartbeat, flushHeartbeat } from './heartbeat';
 import { sendTelemetryPingNow } from './telemetry';
+import { AuthZENDecision, AuthZENTransport, evaluateEnvelope } from './authzen';
+import { AuthZENBulk, AuthZENRequest } from './types/authzen.gen';
 import {
   AxonFlowConfig,
   AIRequest,
@@ -2836,6 +2838,90 @@ export class AxonFlow {
   // ------------------------------------------------------------------ //
   // Decision Mode PEP: decide -> fulfill -> forward (ADR-056, #2563)    //
   // ------------------------------------------------------------------ //
+
+  // ------------------------------------------------------------------ //
+  // AuthZEN-native authorization (ADR-065)                              //
+  // ------------------------------------------------------------------ //
+
+  /**
+   * The transport `src/authzen.ts` runs its envelopes through.
+   *
+   * It is this client's own authenticated HTTP path — same credentials, same
+   * `X-Axonflow-Client` attribution, same heartbeat gate — with the status left
+   * uninterpreted, because on this route a 4xx body is a typed refusal document
+   * rather than an error string.
+   */
+  private readonly sendAuthZEN: AuthZENTransport = async (path, body, extraHeaders) => {
+    const response = await this._fetch(`${this.config.endpoint}${path}`, {
+      method: 'POST',
+      headers: { ...this.buildAuthHeaders(), ...extraHeaders },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+    return { status: response.status, body: await response.text() };
+  };
+
+  /**
+   * Ask whether one subject may perform one action on one resource.
+   *
+   * The AuthZEN-native surface (`POST /api/v1/access/evaluation`). New
+   * integrations should be written against this rather than
+   * {@link AxonFlow.decide}: at v11 the engine behind it becomes the ADR-065
+   * Policy Decision Point with no wire change, so an integration written here
+   * migrates once instead of twice.
+   *
+   * @example
+   * ```typescript
+   * const decision = await axonflow.evaluate({
+   *   subject: { type: 'gateway', id: 'llm-gateway-01' },
+   *   action: { name: 'llm.completion' },
+   *   resource: { type: 'llm', id: 'llm' },
+   *   context: { args: { query: userPrompt } },
+   * });
+   * if (!decision.allowed) throw new Error(`blocked: ${decision.state}`);
+   * ```
+   *
+   * @throws AuthZENRefusal when the request was NOT evaluated. This is not a
+   *   denial — `pointer` names the member to fix, and only `retryable` is worth
+   *   sending again.
+   * @throws AuthZENProtocolError when the server answered 200 with a body this
+   *   build cannot safely act on.
+   * @throws AuthenticationError on 401 — the gateway refused the credentials
+   *   before the route ran.
+   */
+  async evaluate(request: AuthZENRequest): Promise<AuthZENDecision> {
+    return evaluateEnvelope(this.sendAuthZEN, { evaluation: request });
+  }
+
+  /**
+   * Ask whether ONE operation is permitted against several preconditions.
+   *
+   * It returns ONE decision, not one per entry. The entries of a bulk request
+   * are preconditions of a single operation — moving a ticket must be
+   * authorized against the destination project as well as against the ticket —
+   * so they combine to the least permissive outcome: one denied entry denies
+   * the operation. An API returning a list would invite a caller to act on the
+   * entry it liked.
+   *
+   * Any member an entry omits is inherited from the envelope's shared base, so
+   * the common case is a shared subject and action with one resource per entry.
+   *
+   * @example
+   * ```typescript
+   * const decision = await axonflow.evaluateAll({
+   *   subject: { type: 'gateway', id: 'llm-gateway-01' },
+   *   action: { name: 'tool.call' },
+   *   context: { args: { query: userPrompt } },
+   *   evaluations: [
+   *     { resource: { type: 'tool', id: 'jira/move_issue' } },
+   *     { resource: { type: 'tool', id: 'jira/update_project' } },
+   *   ],
+   * });
+   * ```
+   */
+  async evaluateAll(bulk: AuthZENBulk): Promise<AuthZENDecision> {
+    return evaluateEnvelope(this.sendAuthZEN, { evaluations: bulk });
+  }
 
   /**
    * Ask the PDP for a verdict on a request (`POST /api/v1/decide`).

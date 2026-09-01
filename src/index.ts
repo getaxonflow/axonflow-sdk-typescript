@@ -434,6 +434,37 @@ export type {
   DisableKillSwitchRequest,
 } from './types/masfeat';
 
+// AuthZEN-native authorization (ADR-065).
+//
+// The wire types, enum constants and runtime validators are GENERATED from the
+// platform's canonical surface artifact (scripts/gen-authzen-types/generate.js)
+// and re-exported as a whole rather than name by name: a hand-maintained list
+// would be a second transcription of the artifact — exactly the drift the
+// generator exists to prevent — and it would silently leave a newly-added error
+// code unreachable from '@axonflow/sdk' while four other SDKs had it.
+export * from './types/authzen.gen';
+
+// The hand-written half: the tri-state attribute, the decision readings, the
+// two error classes and the envelope helpers.
+export {
+  AUTHZEN_PATH,
+  AUTHZEN_PROFILE_HEADER,
+  AUTHZEN_UNKNOWN_CLOSURE_TRUNCATED,
+  AUTHZEN_UNKNOWN_CLOSURE_UNAVAILABLE,
+  AUTHZEN_UNKNOWN_MALFORMED_VALUE,
+  AUTHZEN_UNKNOWN_NOT_SUPPLIED,
+  AUTHZEN_UNKNOWN_REQUIRED_ABSENT,
+  AUTHZEN_UNKNOWN_RESOLUTION_FAILED,
+  AUTHZEN_UNKNOWN_SCHEMA_MISMATCH,
+  AUTHZEN_UNKNOWN_STALE,
+  AuthZENAttribute,
+  AuthZENDecision,
+  AuthZENProtocolError,
+  AuthZENRefusal,
+  toWire,
+} from './authzen';
+export type { AuthZENAttributeState, AuthZENRefusedBy, AuthZENTransport } from './authzen';
+
 // Export community SaaS registration helper
 export { registerTry } from './community';
 export type { TryRegistration } from './community';
