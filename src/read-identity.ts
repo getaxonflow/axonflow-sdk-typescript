@@ -275,6 +275,42 @@ function sameOrigin(a: URL, b: URL): boolean {
 }
 
 /**
+ * Every credential this SDK sends, so an off-origin hop can drop ALL of them.
+ *
+ * Not just the new one. `fetch`'s own redirect follower strips `Authorization`
+ * on a cross-origin hop; the moment this SDK follows redirects by hand — which
+ * it does whenever an identity is attached — that stripping stops happening and
+ * becomes this code's job. Getting it wrong makes setting `userToken` LEAK
+ * `clientSecret` to a host the caller never named, on a client that did not
+ * leak it before: a fix for one credential that exports another.
+ *
+ * `X-Client-ID` and `X-Axonflow-Client` are not secrets, but they name the
+ * caller to whoever receives them and there is no reason for a host the caller
+ * never chose to learn it.
+ */
+const CREDENTIAL_HEADERS = [
+  'authorization',
+  HEADER_USER_TOKEN.toLowerCase(),
+  'x-client-id',
+  'x-axonflow-client',
+];
+
+/**
+ * Drop every credential from `headers` because the request is leaving the
+ * origin they were issued for.
+ *
+ * Case-insensitive on the way in: a caller may have spelled a header
+ * differently, and two spellings of one header is one credential that survives.
+ */
+export function stripCredentialsOffOrigin(headers: Record<string, string>): void {
+  for (const key of Object.keys(headers)) {
+    if (CREDENTIAL_HEADERS.includes(key.toLowerCase())) {
+      delete headers[key];
+    }
+  }
+}
+
+/**
  * Stamp the per-user identity on `headers`, if there is one, for a request to
  * `target` from a client configured for `endpoint`.
  *

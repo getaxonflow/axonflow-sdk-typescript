@@ -209,6 +209,7 @@ import {
   readScopeErrorFor,
   readScopeOf,
   refuseVacuousScopedPage,
+  stripCredentialsOffOrigin,
 } from './read-identity';
 import type { ReadIdentityOptions } from './read-identity';
 
@@ -218,6 +219,16 @@ import type { ReadIdentityOptions } from './read-identity';
  */
 const IDENTITY_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_IDENTITY_REDIRECTS = 10;
+
+/** Whether `url` is the same origin as the configured endpoint. */
+function sameOriginAs(url: URL, endpoint: string | undefined): boolean {
+  if (!endpoint) return false;
+  try {
+    return url.origin === new URL(endpoint).origin;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Extract a typed IdempotencyKeyMismatchError from an APIError with HTTP 409 and
@@ -526,6 +537,15 @@ export class AxonFlow {
       }
       url = new URL(location, url);
       const nextHeaders: Record<string, string> = { ...headers };
+      // EVERY credential is dropped off-origin, not just the identity.
+      // `fetch`'s own follower strips Authorization on a cross-origin hop; the
+      // moment this code follows by hand that stops happening and becomes this
+      // code's job. Dropping only the new header would make setting `userToken`
+      // leak `clientSecret` to a host the caller never named — a fix for one
+      // credential that exports another.
+      if (!sameOriginAs(url, this.config.endpoint)) {
+        stripCredentialsOffOrigin(nextHeaders);
+      }
       applyReadIdentity(nextHeaders, url, this.config.endpoint, token ?? undefined);
       // 303, and 301/302 on a non-GET, become GET without a body per the spec.
       const method = (init?.method ?? 'GET').toUpperCase();
@@ -2992,7 +3012,19 @@ export class AxonFlow {
    * uninterpreted, because on this route a 4xx body is a typed refusal document
    * rather than an error string.
    */
-  private readonly sendAuthZEN: AuthZENTransport = async (path, body, extraHeaders) => {
+  //
+  // A PROTOTYPE METHOD, not a class-field arrow. As a field it was an own
+  // enumerable property holding the parent's lexical `this`, so `asUser`'s
+  // Object.assign copied it and every `evaluate()` on a derived client sent the
+  // PARENT's identity — from construction, not merely after some ordering. A
+  // prototype method has no captured `this`; it binds at the call site, which is
+  // the derived client. See `asUser` and
+  // `a fresh instance has no own-property functions`.
+  private async sendAuthZEN(
+    path: Parameters<AuthZENTransport>[0],
+    body: Parameters<AuthZENTransport>[1],
+    extraHeaders: Parameters<AuthZENTransport>[2]
+  ): ReturnType<AuthZENTransport> {
     const response = await this._fetch(`${this.config.endpoint}${path}`, {
       method: 'POST',
       headers: { ...this.buildAuthHeaders(), ...extraHeaders },
@@ -3000,7 +3032,7 @@ export class AxonFlow {
       signal: AbortSignal.timeout(this.config.timeout),
     });
     return { status: response.status, body: await response.text() };
-  };
+  }
 
   /**
    * Ask whether one subject may perform one action on one resource.
@@ -3031,7 +3063,11 @@ export class AxonFlow {
    *   before the route ran.
    */
   async evaluate(request: AuthZENRequest): Promise<AuthZENDecision> {
-    return evaluateEnvelope(this.sendAuthZEN, buildEnvelope(request));
+    // Bound at the CALL SITE, so the transport belongs to whichever client
+    // is calling — including one derived by `asUser`. Passing the method
+    // unbound would lose `this` entirely; capturing it in a field would
+    // reintroduce the parent-bound copy this method exists to avoid.
+    return evaluateEnvelope(this.sendAuthZEN.bind(this), buildEnvelope(request));
   }
 
   /**
@@ -3061,7 +3097,7 @@ export class AxonFlow {
    * ```
    */
   async evaluateAll(bulk: AuthZENBulk): Promise<AuthZENDecision> {
-    return evaluateEnvelope(this.sendAuthZEN, buildEnvelope(undefined, bulk));
+    return evaluateEnvelope(this.sendAuthZEN.bind(this), buildEnvelope(undefined, bulk));
   }
 
   /**

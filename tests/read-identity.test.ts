@@ -488,3 +488,102 @@ describe('the tri-state recogniser (#263)', () => {
     expect(AuthZENAttribute.is(document)).toBe(true);
   });
 });
+
+// ==========================================================================
+// Round 2: every credential is dropped off-origin, and a derived client owns
+// every request-issuing member
+// ==========================================================================
+
+describe('credentials off-origin', () => {
+  it('drops EVERY credential on a cross-origin redirect, not just the identity', async () => {
+    // `fetch`'s own follower strips Authorization on a cross-origin hop. The
+    // moment this SDK follows by hand — which it does whenever an identity is
+    // attached — that stops happening and becomes this code's job. Dropping
+    // only the new header made setting `userToken` LEAK `clientSecret` to a
+    // host the caller never named, on a client that did not leak it before.
+    queue(
+      respond({}, { status: 302, location: 'http://elsewhere.invalid/api/v1/decisions' }),
+      respond({ decisions: [] }, { scope: 'own-rows' })
+    );
+
+    await client({ userToken: TEST_TOKEN }).listDecisions();
+
+    expect(captured).toHaveLength(2);
+    const [origin, elsewhere] = captured;
+
+    // Precondition: the origin request carried them all, or the assertions
+    // below are vacuous.
+    expect(origin.headers.get('authorization')).toBeTruthy();
+    expect(origin.headers.get(HEADER_USER_TOKEN)).toBe(TEST_TOKEN);
+    expect(origin.headers.get('x-client-id')).toBeTruthy();
+
+    for (const credential of [
+      'authorization',
+      HEADER_USER_TOKEN,
+      'x-client-id',
+      'x-axonflow-client',
+    ]) {
+      expect(elsewhere.headers.get(credential)).toBeNull();
+    }
+  });
+
+  it('keeps every credential across a SAME-origin redirect', async () => {
+    // The other failure direction: stripping too eagerly turns an ordinary
+    // redirect into an unauthenticated request.
+    queue(
+      respond({}, { status: 302, location: `${ENDPOINT}/api/v1/decisions?page=2` }),
+      respond({ decisions: [ROW] })
+    );
+
+    await client({ userToken: TEST_TOKEN }).listDecisions();
+
+    const [, second] = captured;
+    expect(second.headers.get('authorization')).toBeTruthy();
+    expect(second.headers.get(HEADER_USER_TOKEN)).toBe(TEST_TOKEN);
+    expect(second.headers.get('x-client-id')).toBeTruthy();
+    expect(second.headers.get('x-axonflow-client')).toBeTruthy();
+  });
+});
+
+describe('a derived client owns every request-issuing member', () => {
+  it('evaluate() on a derived client sends the DERIVED identity', async () => {
+    // `sendAuthZEN` used to be a class-field ARROW: an own enumerable property
+    // holding the PARENT's lexical `this`, which `asUser`'s Object.assign
+    // copied. Every evaluate() on a derived client therefore sent the parent's
+    // token, from construction — not merely after some ordering, which is what
+    // made it worse than the Python sibling's.
+    queue(
+      respond({
+        decision: true,
+        context: {
+          profile: 'axonflow-authzen-profile-2026-08-29',
+          state: 'allow',
+          category: 'data_access',
+          decision_id: 'd1',
+          schema_version: '2026-08-29',
+        },
+      })
+    );
+
+    await client({ userToken: 'ADMIN-TOKEN' })
+      .asUser('ALICE-TOKEN')
+      .evaluate({
+        subject: { type: 'user', id: 'u1' },
+        action: { name: 'read' },
+        resource: { type: 'doc', id: 'r1' },
+      })
+      .catch(() => undefined);
+
+    expect(captured[0].headers.get(HEADER_USER_TOKEN)).toBe('ALICE-TOKEN');
+  });
+
+  it('a fresh instance has no own-property functions', () => {
+    // The census behind the fix. Any function held as an OWN property is a
+    // parent-bound closure waiting to be copied by `asUser`; the next class
+    // field added as an arrow is caught here rather than in production.
+    const instance = client() as unknown as Record<string, unknown>;
+    const ownFunctions = Object.keys(instance).filter(key => typeof instance[key] === 'function');
+
+    expect(ownFunctions).toEqual([]);
+  });
+});
