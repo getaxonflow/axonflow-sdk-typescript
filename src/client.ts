@@ -203,6 +203,32 @@ import {
   type Obligation,
 } from './pep';
 import { generateRequestId, debugLog } from './utils/helpers';
+import {
+  HEADER_USER_TOKEN,
+  applyReadIdentity,
+  readScopeErrorFor,
+  readScopeOf,
+  refuseVacuousScopedPage,
+  stripCredentialsOffOrigin,
+} from './read-identity';
+import type { ReadIdentityOptions } from './read-identity';
+
+/**
+ * Redirect statuses the identity-aware follower handles, and the hop bound.
+ * Mirrors what `fetch` would have done itself, minus the header leak.
+ */
+const IDENTITY_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const MAX_IDENTITY_REDIRECTS = 10;
+
+/** Whether `url` is the same origin as the configured endpoint. */
+function sameOriginAs(url: URL, endpoint: string | undefined): boolean {
+  if (!endpoint) return false;
+  try {
+    return url.origin === new URL(endpoint).origin;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Extract a typed IdempotencyKeyMismatchError from an APIError with HTTP 409 and
@@ -308,6 +334,8 @@ export class AxonFlow {
   private config: {
     clientId?: string;
     clientSecret?: string;
+    /** The read-path per-user identity; see AxonFlowConfig.userToken. */
+    userToken?: string;
     endpoint: string;
     mode: 'sandbox' | 'production';
     tenant: string;
@@ -371,6 +399,7 @@ export class AxonFlow {
     this.config = {
       clientId: config.clientId,
       clientSecret: config.clientSecret,
+      userToken: config.userToken,
       endpoint,
       mode: config.mode ?? 'production',
       tenant: config.tenant ?? '',
@@ -454,9 +483,80 @@ export class AxonFlow {
    * itself (sendTelemetryPingNow / detectPlatformVersion). Those use raw
    * `fetch` to avoid recursive heartbeat triggering.
    */
-  private async _fetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+  private async _fetch(
+    input: string | URL | Request,
+    init?: RequestInit,
+    identity?: string | null
+  ): Promise<Response> {
     void this._preRequestHook();
-    return fetch(input, init);
+
+    // The SDK's ONE identity site. Every request goes through here, and the
+    // platform likewise reads X-User-Token once, in the middleware in front of
+    // every proxied route rather than per route — so a per-method sprinkle
+    // would be a second copy of a decision made in one place on both sides.
+    //
+    // `identity === undefined` means "this call said nothing", so the
+    // client-wide value applies. A string — INCLUDING an empty one — is a
+    // deliberate per-call choice and must not fall back, because
+    // "unidentified" is a state the platform treats as distinct.
+    const token = identity === undefined ? this.config.userToken : identity;
+
+    // The header bag is copied and MUTATED as a plain record, keeping the shape
+    // every other caller and test observes on `fetch`. A `Headers` instance
+    // here would work on the wire and change what every existing assertion
+    // sees, which is a much larger change than an identity fix should be.
+    const headers: Record<string, string> = {
+      ...((init?.headers ?? {}) as Record<string, string>),
+    };
+    let url = new URL(typeof input === 'string' ? input : input.toString());
+    applyReadIdentity(headers, url, this.config.endpoint, token ?? undefined);
+
+    if (!(HEADER_USER_TOKEN in headers)) {
+      // No credential in flight, so `fetch` keeps its own redirect behaviour
+      // rather than acquiring a second, subtly different implementation.
+      return fetch(input, init ? { ...init, headers } : { headers });
+    }
+
+    // An identity is attached, so redirects are followed BY HAND.
+    //
+    // The fetch spec strips Authorization on a cross-origin redirect and its
+    // list is fixed; X-User-Token is not on it. Measured on Node 25: the
+    // redirect target received `authorization: undefined` and
+    // `x-user-token: SENTINEL` — the per-user credential outliving the tenant
+    // one, on exactly the hop where the caller never named the host. Following
+    // by hand re-runs applyReadIdentity per hop, so the identity is dropped the
+    // moment the origin changes; the redirect itself is still followed, and the
+    // scoped read that lands unscoped then REFUSES visibly rather than quietly
+    // answering nothing.
+    let request: RequestInit = { ...init, headers, redirect: 'manual' };
+    for (let hop = 0; hop <= MAX_IDENTITY_REDIRECTS; hop++) {
+      const response = await fetch(url, request);
+      const location = response.headers.get('location');
+      if (!IDENTITY_REDIRECT_STATUSES.has(response.status) || !location) {
+        return response;
+      }
+      url = new URL(location, url);
+      const nextHeaders: Record<string, string> = { ...headers };
+      // EVERY credential is dropped off-origin, not just the identity.
+      // `fetch`'s own follower strips Authorization on a cross-origin hop; the
+      // moment this code follows by hand that stops happening and becomes this
+      // code's job. Dropping only the new header would make setting `userToken`
+      // leak `clientSecret` to a host the caller never named — a fix for one
+      // credential that exports another.
+      if (!sameOriginAs(url, this.config.endpoint)) {
+        stripCredentialsOffOrigin(nextHeaders);
+      }
+      applyReadIdentity(nextHeaders, url, this.config.endpoint, token ?? undefined);
+      // 303, and 301/302 on a non-GET, become GET without a body per the spec.
+      const method = (init?.method ?? 'GET').toUpperCase();
+      const becomesGet =
+        response.status === 303 ||
+        ((response.status === 301 || response.status === 302) && method === 'POST');
+      request = becomesGet
+        ? { ...init, method: 'GET', body: undefined, headers: nextHeaders, redirect: 'manual' }
+        : { ...init, headers: nextHeaders, redirect: 'manual' };
+    }
+    throw new Error(`stopped after ${MAX_IDENTITY_REDIRECTS} redirects`);
   }
 
   /**
@@ -2755,13 +2855,57 @@ export class AxonFlow {
    * }
    * ```
    */
-  async explainDecision(decisionId: string): Promise<DecisionExplanation> {
+  /**
+   * A client identical to this one but presenting `userToken`.
+   *
+   * The shape to reach for when one process acts on behalf of several people —
+   * a gateway, a bot. Unlike the per-call `{ userToken }` option, which only
+   * the read methods accept, this reaches EVERY method: there is no carve-out
+   * to remember and no path on which the identity silently widens back to the
+   * process's own.
+   *
+   * ```typescript
+   * const forAlice = client.asUser(aliceToken);
+   * const rows = await forAlice.listDecisions();
+   * ```
+   *
+   * The returned client shares this one's cache, interceptors and session
+   * cookie — it is a view, not a new connection pool — so deriving one per
+   * request is cheap. Only the identity differs; this client is not modified.
+   * The session cookie is copied by value, so a `loginToPortal` on either after
+   * the derivation is invisible to the other; derive after logging in if the
+   * derived client needs the portal plane, which authenticates with the cookie
+   * rather than with this identity.
+   *
+   * An empty token returns a client presenting no identity at all, which on an
+   * enterprise stack reads nothing (see `ReadScope.None`).
+   */
+  asUser(userToken: string | undefined): AxonFlow {
+    const derived: AxonFlow = Object.create(Object.getPrototypeOf(this) as object) as AxonFlow;
+    Object.assign(derived, this);
+    // `config` is replaced rather than mutated, so the derivation cannot reach
+    // back into the client it came from — the failure that would make asUser
+    // silently change the ORIGINAL caller's identity.
+    const config = this.config;
+    (derived as unknown as { config: typeof config }).config = {
+      ...config,
+      userToken: (userToken ?? '').trim() || undefined,
+    };
+    return derived;
+  }
+
+  async explainDecision(
+    decisionId: string,
+    options?: ReadIdentityOptions
+  ): Promise<DecisionExplanation> {
     if (!decisionId) {
       throw new Error('decisionId is required');
     }
     const response = await this.orchestratorRequest<Record<string, unknown>>(
       'GET',
-      `/api/v1/decisions/${encodeURIComponent(decisionId)}/explain`
+      `/api/v1/decisions/${encodeURIComponent(decisionId)}/explain`,
+      undefined,
+      { resource: 'decision', identifier: decisionId, userToken: options?.userToken }
     );
     return this.parseDecisionExplanation(response);
   }
@@ -2792,7 +2936,10 @@ export class AxonFlow {
    * }
    * ```
    */
-  async listDecisions(opts?: ListDecisionsOptions): Promise<DecisionSummary[]> {
+  async listDecisions(
+    opts?: ListDecisionsOptions,
+    options?: ReadIdentityOptions
+  ): Promise<DecisionSummary[]> {
     const qs = buildListDecisionsQuery(opts);
     const path = qs ? `/api/v1/decisions?${qs}` : '/api/v1/decisions';
 
@@ -2800,11 +2947,15 @@ export class AxonFlow {
     // orchestratorRequest promotes it to a generic APIError.
     const url = `${this.config.endpoint}${path}`;
     const headers = this.buildAuthHeaders();
-    const response = await this._fetch(url, {
-      method: 'GET',
-      headers,
-      signal: AbortSignal.timeout(this.config.timeout),
-    });
+    const response = await this._fetch(
+      url,
+      {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(this.config.timeout),
+      },
+      options?.userToken
+    );
 
     if (response.status === 429) {
       const text = await response.text();
@@ -2832,6 +2983,16 @@ export class AxonFlow {
 
     const body = (await response.json()) as { decisions?: Array<Record<string, unknown>> };
     const rows = body?.decisions ?? [];
+
+    // An empty page under ReadScope.None is the fail-closed shape, not a
+    // finding: the platform returned zero rows because it resolved no identity
+    // to scope on, so the page says nothing about what exists. Guarded on
+    // emptiness as well as on the scope, so a non-empty page is never turned
+    // into an error whatever the header says — and only `none` refuses, because
+    // an own-rows read that legitimately found nothing is a real answer.
+    const scopeError = refuseVacuousScopedPage(response, 'decisions', rows.length);
+    if (scopeError) throw scopeError;
+
     return rows.map(parseDecisionSummary);
   }
 
@@ -2851,7 +3012,19 @@ export class AxonFlow {
    * uninterpreted, because on this route a 4xx body is a typed refusal document
    * rather than an error string.
    */
-  private readonly sendAuthZEN: AuthZENTransport = async (path, body, extraHeaders) => {
+  //
+  // A PROTOTYPE METHOD, not a class-field arrow. As a field it was an own
+  // enumerable property holding the parent's lexical `this`, so `asUser`'s
+  // Object.assign copied it and every `evaluate()` on a derived client sent the
+  // PARENT's identity — from construction, not merely after some ordering. A
+  // prototype method has no captured `this`; it binds at the call site, which is
+  // the derived client. See `asUser` and
+  // `a fresh instance has no own-property functions`.
+  private async sendAuthZEN(
+    path: Parameters<AuthZENTransport>[0],
+    body: Parameters<AuthZENTransport>[1],
+    extraHeaders: Parameters<AuthZENTransport>[2]
+  ): ReturnType<AuthZENTransport> {
     const response = await this._fetch(`${this.config.endpoint}${path}`, {
       method: 'POST',
       headers: { ...this.buildAuthHeaders(), ...extraHeaders },
@@ -2859,7 +3032,7 @@ export class AxonFlow {
       signal: AbortSignal.timeout(this.config.timeout),
     });
     return { status: response.status, body: await response.text() };
-  };
+  }
 
   /**
    * Ask whether one subject may perform one action on one resource.
@@ -2890,7 +3063,11 @@ export class AxonFlow {
    *   before the route ran.
    */
   async evaluate(request: AuthZENRequest): Promise<AuthZENDecision> {
-    return evaluateEnvelope(this.sendAuthZEN, buildEnvelope(request));
+    // Bound at the CALL SITE, so the transport belongs to whichever client
+    // is calling — including one derived by `asUser`. Passing the method
+    // unbound would lose `this` entirely; capturing it in a field would
+    // reintroduce the parent-bound copy this method exists to avoid.
+    return evaluateEnvelope(this.sendAuthZEN.bind(this), buildEnvelope(request));
   }
 
   /**
@@ -2920,7 +3097,7 @@ export class AxonFlow {
    * ```
    */
   async evaluateAll(bulk: AuthZENBulk): Promise<AuthZENDecision> {
-    return evaluateEnvelope(this.sendAuthZEN, buildEnvelope(undefined, bulk));
+    return evaluateEnvelope(this.sendAuthZEN.bind(this), buildEnvelope(undefined, bulk));
   }
 
   /**
@@ -3190,7 +3367,17 @@ export class AxonFlow {
       debugLog('Searching audit logs', { limit, offset });
     }
 
-    const response = await this.orchestratorRequest<unknown>('POST', '/api/v1/audit/search', body);
+    // The audit reads are in the same role-scoped family as decisions
+    // (platform/orchestrator applyReadScopeHeader), so they inherit the same
+    // rule: an empty page under scope `none` could not have contained a row,
+    // and reporting it as data is the vacuous read this SDK now refuses. The
+    // count is taken inside orchestratorRequest, which sees BOTH shapes the
+    // platform sends — a bare array or the wrapped envelope — so the rule
+    // cannot hold on only whichever branch the server happened to take.
+    const response = await this.orchestratorRequest<unknown>('POST', '/api/v1/audit/search', body, {
+      resource: 'audit entries',
+      pageKey: 'entries',
+    });
 
     // Handle both array and wrapped response formats
     if (Array.isArray(response)) {
@@ -3253,7 +3440,11 @@ export class AxonFlow {
     }
 
     const path = `/api/v1/audit/tenant/${encodeURIComponent(tenantId)}?limit=${limit}&offset=${offset}`;
-    const response = await this.orchestratorRequest<unknown>('GET', path);
+    // Same rule, same family as searchAuditLogs.
+    const response = await this.orchestratorRequest<unknown>('GET', path, undefined, {
+      resource: 'audit entries',
+      pageKey: 'entries',
+    });
 
     // Handle both array and wrapped response formats
     if (Array.isArray(response)) {
@@ -4726,7 +4917,27 @@ export class AxonFlow {
   /**
    * Generic HTTP request helper for APIs (routes through single endpoint per ADR-026)
    */
-  private async orchestratorRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async orchestratorRequest<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    scoped?: {
+      /** Names the thing being read, e.g. "decision". Opts into the 404 diagnosis. */
+      resource: string;
+      identifier?: string;
+      /**
+       * The key whose rows matter for a LIST read. Opts into the empty-page
+       * refusal, and handles both shapes the platform sends — a bare array, or
+       * an envelope whose rows live under this key. Counting here, where the
+       * response object still exists, keeps one rule in one place; doing it per
+       * caller would put it in two places per method and it would end up
+       * holding on whichever branch the server happened to take.
+       */
+      pageKey?: string;
+      /** Per-call identity, overriding the client-wide one. */
+      userToken?: string;
+    }
+  ): Promise<T> {
     const url = `${this.config.endpoint}${path}`;
     const headers = this.buildAuthHeaders();
 
@@ -4740,10 +4951,24 @@ export class AxonFlow {
       options.body = JSON.stringify(body);
     }
 
-    const response = await this._fetch(url, options);
+    const response = await this._fetch(url, options, scoped?.userToken);
 
     if (!response.ok) {
       const errorText = await response.text();
+      // A scoped miss reports WHY it missed. Only 404 is interpreted: the scope
+      // header is stamped before the handler writes its status, so it also
+      // rides a 500 from further down the handler, and explaining a server
+      // fault as a scoping outcome would be exactly the confidently-wrong
+      // diagnosis this type exists to prevent.
+      if (scoped && response.status === 404) {
+        const scopeError = readScopeErrorFor({
+          resource: scoped.resource,
+          identifier: scoped.identifier,
+          scope: readScopeOf(response),
+          statusCode: response.status,
+        });
+        if (scopeError) throw scopeError;
+      }
       if (response.status === 401 || response.status === 403) {
         throw new AuthenticationError(`Request failed: ${errorText}`);
       }
@@ -4758,7 +4983,19 @@ export class AxonFlow {
       return undefined as T;
     }
 
-    return response.json();
+    const parsed = (await response.json()) as T;
+
+    if (scoped?.pageKey !== undefined) {
+      const rows = Array.isArray(parsed)
+        ? parsed.length
+        : Array.isArray((parsed as Record<string, unknown> | null)?.[scoped.pageKey])
+          ? ((parsed as Record<string, unknown>)[scoped.pageKey] as unknown[]).length
+          : 0;
+      const scopeError = refuseVacuousScopedPage(response, scoped.resource, rows);
+      if (scopeError) throw scopeError;
+    }
+
+    return parsed;
   }
 
   // Note: getPortalUrl() was removed in v2.0.0 (ADR-026 Single Entry Point).

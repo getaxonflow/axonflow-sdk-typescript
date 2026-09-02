@@ -51,6 +51,10 @@
 
 export { AxonFlow } from './client';
 
+// Read-path per-user identity and the platform's read-scope contract (#2922).
+export { HEADER_READ_SCOPE, HEADER_USER_TOKEN, ReadScope, ReadScopeError } from './read-identity';
+export type { ReadIdentityOptions } from './read-identity';
+
 // Export connector utilities
 export { wasRedacted } from './types/connector';
 
