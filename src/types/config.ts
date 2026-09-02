@@ -17,6 +17,37 @@ export interface AxonFlowConfig {
   clientSecret?: string;
 
   /**
+   * Per-user identity for the READ path, sent as `X-User-Token` on every
+   * request.
+   *
+   * `clientId`/`clientSecret` authenticate the ORGANIZATION; this
+   * authenticates the PERSON. Since platform #2922 the role-scoped reads
+   * (`explainDecision`, `listDecisions`, the audit reads) are answered from
+   * this identity: an enterprise stack scopes a developer or viewer to their
+   * own rows, gives a tenant-wide role (admin / owner / policy_admin) the whole
+   * tenant, and returns ZERO rows to a caller that presents no identity at all.
+   * Leaving it unset against an enterprise stack is therefore not a neutral
+   * default — it is the configuration under which every scoped read answers
+   * nothing, which the SDK now reports as a `ReadScopeError` rather than as an
+   * empty result.
+   *
+   * SETTING THIS AFFECTS MORE THAN READS. The header rides every request and
+   * the agent VALIDATES it on every route it proxies, so a stale or rotated
+   * token turns `listConnectors`, `installConnector` and policy CRUD into 401s
+   * rather than merely unscoping a read. Fail-closed is the right direction,
+   * but it puts this value in the same rotation story as `clientSecret`.
+   *
+   * The value is a per-user JWT: minted by the customer portal's user-token
+   * API, or for local testing by `scripts/generate-jwt.sh --kind user`. It is
+   * NOT the tenant JWT and not `clientSecret`. Community deployments are
+   * single-operator and ignore it.
+   *
+   * Override per call with `{ userToken }` on a read, or derive a client bound
+   * to one person with `client.asUser(token)`.
+   */
+  userToken?: string;
+
+  /**
    * AxonFlow API endpoint (optional)
    * All SDK methods route through this single endpoint.
    * The Agent proxies all routes (ADR-026 Single Entry Point Architecture).

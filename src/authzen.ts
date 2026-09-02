@@ -304,15 +304,34 @@ export class AuthZENAttribute {
    *
    * See the marker above for why this is neither a bare `instanceof` nor a
    * structural shape check.
+   *
+   * Recognition keys on the MARKER alone, deliberately, and not on the marker
+   * plus a state this build happens to know.
+   *
+   * Pairing them was a fail-open (#263). A document carrying
+   * `__axonflow_authzen_attribute__: true` with any other `state` — a newer
+   * producer's, or a corrupted one — was reported as NOT an attribute, and so
+   * was walked as ordinary data and sent on the wire, marker key and all. By
+   * the surface's own reasoning that document IS an attribute; it is one this
+   * build cannot interpret. Evaluating around it records an attribute nobody
+   * resolved as one that was weighed, and it leaks the marker convention to the
+   * gateway.
+   *
+   * Recognising it here routes it to the same refusal an `unknown` attribute
+   * gets: the resolver matches `known` and `absent` explicitly and refuses
+   * everything else, so an unrecognised state (including a missing one) refuses
+   * locally, non-retryably, with a pointer to the member — which is what the Go
+   * SDK does (sdk-go#210).
+   *
+   * A marker that is present but not boolean `true` stays data: only a positive
+   * self-identification counts, so a caller's own bag with a similarly-named key
+   * cannot be turned into a refusal.
    */
   static is(value: unknown): value is AuthZENAttribute {
     if (value instanceof AuthZENAttribute) return true;
     if (typeof value !== 'object' || value === null) return false;
     const candidate = value as Record<string, unknown>;
-    if (candidate[AUTHZEN_ATTRIBUTE_MARKER] !== true) return false;
-    return (
-      candidate.state === 'known' || candidate.state === 'absent' || candidate.state === 'unknown'
-    );
+    return candidate[AUTHZEN_ATTRIBUTE_MARKER] === true;
   }
 }
 
