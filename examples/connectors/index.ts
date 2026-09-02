@@ -5,6 +5,12 @@
  * - Listing available connectors
  * - Installing connectors
  * - Querying connector data
+ *
+ * The install→query arc uses the Redis connector that ships with the
+ * docker-compose stack, so the example runs end-to-end with no external
+ * service or paid credentials. (Earlier revisions installed the Amadeus
+ * travel connector here; Amadeus decommissioned its self-service APIs on
+ * 2026-07-17, so an example pinned to it can never succeed again.)
  */
 
 import { AxonFlow } from '@axonflow/sdk';
@@ -17,6 +23,11 @@ async function main() {
   // Tenant id is independent of the auth principal in real installations,
   // even when a single demo collapses them to the same value.
   const tenantId = process.env.AXONFLOW_TENANT_ID || clientId;
+  // The Redis connector connects FROM the platform (orchestrator), not from
+  // this process. On the docker-compose stack the Redis service is reachable
+  // as "redis"; override for other topologies.
+  const redisHost = process.env.AXONFLOW_REDIS_HOST || 'redis';
+  const redisPort = Number(process.env.AXONFLOW_REDIS_PORT || '6379');
 
   const client = new AxonFlow({
     clientId,
@@ -30,6 +41,7 @@ async function main() {
   console.log('Step 1: List Available Connectors');
   console.log('='.repeat(60));
 
+  let redisInstalled = false;
   try {
     const connectors = await client.listConnectors();
     console.log(`Found ${connectors.length} connectors:\n`);
@@ -38,6 +50,9 @@ async function main() {
       console.log(`${i + 1}. ${conn.name} (${conn.type})`);
       console.log(`   Description: ${conn.description}`);
       console.log(`   Installed: ${conn.installed ? '✓' : '✗'}\n`);
+      if (conn.type === 'redis' && conn.installed) {
+        redisInstalled = true;
+      }
     });
   } catch (error) {
     console.log('⚠ Could not list connectors:', (error as Error).message);
@@ -46,56 +61,72 @@ async function main() {
 
   // Install connector
   console.log('='.repeat(60));
-  console.log('Step 2: Install Connector');
+  console.log('Step 2: Install Redis Connector');
   console.log('='.repeat(60));
 
-  const amadeusKey = process.env.AMADEUS_API_KEY;
-  const amadeusSecret = process.env.AMADEUS_API_SECRET;
-
-  if (amadeusKey && amadeusSecret) {
+  // Community-edition stacks run connectors from config files and have no
+  // DB persistence for marketplace installs, so the install→query arc is
+  // skipped there rather than failed.
+  let installArc = true;
+  if (redisInstalled) {
+    // Keep the example re-runnable: the platform rejects duplicate
+    // registrations, so don't re-install an already-installed connector.
+    console.log('✓ Redis connector already installed — skipping install');
+  } else {
     try {
       await client.installConnector({
-        connector_id: 'amadeus-travel',
-        name: 'amadeus-prod',
+        connector_id: 'redis-cache',
+        name: 'redis-cache',
         tenant_id: tenantId,
-        options: { environment: 'production' },
-        credentials: { api_key: amadeusKey, api_secret: amadeusSecret },
+        options: { host: redisHost, port: redisPort },
+        credentials: {},
       });
       console.log('✓ Connector installed successfully!');
     } catch (error) {
-      console.log('⚠ Install failed:', (error as Error).message);
-      process.exitCode = 1;
+      const msg = (error as Error).message;
+      if (msg.includes('Failed to persist connector config')) {
+        console.log('⚠ This stack cannot persist connector installs (community edition');
+        console.log('  runs connectors from config files) — skipping the install/query arc');
+        installArc = false;
+      } else {
+        console.log('⚠ Install failed:', msg);
+        process.exitCode = 1;
+      }
     }
-  } else {
-    console.log('⚠ Skipping (AMADEUS_API_KEY and AMADEUS_API_SECRET not set)');
   }
 
-  // Query connector
+  // Query connector through the governed gateway path
   console.log('\n' + '='.repeat(60));
   console.log('Step 3: Query Connector');
   console.log('='.repeat(60));
 
-  if (amadeusKey) {
-    try {
-      const result = await client.queryConnector(
-        'amadeus-prod',
-        'Find flights from Paris to Amsterdam',
-        { origin: 'CDG', destination: 'AMS', date: '2025-12-15' },
-        userToken
-      );
+  if (!installArc) {
+    console.log('Skipped (connector install is not available on this stack).');
+    console.log('\n✅ Connector examples completed (listing only on this edition)');
+    return;
+  }
 
-      if (result.success) {
-        console.log('✓ Flight data retrieved:', result.data);
-      } else {
-        // queryConnector reports failures in-band, not as throws — a ✓
-        // over success:false hides auth/access errors.
-        console.log('⚠ Query failed:', result.error ?? 'unknown error');
-        process.exitCode = 1;
-      }
-    } catch (error) {
-      console.log('⚠ Query failed:', (error as Error).message);
+  try {
+    // Redis connector queries are command statements: GET, EXISTS, TTL, KEYS
+    // (the key goes in params).
+    const result = await client.queryConnector(
+      'redis-cache',
+      'GET',
+      { key: 'user:123:preferences' },
+      userToken
+    );
+
+    if (result.success) {
+      console.log('✓ Redis data retrieved:', result.data);
+    } else {
+      // queryConnector reports failures in-band, not as throws — a ✓
+      // over success:false hides auth/access errors.
+      console.log('⚠ Query failed:', result.error ?? 'unknown error');
       process.exitCode = 1;
     }
+  } catch (error) {
+    console.log('⚠ Query failed:', (error as Error).message);
+    process.exitCode = 1;
   }
 
   if (process.exitCode === 1) {

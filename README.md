@@ -795,16 +795,16 @@ connectors.forEach(conn => {
 
 ```typescript
 await axonflow.installConnector({
-  connector_id: 'amadeus-travel',
-  name: 'amadeus-prod',
+  connector_id: 'redis-cache',
+  name: 'redis-cache',
   tenant_id: 'your-tenant-id',
   options: {
-    environment: 'production'
+    // Host/port as seen from the platform (orchestrator), not from this
+    // process — 'redis' on the docker-compose stack.
+    host: 'redis',
+    port: 6379
   },
-  credentials: {
-    api_key: process.env.AMADEUS_API_KEY,
-    api_secret: process.env.AMADEUS_API_SECRET
-  }
+  credentials: {}
 });
 
 console.log('Connector installed successfully!');
@@ -813,19 +813,18 @@ console.log('Connector installed successfully!');
 ### Query a Connector
 
 ```typescript
-// Query the Amadeus connector for flight information
+// Query the Redis connector. Redis connector queries are command
+// statements (GET / EXISTS / TTL / KEYS) with the key in params.
 const resp = await axonflow.queryConnector(
-  'amadeus-prod',
-  'Find flights from Paris to Amsterdam on Dec 15',
+  'redis-cache',
+  'GET',
   {
-    origin: 'CDG',
-    destination: 'AMS',
-    date: '2025-12-15'
+    key: 'user:123:preferences'
   }
 );
 
 if (resp.success) {
-  console.log('Flight data:', resp.data);
+  console.log('Redis data:', resp.data);
 } else {
   console.error('Query failed:', resp.error);
 }

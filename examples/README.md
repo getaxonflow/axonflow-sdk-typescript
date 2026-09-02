@@ -102,8 +102,8 @@ tsx index.ts
 | `AXONFLOW_CLIENT_SECRET` | Yes | Your client secret |
 | `AXONFLOW_AGENT_URL` | No | Agent endpoint (default: `http://localhost:8080`) |
 | `AXONFLOW_TENANT_ID` | No | Tenant ID for connector ops; falls back to `AXONFLOW_CLIENT_ID` |
-| `AMADEUS_API_KEY` | No | For connector examples |
-| `AMADEUS_API_SECRET` | No | For connector examples |
+| `AXONFLOW_REDIS_HOST` | No | Redis host as seen from the platform (default: `redis`, the docker-compose service) |
+| `AXONFLOW_REDIS_PORT` | No | Redis port (default: `6379`) |
 
 ## Learn More
 
