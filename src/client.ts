@@ -213,6 +213,35 @@ import {
 } from './read-identity';
 import type { ReadIdentityOptions } from './read-identity';
 
+interface HeartbeatReadyState {
+  resolve: () => void;
+  settled: boolean;
+}
+
+/**
+ * State backing each client's {@link AxonFlow.heartbeatReady}, keyed by the
+ * client's `heartbeatRoot`.
+ *
+ * KEYED ON THE ROOT, NOT ON `this`, AND THAT IS A BUG FIX RATHER THAN A
+ * REFINEMENT. `asUser()` derives with `Object.assign(derived, this)`, which
+ * copies the `heartbeatReady` PROMISE onto the derived client but cannot copy a
+ * WeakMap entry keyed on the parent. Keyed on `this`, a derived client's first
+ * request looked up nothing, resolved nothing, and `await derived.heartbeatReady`
+ * hung forever — while the README told callers to await exactly that after
+ * their first call. A documented deadlock.
+ *
+ * `heartbeatRoot` is a plain own property, so `Object.assign` copies it and every
+ * derived client reaches the same entry. That is also the correct semantics: the
+ * heartbeat gate is process-global, there is ONE ping, and the promise copied
+ * onto the derived client is the same object — so whichever client sends first
+ * settles it for all of them.
+ *
+ * It is a non-function property, which keeps the `read-identity.test.ts`
+ * invariant ("a fresh instance has no own-property functions") green — that test
+ * is what caught the first attempt at storing a resolver on the instance.
+ */
+const heartbeatReadyState = new WeakMap<object, HeartbeatReadyState>();
+
 /**
  * Redirect statuses the identity-aware follower handles, and the hop bound.
  * Mirrors what `fetch` would have done itself, minus the header leak.
@@ -356,15 +385,41 @@ export class AxonFlow {
   private sessionCookie: string | null = null;
 
   /**
-   * Promise that resolves when the constructor's heartbeat gate
-   * evaluation has finished (whether it sent a ping or short-circuited).
-   * Long-running services can ignore this — Node's event loop holds the
-   * process open until the in-flight Promise resolves naturally. CLI
-   * binaries and Lambda boot handlers that exit quickly should
-   * `await client.heartbeatReady` so the boot ping isn't truncated by
-   * an explicit `process.exit()`.
+   * Promise that resolves when the heartbeat gate evaluation triggered by the
+   * FIRST OUTBOUND REQUEST has finished — whether it sent a ping or
+   * short-circuited — and any in-flight delivery has settled.
+   *
+   * "The first request" means the first from ANY client sharing this one's
+   * root: an original client and every client derived from it with `asUser()`
+   * share one promise, because there is one heartbeat per process. A client
+   * derived AFTER that request is therefore already resolved, and awaiting it
+   * returns immediately rather than waiting for a second ping that will not
+   * happen.
+   *
+   * CHANGED IN axonflow-enterprise#3682, and the change is visible to callers.
+   * It used to resolve after a gate run the CONSTRUCTOR performed. The
+   * heartbeat now fires on the first request instead, because every framework
+   * adapter takes a client and so could never be declared in time for a
+   * constructor ping. So this promise now resolves after the first request's
+   * gate run, and a client that never makes a request leaves it PENDING —
+   * correctly, because there is no heartbeat to wait for.
+   *
+   * Long-running services can ignore it — Node's event loop holds the process
+   * open until the in-flight Promise resolves naturally. CLI binaries and
+   * Lambda handlers that exit quickly should
+   * `await client.heartbeatReady` AFTER their first call, so the ping is not
+   * truncated by an explicit `process.exit()`.
    */
   public readonly heartbeatReady: Promise<void>;
+
+  /**
+   * Identity of the client that owns this heartbeat promise.
+   *
+   * `this` on an original client; copied by `Object.assign` onto every client
+   * derived from it with `asUser()`, so a derived client settles the SAME
+   * promise rather than one nothing can reach. See {@link heartbeatReadyState}.
+   */
+  private readonly heartbeatRoot: object = this;
 
   constructor(config: AxonFlowConfig) {
     // Configuration validation
@@ -431,21 +486,38 @@ export class AxonFlow {
       });
     }
 
-    // Heartbeat gate: at most one anonymous ping per environment per
-    // 7 days, gated by SDK activity. Constructor kicks off the gate AND
-    // chains the in-flight delivery Promise so `heartbeatReady` resolves
-    // only once the POST has settled — callers in short-lived processes
-    // (CLI, Lambda boot) can `await client.heartbeatReady` to guarantee
-    // delivery before exit. Subsequent gate runs happen async via
-    // _preRequestHook on every public HTTP request site. See
-    // src/heartbeat.ts.
-    this.heartbeatReady = (async () => {
-      await this._preRequestHook();
-      const inFlight = flushHeartbeat();
-      if (inFlight) {
-        await inFlight;
-      }
-    })();
+    // NO HEARTBEAT HERE ANY MORE (axonflow-enterprise#3682). The gate is
+    // consulted on this client's FIRST OUTBOUND REQUEST instead, in
+    // `_preRequestHook`, which every request already passes through.
+    //
+    // Why: every framework adapter takes a client, so an adapter cannot exist
+    // until this constructor has returned. Pinging here meant an adapter
+    // registering from its own constructor could never reach the first ping,
+    // and the 7-day stamp then suppressed the next one for a week — so a
+    // short-lived process using an adapter reported it never. See
+    // `registerAdapter` in telemetry.ts.
+    //
+    // A client that is constructed and never used no longer pings. That is
+    // deliberate and disclosed: a heartbeat is a claim about usage.
+    //
+    // `heartbeatReady` is now settled by the first gate run rather than by a
+    // constructor ping — see its docstring; it stays PENDING for a client that
+    // never makes a request, which is the honest answer for "has the heartbeat
+    // finished" when there was none.
+    this.heartbeatReady = new Promise<void>(resolve => {
+      // The resolver lives in a module-level WeakMap, NOT on the instance.
+      //
+      // `asUser()` derives a client with `Object.create`, so an own-property
+      // FUNCTION would not be shared the way a prototype method is — which is
+      // exactly the invariant `read-identity.test.ts` pins with "a fresh
+      // instance has no own-property functions". Storing the resolver as a
+      // field broke that test, and the test was right: this is the mechanism
+      // that keeps every request-issuing member reachable on a derived client.
+      //
+      // A WeakMap also means the entry disappears with the client rather than
+      // pinning it alive.
+      heartbeatReadyState.set(this, { resolve, settled: false });
+    });
   }
 
   /**
@@ -472,6 +544,26 @@ export class AxonFlow {
         debug: this.config.debug,
       })
     );
+
+    // Settle `heartbeatReady` once the FIRST gate run has finished and any
+    // delivery it started has settled. Guarded to one call: this hook runs on
+    // every request, and re-resolving is harmless but chaining flushHeartbeat
+    // on every request would not be.
+    const state = heartbeatReadyState.get(this.heartbeatRoot);
+    if (state && !state.settled) {
+      state.settled = true;
+      // AWAITED, not fire-and-forget. `heartbeatReady` exists so a short-lived
+      // process can `await` it and then exit without truncating the POST, so
+      // resolving before the in-flight delivery settles would make the promise
+      // a lie — it would resolve, the caller would `process.exit(0)`, and the
+      // ping would be lost. `telemetry-adapter-registry.test.ts` asserts the
+      // checkpoint actually received the POST at the moment this resolves.
+      const inFlight = flushHeartbeat();
+      if (inFlight) {
+        await inFlight;
+      }
+      state.resolve();
+    }
   }
 
   /**

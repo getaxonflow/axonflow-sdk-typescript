@@ -1202,6 +1202,48 @@ The field is **omitted entirely** whenever the tier could not be determined — 
 
 `AXONFLOW_TELEMETRY=off` suppresses this field along with the rest of the heartbeat.
 
+### Platform build and deployment mode (`edition`, `platform_deployment_mode`)
+
+Each heartbeat also reports which **build** the connected platform is running (`edition`: `community` or `enterprise`) and the platform's **own deployment mode** (`platform_deployment_mode`). Neither is derivable from the other or from the licence tier — the Community SaaS fleet runs the _enterprise_ build against the _community-saas_ schema.
+
+Both are read from the platform's own `/health` response — the **same response** the heartbeat already fetches for the platform version and licence tier. **No additional network request is made.** Both are **omitted entirely** when the platform did not report them; an absent field means "not known" and is never defaulted.
+
+These are adoption-analytics signals, **not entitlement ones**: whoever operates your configured endpoint controls both values and the SDK verifies neither.
+
+> One naming caution for anyone reading raw payloads: the heartbeat's own `deployment_mode` field is a **different** dimension — a coarse topology this SDK derives from the endpoint URL you configured. The platform's own mode travels as `platform_deployment_mode`.
+
+### Declaring a framework adapter (`registerAdapter`)
+
+If you are building a framework integration on top of this SDK, you can declare it so aggregate adoption figures can tell adapter-driven usage apart from bare SDK usage. Without this they are indistinguishable: an adapter reports the same `sdk`, the same `sdk_version` and the same endpoint as any other client.
+
+```typescript
+import { registerAdapter } from '@axonflow/sdk';
+
+registerAdapter('my-framework');
+```
+
+**The SDK's own `AxonFlowLangGraphAdapter` already does this**, so simply using it is enough — no telemetry code in your application.
+
+The name is added to the `features` array of the heartbeat that already fires, as `adapter:my-framework`. **It adds no network request**, and calling `registerAdapter` does not itself send anything. It is idempotent.
+
+The heartbeat fires on the client's **first outbound request**, not at construction, so anything registered before that request is on the very first ping. A name registered afterwards rides the next heartbeat.
+
+What is and is not collected:
+
+- **Collected:** the adapter name you pass, lowercased and trimmed.
+- **Not collected:** anything about what the adapter _does_ — no prompts, no payloads, no tool names, no user identities, no configuration.
+
+Bounds, so a malformed call cannot damage the ping it rides on:
+
+- A name longer than **64 bytes** is **dropped whole**, never truncated — a truncated adapter name is a name nothing is running. A name that is empty after trimming, or not a string, is ignored.
+- The `features` array carries at most **32 entries**, none longer than **128 bytes**.
+
+The name is **not** validated against a list of known frameworks. The canonical vocabulary lives on the receiving service, which folds an unrecognised name into an `adapter:unknown` bucket while keeping the raw name on the row.
+
+> **`heartbeatReady` moved with the trigger.** It resolves after the first request's heartbeat rather than after a constructor ping, and stays pending for a client that never sends a request. If you `await client.heartbeatReady` in a short-lived process, move that await to **after** your first API call.
+
+`AXONFLOW_TELEMETRY=off` suppresses all of the above along with the rest of the heartbeat.
+
 `DO_NOT_TRACK` is **not** honored as an opt-out for AxonFlow telemetry. It is commonly inherited from host tools and developer environments, which makes it an unreliable expression of user intent.
 
 See [Telemetry Documentation](https://docs.getaxonflow.com/docs/telemetry) for full details.

@@ -105,9 +105,17 @@ test('Case 5: cache expired + stale stamp → 2nd ping fires', async () => {
   await flushHeartbeat();
   expect(ping).toHaveBeenCalledTimes(1);
 
-  // Backdate in-memory cache (2h ago) AND stamp file (8d ago).
+  // Backdate the in-memory cache (2h ago), the in-memory DELIVERY record
+  // (8d ago) AND the stamp file (8d ago).
+  //
+  // `lastDeliveredMs` joined this list with the in-memory 7-day cadence
+  // (axonflow-enterprise#3682). It is not an extra knob for the test's
+  // convenience: "eight days have passed" is a statement about all three
+  // records, and a fixture that moved only two of them was modelling a state
+  // the process cannot actually be in.
   const state = getHeartbeatStateForTest();
   state.lastCheckedMs = Date.now() - 2 * 60 * 60 * 1000;
+  state.lastDeliveredMs = Date.now() - 8 * 24 * 60 * 60 * 1000;
   const eightDaysAgoSec = (Date.now() - 8 * 24 * 60 * 60 * 1000) / 1000;
   fs.utimesSync(tempStampPath, eightDaysAgoSec, eightDaysAgoSec);
 
@@ -154,7 +162,7 @@ test('Case 7: 100 concurrent callers → exactly 1 ping', async () => {
   expect(ping).toHaveBeenCalledTimes(1);
 });
 
-test('Case 8: no cache dir (stampPath=null) → ping per "process", no crash', async () => {
+test('Case 8: no cache dir (stampPath=null) → ping ONCE, then bounded in memory', async () => {
   // Replace state with stampPath=null to simulate Lambda / restricted env.
   replaceHeartbeatStateForTest(null);
   const ping = jest.fn().mockResolvedValue(true);
@@ -169,9 +177,29 @@ test('Case 8: no cache dir (stampPath=null) → ping per "process", no crash', a
   await flushHeartbeat();
   expect(ping).toHaveBeenCalledTimes(1);
 
-  // Backdate cache, call again — fires because no stamp gate exists.
+  // ASSERTION INVERTED IN #3682, AND THE OLD ONE WAS THE DEFECT.
+  //
+  // This block used to backdate the cache and assert a SECOND ping "because no
+  // stamp gate exists". That is precisely the bug: in a runtime with no usable
+  // cache dir — distroless and scratch containers, Lambda custom runtimes, a
+  // read-only root filesystem — the stamp can never be written, so nothing
+  // bounded the cadence and a SUCCESSFUL ping recurred every hour, forever. 168
+  // pings a week against a contract that discloses one, in exactly the
+  // environments least able to notice, and the failure backoff cannot help
+  // because these deliveries succeed.
+  //
+  // The in-memory `lastDeliveredMs` record is the bound. An hour after a
+  // delivery the gate must now REFUSE.
   const state = getHeartbeatStateForTest();
   state.lastCheckedMs = Date.now() - 2 * 60 * 60 * 1000;
+  await maybeSendHeartbeat(true, ping);
+  await flushHeartbeat();
+  expect(ping).toHaveBeenCalledTimes(1);
+
+  // And the other direction, so the bound cannot pass as a permanent mute:
+  // past the 7-day interval it must fire again.
+  state.lastCheckedMs = Date.now() - 2 * 60 * 60 * 1000;
+  state.lastDeliveredMs = Date.now() - 8 * 24 * 60 * 60 * 1000;
   await maybeSendHeartbeat(true, ping);
   await flushHeartbeat();
   expect(ping).toHaveBeenCalledTimes(2);

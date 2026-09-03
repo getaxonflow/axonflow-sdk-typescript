@@ -34,6 +34,7 @@ import {
   TimeoutError as AxonFlowTimeoutError,
 } from '../errors';
 import type { StepType, ToolContext, WorkflowSource } from '../types/workflows';
+import { registerAdapter } from '../telemetry';
 
 /**
  * Error thrown when a workflow step is blocked by policy.
@@ -215,6 +216,26 @@ export class AxonFlowLangGraphAdapter {
   private readonly _autoBlock: boolean;
 
   constructor(client: AxonFlow, workflowName: string, options?: LangGraphAdapterOptions) {
+    // Declare this adapter on the next telemetry heartbeat. Without it, an
+    // application driving the SDK through this adapter is indistinguishable
+    // from bare SDK use on every telemetry dimension — same sdk, same
+    // sdk_version, same endpoint — which is the gap the registry closes.
+    //
+    // Here rather than at module import, and the distinction is the point:
+    // importing the module says the adapter is INSTALLED, constructing one says
+    // it is IN USE, and only the second is adoption signal.
+    //
+    // The heartbeat fires on the client's first outbound REQUEST, not at client
+    // construction, so a registration made here — necessarily after the client
+    // exists and before any call through it — reaches the very first ping. No
+    // I/O; one insert into a Set that deduplicates.
+    //
+    // A LITERAL, not `options?.source`: `source` is a PLATFORM API value the
+    // orchestrator interprets and a caller may override, while this is a
+    // TELEMETRY value the checkpoint buckets. Deriving one from the other would
+    // let a caller repoint an analytics dimension by passing a custom source.
+    registerAdapter('langgraph');
+
     this.client = client;
     this.workflowName = workflowName;
     this.source = options?.source ?? 'langgraph';

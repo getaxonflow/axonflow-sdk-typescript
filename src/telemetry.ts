@@ -26,6 +26,188 @@ const MIN_BUDGET_MS = 100;
 const HEALTH_BUDGET_CAP_MS = 1000;
 
 /**
+ * Bounds every value this SDK puts on the telemetry wire that it did not
+ * author itself — every string promoted out of a `/health` response, and every
+ * adapter name handed to `registerAdapter`.
+ *
+ * WHY A DROP AND NOT A TRUNCATION. The checkpoint refuses a request body over
+ * 64 KiB. A single 70 KB value from a hostile or broken `/health` therefore
+ * produces a ping that is rejected WHOLE — the version, the tier, the org id,
+ * every dimension lost, not just the oversized one — and because the stamp is
+ * only written on a 2xx, the SDK retries that same doomed request at every
+ * gate run for as long as `/health` keeps answering that way. Dropping the
+ * offending value alone keeps the ping under the limit and preserves every
+ * other dimension.
+ *
+ * It is dropped rather than truncated because a truncated value is a value
+ * nobody reported: 64 bytes of a 70 KB string is not a licence tier and not an
+ * adapter name, and relaying it would put a fabricated observation on the
+ * wire. Absent is the honest answer.
+ *
+ * BYTES, NOT CHARACTERS — and in JavaScript that has to be said out loud,
+ * because `String.length` counts UTF-16 CODE UNITS. Every check against this
+ * bound uses `Buffer.byteLength(s, 'utf8')`. The three disagree: '😀' is
+ * length 2, one code point, and four bytes. The bound is bytes because the
+ * thing being bounded — the serialized request body — is bytes.
+ *
+ * Same bound the receiver applies to these coarse enums (checkpoint-service
+ * `MaxCoarseEnumValueBytes`), and ~3.5x the longest legitimate value.
+ */
+const MAX_RELAYED_VALUE_BYTES = 64;
+
+/**
+ * Bounds on the `features` array itself, mirroring the receiver's own
+ * `MaxFeatures` / `MaxFeatureBytes`. Applying them client-side means an
+ * over-long array is shaped HERE, where the SDK still knows what it dropped,
+ * rather than silently at ingest.
+ *
+ * READ WHAT THESE TWO ACTUALLY REACH. The entry cap is live: register 33
+ * adapters and the 33rd does not reach the wire. The byte cap is a BACKSTOP
+ * that today's only producer cannot trigger — `registerAdapter` already
+ * refuses a name over `MAX_RELAYED_VALUE_BYTES`, so the longest entry it can
+ * emit is `'adapter:'.length + 64 === 72` bytes. It is tested directly on
+ * `boundFeatures` rather than through the registry, because a test driven
+ * through the registry could not express it.
+ */
+const MAX_FEATURES = 32;
+const MAX_FEATURE_BYTES = 128;
+
+/**
+ * Marks a `features[]` entry as an adapter identifier. The vocabulary is
+ * SERVER-DEFINED (checkpoint-service `FeatureAdapterPrefix`) and is not this
+ * SDK's to extend.
+ */
+const FEATURE_ADAPTER_PREFIX = 'adapter:';
+
+/**
+ * Length of `value` in UTF-8 BYTES.
+ *
+ * Its own function so every bound in this module is measured the same way and
+ * no call site can quietly fall back to `.length`, which counts UTF-16 code
+ * units. `Buffer` is Node-only; the `TextEncoder` fallback keeps this correct
+ * in a non-Node runtime rather than silently reverting to code units.
+ */
+function byteLength(value: string): number {
+  if (typeof Buffer !== 'undefined' && typeof Buffer.byteLength === 'function') {
+    return Buffer.byteLength(value, 'utf8');
+  }
+  return new TextEncoder().encode(value).length;
+}
+
+// ---------------------------------------------------------------------------
+// The adapter registry — the ONLY producer of `features` entries.
+// ---------------------------------------------------------------------------
+
+/**
+ * A Set, so a framework that registers on every wrapper construction — the
+ * ordinary case for an adapter whose constructor runs per request — declares
+ * itself once on the wire rather than N times.
+ */
+const adapterRegistry = new Set<string>();
+
+/**
+ * Declare that a framework adapter is driving this SDK, so the next telemetry
+ * heartbeat carries `adapter:<name>` in its `features` array.
+ *
+ * A framework adapter (LangChain, LangGraph, LiteLLM, …) wrapping this SDK is
+ * indistinguishable from bare SDK use on every other telemetry dimension —
+ * same `sdk`, same `sdk_version`, same endpoint. This is the one call that
+ * makes the difference visible, and it is adoption signal only.
+ *
+ * IT ADDS NO REQUEST. The name rides the `features` array of the heartbeat
+ * that already fires; there is no second ping, no second endpoint and no new
+ * configuration surface. Calling it does not itself send anything.
+ *
+ * CALL IT BEFORE YOUR FIRST API CALL for day-one attribution. The heartbeat
+ * fires on the client's FIRST OUTBOUND REQUEST, not at construction, so
+ * anything registered before that request is on the very first ping and a name
+ * registered afterwards rides the next heartbeat.
+ *
+ * The SDK's own `AxonFlowLangGraphAdapter` registers from its constructor, so
+ * simply using it is enough — an adapter is necessarily built after the client
+ * and before any call through it.
+ *
+ * Idempotent. Repeat registrations of the same name collapse to one entry.
+ *
+ * THE NAME IS NOT VALIDATED AGAINST A LIST, DELIBERATELY. The canonical
+ * vocabulary lives on the receiver (checkpoint-service
+ * `NormalizeAdapterFeature`, which folds an unrecognised name into
+ * `adapter:unknown` at READ time while keeping the raw name on the row). An
+ * allowlist here would be a second vocabulary that drifts from the first: a
+ * name this SDK build predates would be dropped at the client instead of
+ * arriving and rendering as "someone is using an adapter we do not know
+ * about" — precisely the signal the unknown bucket exists to preserve.
+ *
+ * So the only transformations are the two the receiver also applies before
+ * matching: trim surrounding whitespace, and lowercase. What is refused is
+ * refused for a reason that is not about vocabulary: a name empty after
+ * trimming (there is nothing to declare, and `adapter:` alone is not an
+ * identifier), and a name longer than `MAX_RELAYED_VALUE_BYTES` (dropped
+ * WHOLE, never truncated). A non-string is refused the same way rather than
+ * coerced — `String(undefined)` would put the literal text `undefined` on the
+ * wire as an adapter name.
+ *
+ * Both refusals are silent: this is a telemetry declaration on a
+ * fire-and-forget path, and throwing would invite a caller to fail their own
+ * startup over an analytics detail.
+ */
+export function registerAdapter(name: string): void {
+  if (typeof name !== 'string') return;
+  const normalized = name.trim().toLowerCase();
+  if (normalized === '' || byteLength(normalized) > MAX_RELAYED_VALUE_BYTES) return;
+  adapterRegistry.add(normalized);
+}
+
+/**
+ * Apply the receiver's array bounds: at most `MAX_FEATURES` entries, none over
+ * `MAX_FEATURE_BYTES` bytes.
+ *
+ * An over-long entry is DROPPED rather than truncated, which is where this
+ * deliberately differs from the receiver's own `BoundFeatures`. The receiver
+ * truncates because it is defending storage against arbitrary clients and a
+ * truncated entry harmlessly folds into its unknown bucket. Here the entry is
+ * something this process declared about itself, and a truncated adapter name
+ * is a name nothing is running.
+ */
+export function boundFeatures(features: string[]): string[] {
+  const out: string[] = [];
+  for (const feature of features) {
+    if (byteLength(feature) > MAX_FEATURE_BYTES) continue;
+    out.push(feature);
+    if (out.length === MAX_FEATURES) break;
+  }
+  return out;
+}
+
+/**
+ * Render the registry as the `features` array for one ping.
+ *
+ * Sorted so the wire is deterministic — two processes that registered the same
+ * adapters in a different order produce the same array, which is what lets a
+ * test assert on the whole field, and what makes "which 32 survive" a defined
+ * answer rather than a Set-iteration accident.
+ */
+export function registeredFeatures(): string[] {
+  const names = [...adapterRegistry].sort();
+  return boundFeatures(names.map(name => FEATURE_ADAPTER_PREFIX + name));
+}
+
+/** Test-only: empty the registry and return what was there, so the caller can
+ * restore it. The registry is module-global by design, so a test that
+ * registers an adapter would otherwise leak it into every later test's ping. */
+export function _resetAdapterRegistryForTest(): string[] {
+  const previous = [...adapterRegistry];
+  adapterRegistry.clear();
+  return previous;
+}
+
+/** Test-only: restore a registry saved by `_resetAdapterRegistryForTest`. */
+export function _restoreAdapterRegistryForTest(previous: string[]): void {
+  adapterRegistry.clear();
+  for (const name of previous) adapterRegistry.add(name);
+}
+
+/**
  * Generate a random UUID v4-style identifier.
  *
  * Uses crypto.randomUUID() when available (Node 19+), otherwise falls back
@@ -96,6 +278,42 @@ function shouldSendTelemetry(): boolean {
   // AXONFLOW_TELEMETRY=off is the SOLE opt-out path.
   return process.env.AXONFLOW_TELEMETRY?.trim().toLowerCase() !== 'off';
 }
+
+/**
+ * Is this a 3xx?
+ *
+ * Distinguished from an ordinary non-2xx so a REFUSED REDIRECT is observable.
+ * It is the one failure on this path that would otherwise look like success.
+ */
+function isRedirect(status: number): boolean {
+  return status >= 300 && status < 400;
+}
+
+/**
+ * `redirect: 'manual'`, and the choice between the three modes was measured
+ * rather than assumed.
+ *
+ * `fetch` FOLLOWS redirects by default, and on this path that is a live defect
+ * in two different ways:
+ *
+ *   * on `/health`, every value promoted out of the response would describe the
+ *     REDIRECT TARGET rather than the endpoint the caller configured — a
+ *     captive portal, a misconfigured proxy or an http->https hop is enough to
+ *     make the heartbeat report a platform the user never pointed at;
+ *   * on the checkpoint POST it is worse: a redirected POST is re-issued as a
+ *     BODYLESS GET, so a 302 yields a 200 for a request that carried NOTHING,
+ *     the SDK reads that 200 as delivery, and the 7-day stamp advances on a
+ *     ping that was never sent. The installation then goes silent for a week,
+ *     and a 200 meaning "we delivered nothing" is indistinguishable from
+ *     success at every layer above.
+ *
+ * Measured on Node 25: `redirect: 'follow'` turns a 302 into `status=200
+ * ok=true`; `'manual'` yields `status=302 ok=false`; `'error'` throws a generic
+ * `TypeError: fetch failed`. `'manual'` is used because it is the only one that
+ * lets the refusal be REPORTED — `'error'` is indistinguishable from an
+ * ordinary network failure, so a refused redirect would be silent.
+ */
+const NO_REDIRECTS = 'manual' as const;
 
 export interface TelemetryPayload {
   /**
@@ -182,6 +400,36 @@ export interface TelemetryPayload {
    * reads as "unknown", not as any particular tier.
    */
   license_tier?: string;
+  /**
+   * The BUILD the connected platform reported on its own `/health`:
+   * `community` or `enterprise`. Relayed verbatim, and it rides the SAME
+   * `/health` response the version and the tier already come from — no new
+   * request. Issue axonflow-enterprise#3660.
+   *
+   * NOT an entitlement fact, on the same terms as `license_tier` above:
+   * whoever operates the configured endpoint controls the value completely and
+   * this SDK relays it unverified.
+   *
+   * NOT derivable from anything else here either — the Community-SaaS fleet
+   * runs the ENTERPRISE build against the community-saas schema, so neither
+   * `deployment_mode` nor `license_tier` implies it.
+   *
+   * ABSENT (property omitted) means NOT LEARNED.
+   */
+  edition?: string;
+  /**
+   * The connected platform's OWN deployment mode, as it reported it on
+   * `/health` under the member name `deployment_mode`.
+   *
+   * READ THE FIELD NAMES CAREFULLY — THIS IS THE TRAP THIS CONTRACT IS MOST
+   * LIKELY TO BE GOT WRONG ON. The `/health` member is called
+   * `deployment_mode` because there the platform is describing ITSELF. On this
+   * ping, `deployment_mode` already means something else entirely: the
+   * TOPOLOGY bucket this SDK derives from the endpoint URL it was configured
+   * with. They are different dimensions, and mapping `/health`'s member onto
+   * the topology field would overwrite a value every existing dashboard reads.
+   */
+  platform_deployment_mode?: string;
 }
 
 /**
@@ -409,6 +657,35 @@ function isLearned(value: unknown): value is string {
 }
 
 /**
+ * Promote one `/health` member to a relayable value, or `null`.
+ *
+ * Learned only when the member is present, is a string, is non-empty, and is
+ * within `MAX_RELAYED_VALUE_BYTES`. An absent key, a non-string value, an
+ * explicit `''` and an over-long string are all NOT LEARNED — the field stays
+ * `null` rather than becoming a value the platform did not report.
+ *
+ * A non-string is refused rather than coerced: `{"tier": 42}` becoming `"42"`
+ * would land in the receiver's unknown bucket as though the platform had
+ * reported a tier.
+ */
+function learned(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key];
+  if (!isLearned(value)) return null;
+  if (byteLength(value) > MAX_RELAYED_VALUE_BYTES) {
+    // The VALUE is deliberately not logged: it is remote-controlled text, and
+    // the diagnostic exists to say which field was dropped and why.
+    if (typeof console !== 'undefined') {
+      console.debug(
+        `[AxonFlow] Telemetry: /health field '${key}' exceeded ${MAX_RELAYED_VALUE_BYTES} ` +
+          `bytes (${byteLength(value)} bytes); omitted`
+      );
+    }
+    return null;
+  }
+  return value;
+}
+
+/**
  * Apply a health-probe result onto a telemetry payload.
  *
  * This module has TWO ping paths (`sendTelemetryPingNow` and
@@ -423,11 +700,50 @@ function isLearned(value: unknown): value is string {
  */
 function applyHealthProbe(payload: TelemetryPayload, probe: PlatformHealthProbe): void {
   payload.platform_version = probe.platformVersion;
-  // Both ping paths build `payload` as a fresh object literal per call, so
-  // there is never a stale value to remove — assign only when learned.
+  // Both ping paths build `payload` fresh per call, so there is never a stale
+  // value to remove — assign only when learned. Assigning `undefined` would
+  // still create the property, and `JSON.stringify` drops it, but "the key is
+  // absent" is the contract and it should be structural rather than incidental.
   if (isLearned(probe.licenseTier)) {
     payload.license_tier = probe.licenseTier;
   }
+  if (isLearned(probe.edition)) {
+    payload.edition = probe.edition;
+  }
+  if (isLearned(probe.platformDeploymentMode)) {
+    payload.platform_deployment_mode = probe.platformDeploymentMode;
+  }
+}
+
+/**
+ * Build the base telemetry payload.
+ *
+ * ONE builder for BOTH ping paths. This module has two — `sendTelemetryPingNow`
+ * and the `sendTelemetryPing` compat shim — and they previously built the same
+ * object literal independently. `applyHealthProbe` already exists for exactly
+ * this reason: patching one copy of a duplicated decision is how the two paths
+ * come to disagree. Adding `features` to one literal and not the other would
+ * have been that bug, so the literal itself is now shared.
+ */
+function buildBasePayload(options: { mode: string; endpoint: string }): TelemetryPayload {
+  return {
+    telemetry_type: 'sdk',
+    sdk: 'typescript',
+    sdk_version: VERSION,
+    platform_version: null,
+    os: typeof process !== 'undefined' ? process.platform : 'unknown',
+    arch: typeof process !== 'undefined' ? process.arch : 'unknown',
+    runtime_version: typeof process !== 'undefined' ? process.version.replace(/^v/, '') : 'unknown',
+    deployment_mode: classifyDeploymentMode(options.endpoint),
+    endpoint_type: classifyEndpoint(options.endpoint),
+    // The adapter registry is the ONLY producer of this array. Read here rather
+    // than snapshotted at module load so an adapter that registers after the
+    // first client is built still reaches the next heartbeat.
+    features: registeredFeatures(),
+    instance_id: generateInstanceId(),
+    org_id: telemetryOrgID(),
+    ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
+  };
 }
 
 export async function sendTelemetryPingNow(options: {
@@ -445,21 +761,7 @@ export async function sendTelemetryPingNow(options: {
   // v1 telemetry-schema (axonflow-enterprise#2008): deployment_mode classified
   // from endpoint host (prior config.Mode-based dimension removed; now
   // reflects topology only).
-  const payload: TelemetryPayload = {
-    telemetry_type: 'sdk',
-    sdk: 'typescript',
-    sdk_version: VERSION,
-    platform_version: null,
-    os: typeof process !== 'undefined' ? process.platform : 'unknown',
-    arch: typeof process !== 'undefined' ? process.arch : 'unknown',
-    runtime_version: typeof process !== 'undefined' ? process.version.replace(/^v/, '') : 'unknown',
-    deployment_mode: classifyDeploymentMode(options.endpoint),
-    endpoint_type: classifyEndpoint(options.endpoint),
-    features: [],
-    instance_id: generateInstanceId(),
-    org_id: telemetryOrgID(),
-    ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
-  };
+  const payload: TelemetryPayload = buildBasePayload(options);
 
   try {
     const deadline = Date.now() + TELEMETRY_TIMEOUT_MS;
@@ -491,7 +793,17 @@ export async function sendTelemetryPingNow(options: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         signal: controller.signal,
+        redirect: NO_REDIRECTS,
       });
+      if (isRedirect(response.status) && typeof console !== 'undefined') {
+        console.debug(
+          `[AxonFlow] Telemetry: checkpoint answered ${response.status} (a redirect); ` +
+            'refused, ping NOT delivered and the stamp will not advance'
+        );
+      }
+      // `response.ok` is already false for a 3xx under redirect: 'manual', so
+      // the stamp cannot advance. The branch above exists to make the refusal
+      // visible, not to change the outcome.
       return response.ok;
     } finally {
       clearTimeout(timeoutId);
@@ -541,21 +853,7 @@ export function sendTelemetryPing(options: {
   // v1 telemetry-schema (axonflow-enterprise#2008): deployment_mode classified
   // from endpoint host (prior config.Mode-based dimension removed; now
   // reflects topology only).
-  const payload: TelemetryPayload = {
-    telemetry_type: 'sdk',
-    sdk: 'typescript',
-    sdk_version: VERSION,
-    platform_version: null,
-    os: typeof process !== 'undefined' ? process.platform : 'unknown',
-    arch: typeof process !== 'undefined' ? process.arch : 'unknown',
-    runtime_version: typeof process !== 'undefined' ? process.version.replace(/^v/, '') : 'unknown',
-    deployment_mode: classifyDeploymentMode(options.endpoint),
-    endpoint_type: classifyEndpoint(options.endpoint),
-    features: [],
-    instance_id: generateInstanceId(),
-    org_id: telemetryOrgID(),
-    ...(options.mode === 'sandbox' ? { stream: 'sandbox' } : {}),
-  };
+  const payload: TelemetryPayload = buildBasePayload(options);
 
   // Fire-and-forget: detect platform version then send ping.
   //
@@ -601,6 +899,7 @@ export function sendTelemetryPing(options: {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
           signal: controller.signal,
+          redirect: NO_REDIRECTS,
         });
       } finally {
         clearTimeout(timeoutId);
@@ -622,6 +921,10 @@ export function sendTelemetryPing(options: {
 export interface PlatformHealthProbe {
   platformVersion: string | null;
   licenseTier: string | null;
+  /** `/health` → `edition`. */
+  edition: string | null;
+  /** `/health` → `deployment_mode`, relayed as `platform_deployment_mode`. */
+  platformDeploymentMode: string | null;
 }
 
 /**
@@ -645,7 +948,12 @@ export async function probePlatformHealth(
   endpoint: string,
   timeoutMs: number
 ): Promise<PlatformHealthProbe> {
-  const empty: PlatformHealthProbe = { platformVersion: null, licenseTier: null };
+  const empty: PlatformHealthProbe = {
+    platformVersion: null,
+    licenseTier: null,
+    edition: null,
+    platformDeploymentMode: null,
+  };
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   // Belt to the `finally`'s braces. If this timer were ever left pending it
@@ -666,9 +974,21 @@ export async function probePlatformHealth(
     const resp = await fetch(`${endpoint}/health`, {
       method: 'GET',
       signal: controller.signal,
+      redirect: NO_REDIRECTS,
     });
 
-    if (!resp.ok) return empty;
+    if (!resp.ok) {
+      if (isRedirect(resp.status) && typeof console !== 'undefined') {
+        // Named separately from an ordinary non-2xx so a refused redirect is
+        // OBSERVABLE rather than silent. The Location value is deliberately
+        // NOT logged: it is remote-controlled text.
+        console.debug(
+          `[AxonFlow] Telemetry: /health answered ${resp.status} (a redirect); refused, ` +
+            'relayed fields omitted'
+        );
+      }
+      return empty;
+    }
 
     // Still covered by the abort signal above — an abort here rejects, and
     // the catch below turns it into the ordinary not-learned result.
@@ -681,14 +1001,22 @@ export async function probePlatformHealth(
     // parsed body is a claim, not a check — these guards are the check. An
     // absent key, a non-string value and an explicit "" are all "not learned",
     // leaving null rather than putting a meaningless value on the wire.
-    const version = record.version;
-    const tier = record.tier;
+    // Each member is promoted through ONE helper. Four copies of the same two
+    // conditions is the shape that gets found in production by the field the
+    // bound was not applied to.
     return {
-      platformVersion: isLearned(version) ? version : null,
+      platformVersion: learned(record, 'version'),
       // Verbatim, including the transient "starting" the agent returns
       // before its licence is validated. "starting" is a real signal the
       // receiver buckets deliberately, not an error to filter client-side.
-      licenseTier: isLearned(tier) ? tier : null,
+      licenseTier: learned(record, 'tier'),
+      edition: learned(record, 'edition'),
+      // NOTE THE NAME CHANGE, AND THAT IT IS DELIBERATE. The /health member is
+      // `deployment_mode` (the platform describing itself); the wire field is
+      // `platform_deployment_mode`. This SDK's OWN `deployment_mode` is a
+      // different dimension and promoting /health's member into it would
+      // overwrite a value every existing dashboard reads.
+      platformDeploymentMode: learned(record, 'deployment_mode'),
     };
   } catch {
     return empty;

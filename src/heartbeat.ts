@@ -6,8 +6,12 @@
  *   AxonFlow emits at most one heartbeat per environment every
  *   7 days during SDK activity.
  *
- * The gate is consulted at client construction and at every public HTTP
- * request site (via `_preRequestHook`). Each gate run:
+ * The gate is consulted at every public HTTP request site, via
+ * `_preRequestHook`. It is NOT consulted at client construction
+ * (axonflow-enterprise#3682): every framework adapter takes a client, so an
+ * adapter registering from its own constructor could never reach a
+ * constructor-time ping. A client that is constructed and never used does not
+ * ping. Each gate run:
  *
  *  1. Re-evaluates `AXONFLOW_TELEMETRY=off` cheaply (lock-free) so a
  *     mid-process opt-out toggle takes effect immediately.
@@ -41,6 +45,36 @@ export const HEARTBEAT_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** 1 hour in milliseconds — bounds how often we stat() the stamp file. */
 export const HEARTBEAT_GUARD_INTERVAL_MS = 60 * 60 * 1000;
+
+/**
+ * Ceiling on how many times the guard interval may double. 16 doublings
+ * already exceed the 7-day cap by orders of magnitude; the clamp exists so an
+ * unbounded failure counter cannot produce an absurd interval.
+ */
+const MAX_BACKOFF_DOUBLINGS = 16;
+
+/**
+ * How long the gate waits before re-consulting, given how many attempts in a
+ * row failed to deliver. Doubling from `HEARTBEAT_GUARD_INTERVAL_MS`, capped at
+ * `HEARTBEAT_INTERVAL_MS`.
+ *
+ * Without it the SDK has no backoff at all, and two deliberate design choices
+ * combine into a defect: the 7-day stamp only advances on DELIVERY, and the
+ * gate is re-evaluated on every request. In a deployment where egress to the
+ * checkpoint is blocked — the normal state of the air-gapped and in-VPC
+ * self-hosted topologies this SDK supports — every process would issue a
+ * `/health` GET against the CUSTOMER'S OWN platform once an hour,
+ * indefinitely, with a failed POST beside it. Unsolicited hourly traffic
+ * against someone else's platform, for a heartbeat disclosed as weekly, is not
+ * defensible.
+ *
+ * Backing off loses no ping: the stamp is still untouched, so the first attempt
+ * after the widened interval sends normally.
+ */
+export function guardIntervalFor(consecutiveFailures: number): number {
+  const doublings = Math.min(consecutiveFailures, MAX_BACKOFF_DOUBLINGS);
+  return Math.min(HEARTBEAT_GUARD_INTERVAL_MS * 2 ** doublings, HEARTBEAT_INTERVAL_MS);
+}
 
 /**
  * Resolve the OS-native stamp file path, or `null` if no user cache
@@ -89,6 +123,34 @@ export class HeartbeatState {
   public lastCheckedMs: number | null = null;
   public inFlight: Promise<void> | null = null;
   public readonly stampPath: string | null;
+
+  /**
+   * Consecutive attempts that did NOT deliver. Widens the re-check interval so
+   * a deployment that can never reach the checkpoint stops probing its own
+   * platform every hour forever. Reset on delivery.
+   */
+  public consecutiveFailures = 0;
+
+  /**
+   * When this PROCESS last DELIVERED a ping.
+   *
+   * The stamp file is the cross-restart record of that, but it is not always
+   * available: `resolveStampPath` returns null where there is no usable cache
+   * dir (HOME unset — distroless and scratch containers, Lambda custom
+   * runtimes), and `writeStampAtomic` silently fails on a read-only root
+   * filesystem (`readOnlyRootFilesystem: true` is ordinary Kubernetes
+   * hardening). In both, `readStampMtimeMs` returns null forever.
+   *
+   * The failure backoff cannot bound that case, because it resets on delivery
+   * and these deliveries SUCCEED: the gate re-opens every hour, the ping lands,
+   * the stamp cannot be written, and the next hour repeats it — 168x the "at
+   * most one ping per machine every 7 days" this SDK discloses, in exactly the
+   * environments least able to notice.
+   *
+   * So the cadence is enforced in memory too. Redundant whenever the stamp
+   * works, and the only bound when it does not.
+   */
+  public lastDeliveredMs: number | null = null;
 
   constructor(stampPath: string | null | typeof USE_DEFAULT_CACHE_DIR = USE_DEFAULT_CACHE_DIR) {
     this.stampPath = stampPath === USE_DEFAULT_CACHE_DIR ? resolveStampPath() : stampPath;
@@ -194,8 +256,10 @@ function isOptedOut(): boolean {
 }
 
 /**
- * Central gate for telemetry pings. Called from the AxonFlow constructor
- * and from `_preRequestHook` on every public HTTP entry point.
+ * Central gate for telemetry pings. Called from `_preRequestHook` on every
+ * public HTTP entry point — and NOT from the AxonFlow constructor, which
+ * stopped pinging in axonflow-enterprise#3682 so that an adapter registering
+ * from its own constructor can reach the first ping.
  *
  * The `pingFn` callback returns a Promise<boolean> indicating delivery
  * success. The stamp is written ONLY when this resolves to true,
@@ -220,13 +284,23 @@ export async function maybeSendHeartbeat(
 
   const nowMs = Date.now();
 
-  // 3. In-memory 1-hour cache.
-  if (h.lastCheckedMs !== null && nowMs - h.lastCheckedMs < HEARTBEAT_GUARD_INTERVAL_MS) {
+  // 3. In-memory guard, WIDENED by consecutive delivery failures.
+  if (
+    h.lastCheckedMs !== null &&
+    nowMs - h.lastCheckedMs < guardIntervalFor(h.consecutiveFailures)
+  ) {
     return;
   }
   h.lastCheckedMs = nowMs;
 
-  // 4. Stamp file mtime gate.
+  // 4. In-memory 7-day cadence, checked BEFORE the stamp. Where the stamp
+  //    cannot be persisted this is the only thing standing between a delivered
+  //    ping and an hourly one — see `lastDeliveredMs`.
+  if (h.lastDeliveredMs !== null && nowMs - h.lastDeliveredMs < HEARTBEAT_INTERVAL_MS) {
+    return;
+  }
+
+  // 5. Stamp file mtime gate.
   const mtimeMs = h.readStampMtimeMs();
   if (mtimeMs !== null && nowMs - mtimeMs < HEARTBEAT_INTERVAL_MS) {
     return;
@@ -237,11 +311,21 @@ export async function maybeSendHeartbeat(
   h.inFlight = (async () => {
     try {
       const ok = await pingFn();
+      // Recorded for EVERY attempt: the failure counter drives the widened
+      // guard, and the delivery instant bounds the success cadence when the
+      // stamp file is unavailable. A pass that stopped at a fresh stamp never
+      // reaches here, and must not — a suppressed pass is the gate working,
+      // not an attempt that failed.
       if (ok) {
+        h.consecutiveFailures = 0;
+        h.lastDeliveredMs = Date.now();
         await h.writeStampAtomic();
+      } else {
+        h.consecutiveFailures += 1;
       }
     } catch {
       // pingFn must never throw in practice, but defend anyway.
+      h.consecutiveFailures += 1;
     } finally {
       h.inFlight = null;
     }
