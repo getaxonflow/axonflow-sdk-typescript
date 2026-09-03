@@ -372,7 +372,6 @@ export class AxonFlow {
     timeout: number;
     mapTimeout: number;
     retry: { enabled: boolean; maxAttempts: number; delay: number };
-    cache: { enabled: boolean; ttl: number };
   };
   // v8.0: telemetry is gated solely by the AXONFLOW_TELEMETRY env var
   // (re-evaluated inside maybeSendHeartbeat on every gate run). The v7.x
@@ -447,6 +446,45 @@ export class AxonFlow {
     // (staging-eu.getaxonflow.com) was decommissioned 2026-04-09.
     const endpoint = config.endpoint ?? 'http://localhost:8080';
 
+    // THE `cache` OPTION IS REFUSED, BECAUSE IT NEVER DID ANYTHING
+    // (sdk-typescript#267, axonflow-enterprise#3682 item 4).
+    //
+    // It was accepted, normalised into `this.config`, and read by NO request
+    // path. So a caller passing `{ enabled: true, ttl: 60000 }` was making a
+    // cost and latency assumption the SDK silently did not honour — and the
+    // default resolved to `enabled: true`, so every client reported caching ON
+    // and got none.
+    //
+    // Refusing beats implementing. The four sibling SDKs all shipped a fix this
+    // week for the SAME defect in their caches: a client derived with `asUser`
+    // shared the parent's cache, and the key carried the write-path body token
+    // but NOT the identity the request presents, so two derived clients asking
+    // one question hashed to one entry and the second caller was served the
+    // first's governed response. Adding a fifth instance of that shape, to
+    // close a checklist item, on the one SDK that has no cache at all, is
+    // taking on the exact risk the others just paid to remove. If a cache is
+    // ever wanted here it gets built deliberately, with the identity in the key
+    // from the first commit.
+    //
+    // ONLY AN EXPLICIT `cache` THROWS. A blanket construction-time throw would
+    // break every existing application, including the overwhelming majority
+    // that never asked for a cache and merely accepted the default — which,
+    // because of that `!== false`, was every one of them. The distinction is
+    // the difference between a targeted, informative error and a breaking
+    // change for everyone.
+    if (config.cache !== undefined) {
+      throw new ConfigurationError(
+        'The `cache` option is not supported and has never had any effect: it was accepted ' +
+          'and normalised but read by no request path, so responses were never cached. It is ' +
+          'now refused rather than silently ignored, so the assumption is corrected at the ' +
+          'call site instead of at runtime. Remove the option. If you need caching, cache at ' +
+          'your own call site, where you control the key — note that any cache in front of ' +
+          'this SDK MUST include the effective user identity in its key, or a client derived ' +
+          'with asUser() can be served another identity\u2019s governed response. See ' +
+          'https://github.com/getaxonflow/axonflow-sdk-typescript/issues/267'
+      );
+    }
+
     // Credentials check: OAuth2-style (clientId/clientSecret)
     const hasCredentials = !!(config.clientId && config.clientSecret);
 
@@ -465,10 +503,6 @@ export class AxonFlow {
         enabled: config.retry?.enabled !== false,
         maxAttempts: config.retry?.maxAttempts ?? 3,
         delay: config.retry?.delay ?? 1000,
-      },
-      cache: {
-        enabled: config.cache?.enabled !== false,
-        ttl: config.cache?.ttl ?? 60000,
       },
     };
 
@@ -2961,9 +2995,16 @@ export class AxonFlow {
    * const rows = await forAlice.listDecisions();
    * ```
    *
-   * The returned client shares this one's cache, interceptors and session
-   * cookie — it is a view, not a new connection pool — so deriving one per
-   * request is cheap. Only the identity differs; this client is not modified.
+   * The returned client shares this one's interceptors and session cookie —
+   * it is a view, not a new connection pool — so deriving one per request is
+   * cheap.
+   *
+   * It shares no CACHE, because this SDK has none: the `cache` option was
+   * inert and is now refused (sdk-typescript#267). That absence is why this
+   * SDK was never exposed to the cross-user response leak the other four
+   * fixed — there is no shared entry to serve to the wrong identity. It is an
+   * absence of the mechanism, not a defence, which is exactly why any cache
+   * built here later must be identity-keyed from the first commit. Only the identity differs; this client is not modified.
    * The session cookie is copied by value, so a `loginToPortal` on either after
    * the derivation is invisible to the other; derive after logging in if the
    * derived client needs the portal plane, which authenticates with the cookie

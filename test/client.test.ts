@@ -98,14 +98,29 @@ describe('AxonFlow Client Unit Tests', () => {
           maxAttempts: 5,
           delay: 1000,
         },
-        cache: {
-          enabled: true,
-          ttl: 60000,
-        },
       };
 
       const client = new AxonFlow(config);
       expect(client).toBeDefined();
+    });
+
+    it('rejects the `cache` option, which is no longer part of a valid config', () => {
+      // `cache` used to be in the "full config" fixture above. It is removed
+      // rather than kept-and-expected-to-work, because the option never had any
+      // effect: it was accepted, normalised, and read by no request path
+      // (sdk-typescript#267). Passing it now throws, so it cannot be part of a
+      // config a test calls "full".
+      //
+      // Asserted here, next to the fixture it was removed from, so the removal
+      // reads as a deliberate contract change rather than a quiet deletion.
+      expect(
+        () =>
+          new AxonFlow({
+            clientId: 'my-client',
+            clientSecret: 'my-secret',
+            cache: { enabled: true, ttl: 60000 },
+          })
+      ).toThrow(/cache/);
     });
 
     it('should use default values for optional config', () => {
