@@ -114,7 +114,19 @@ export interface AxonFlowConfig {
   };
 
   /**
-   * Cache configuration for policy decisions
+   * @deprecated NOT SUPPORTED, and passing it now throws a
+   * `ConfigurationError` at construction.
+   *
+   * This option was accepted, normalised, and read by no request path — so
+   * responses were never cached, while the default resolved to
+   * `enabled: true` and every client reported caching ON. It is refused rather
+   * than silently ignored so the mistaken assumption is corrected at the call
+   * site instead of at runtime. See sdk-typescript#267.
+   *
+   * If you need caching, cache at your own call site, where you control the
+   * key. Any cache in front of this SDK **must** include the effective user
+   * identity in its key: without it, a client derived with `asUser()` can be
+   * served another identity's governed response.
    */
   cache?: {
     enabled: boolean;

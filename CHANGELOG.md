@@ -96,6 +96,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lost: the stamp is untouched, so the first attempt after the widened interval
   sends normally.
 
+### Removed
+
+- **The `cache` option is no longer accepted; passing it now throws a
+  `ConfigurationError` at construction (sdk-typescript#267).**
+
+  It never did anything. It was accepted, normalised into the internal config,
+  and read by **no request path** — so responses were never cached. Worse, the
+  default resolved to `enabled: true`, so every client reported caching as ON
+  and got none, and `asUser()`'s documentation claimed the derived client
+  "shares this one's cache".
+
+  A config option that silently does nothing is worse than an absent one: the
+  caller is making a cost and latency assumption the SDK does not honour, and
+  nothing tells them. Refusing it corrects that assumption at the call site
+  instead of at runtime.
+
+  **Only an explicitly passed `cache` throws.** A client that never mentions the
+  option is unaffected — which is the overwhelming majority, and is why this is
+  not a blanket breaking change despite the old default reporting caching on for
+  everyone.
+
+  **If you were passing it:** remove it. If you need caching, cache at your own
+  call site, where you control the key. Any cache in front of this SDK **must**
+  include the effective user identity in its key — without it, a client derived
+  with `asUser()` can be served another identity's governed response. That is
+  not hypothetical: the Go, Python, Java and Rust SDKs each shipped a fix for
+  exactly that defect, and it was invisible to their test suites because every
+  cache test used a single client.
+
+  Implementing the cache was the alternative and was rejected: adding a fifth
+  instance of that shape, on the one SDK that has none, is taking on the risk
+  the others just paid to remove. If a cache is wanted here later it gets built
+  deliberately, identity-keyed from the first commit.
+
 
 ## [9.2.0] - 2026-09-01: AuthZEN-native authorization surface
 
