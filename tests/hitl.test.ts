@@ -1,5 +1,5 @@
 // Copyright 2026 AxonFlow
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
 
 /**
  * Tests for HITL (Human-in-the-Loop) Queue API methods.
