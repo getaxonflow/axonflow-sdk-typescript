@@ -15,6 +15,7 @@
 import * as http from 'http';
 import { AddressInfo } from 'net';
 
+import type { PlatformHealthProbe } from '../src/telemetry';
 import { probePlatformHealth, sendTelemetryPing, sendTelemetryPingNow } from '../src/telemetry';
 
 const originalEnv = { ...process.env };
@@ -190,19 +191,45 @@ describe('license_tier on the telemetry wire (#3619)', () => {
   });
 
   it('learns version and tier independently, so one absence never discards the other', async () => {
-    const cases: Array<[string, { platformVersion: string | null; licenseTier: string | null }]> = [
+    // The probe grew two dimensions in #3682 (edition, platformDeploymentMode).
+    // None of these bodies carry them, so every row expects them NOT LEARNED —
+    // spelled out rather than loosened to objectContaining, because "a new
+    // dimension must not be inferred from a body that never mentioned it" is
+    // exactly the property this table exists to protect.
+    const cases: Array<[string, PlatformHealthProbe]> = [
       [
         JSON.stringify({ version: '10.3.0', tier: 'Enterprise' }),
-        { platformVersion: '10.3.0', licenseTier: 'Enterprise' },
+        {
+          platformVersion: '10.3.0',
+          licenseTier: 'Enterprise',
+          edition: null,
+          platformDeploymentMode: null,
+        },
       ],
       // The pre-#3619 probe returned early when `version` was empty; had the
       // tier been read after that guard, this row would report no tier at all.
       [
         JSON.stringify({ tier: 'Enterprise' }),
-        { platformVersion: null, licenseTier: 'Enterprise' },
+        {
+          platformVersion: null,
+          licenseTier: 'Enterprise',
+          edition: null,
+          platformDeploymentMode: null,
+        },
       ],
-      [JSON.stringify({ version: '10.3.0' }), { platformVersion: '10.3.0', licenseTier: null }],
-      [JSON.stringify({ status: 'healthy' }), { platformVersion: null, licenseTier: null }],
+      [
+        JSON.stringify({ version: '10.3.0' }),
+        {
+          platformVersion: '10.3.0',
+          licenseTier: null,
+          edition: null,
+          platformDeploymentMode: null,
+        },
+      ],
+      [
+        JSON.stringify({ status: 'healthy' }),
+        { platformVersion: null, licenseTier: null, edition: null, platformDeploymentMode: null },
+      ],
     ];
 
     for (const [body, want] of cases) {
@@ -228,6 +255,11 @@ describe('license_tier on the telemetry wire (#3619)', () => {
       await expect(probePlatformHealth(`http://127.0.0.1:${port}`, 400)).resolves.toEqual({
         platformVersion: null,
         licenseTier: null,
+        // The two dimensions added in #3682. Listed explicitly rather than
+        // loosened to objectContaining: a body that does not carry them must
+        // leave them NOT LEARNED, and that is worth asserting here too.
+        edition: null,
+        platformDeploymentMode: null,
       });
       const elapsed = Date.now() - started;
       // Bounded by the supplied budget, not by an independent per-probe
@@ -304,7 +336,14 @@ describe('license_tier on the telemetry wire (#3619)', () => {
       ]).finally(() => {
         if (watchdog !== undefined) clearTimeout(watchdog);
       });
-      expect(outcome).toEqual({ platformVersion: null, licenseTier: null });
+      // Every dimension unlearned, including the two added in #3682: a body
+      // that stalls yields NOTHING, not a partial read.
+      expect(outcome).toEqual({
+        platformVersion: null,
+        licenseTier: null,
+        edition: null,
+        platformDeploymentMode: null,
+      });
       expect(Date.now() - started).toBeLessThan(400 + 600);
     } finally {
       server.closeAllConnections?.();
@@ -329,6 +368,11 @@ describe('license_tier on the telemetry wire (#3619)', () => {
       await expect(probePlatformHealth(platform.url, 2000)).resolves.toEqual({
         platformVersion: '10.3.0',
         licenseTier: 'Enterprise',
+        // The two dimensions added in #3682. Listed explicitly rather than
+        // loosened to objectContaining: a body that does not carry them must
+        // leave them NOT LEARNED, and that is worth asserting here too.
+        edition: null,
+        platformDeploymentMode: null,
       });
       expect(clearSpy.mock.calls.length).toBeGreaterThan(before);
     } finally {

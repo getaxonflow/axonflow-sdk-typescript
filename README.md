@@ -10,8 +10,9 @@
 > **Taking a sponsored workflow to production?**
 >
 > Choose the path that fits:
+>
 > - **Self-serve:** free 90-day [Evaluation License](https://getaxonflow.com/evaluation-license?utm_source=readme_sdk_typescript_eval)
-> - **Paid production program:** [Design Partner or Confidential Pilot](https://getaxonflow.com/design-partner?utm_source=readme_sdk_typescript)  -  one scoped workflow over 60 or 75 days, founder-led rollout support, upfront conversion pricing, and a fixed decision date; public track from $2,000 or confidential track from $4,000
+> - **Paid production program:** [Design Partner or Confidential Pilot](https://getaxonflow.com/design-partner?utm_source=readme_sdk_typescript) - one scoped workflow over 60 or 75 days, founder-led rollout support, upfront conversion pricing, and a fixed decision date; public track from $2,000 or confidential track from $4,000
 >
 > The paid program requires a dated forcing event, written controls, an executive sponsor, and a technical owner. Prices are subject to eligibility and a signed agreement.
 
@@ -53,15 +54,15 @@ cd axonflow-sdk-typescript && npm install && npm run build && npm link
 
 Need more capacity than Community without moving to Enterprise? Evaluation uses the same core features with higher limits:
 
-| Limit | Community | Evaluation (Free) | Enterprise |
-|-------|-----------|-------------------|------------|
-| Tenant policies | 20 | 50 | Unlimited |
-| Org-wide policies | 0 | 5 | Unlimited |
-| Audit retention | 3 days | 14 days | 3650 days |
-| Concurrent executions | 5 | 25 | Unlimited |
-| Pending execution approvals | 5 | 25 | Unlimited |
-| Evidence export (CSV / JSON) | — | 5,000 records · 14d window · 3/day | Unlimited |
-| Policy simulation | — | 300 / day | Unlimited |
+| Limit                        | Community | Evaluation (Free)                  | Enterprise |
+| ---------------------------- | --------- | ---------------------------------- | ---------- |
+| Tenant policies              | 20        | 50                                 | Unlimited  |
+| Org-wide policies            | 0         | 5                                  | Unlimited  |
+| Audit retention              | 3 days    | 14 days                            | 3650 days  |
+| Concurrent executions        | 5         | 25                                 | Unlimited  |
+| Pending execution approvals  | 5         | 25                                 | Unlimited  |
+| Evidence export (CSV / JSON) | —         | 5,000 records · 14d window · 3/day | Unlimited  |
+| Policy simulation            | —         | 300 / day                          | Unlimited  |
 
 Concurrent executions applies to MAP and WCP executions per tenant. Pending execution approvals applies to MAP confirm/step mode and WCP approval queues.
 
@@ -101,7 +102,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const axonflow = new AxonFlow({
   clientId: process.env.AXONFLOW_CLIENT_ID,
   clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
-  endpoint: process.env.AXONFLOW_ENDPOINT || 'http://localhost:8080'
+  endpoint: process.env.AXONFLOW_ENDPOINT || 'http://localhost:8080',
 });
 
 const prompt = 'What is the capital of France?';
@@ -109,7 +110,7 @@ const prompt = 'What is the capital of France?';
 // Step 1: Pre-check policies
 const ctx = await axonflow.getPolicyApprovedContext({
   userToken: 'user-123',
-  query: prompt
+  query: prompt,
 });
 
 if (!ctx.approved) {
@@ -120,7 +121,7 @@ if (!ctx.approved) {
 const startTime = Date.now();
 const response = await openai.chat.completions.create({
   model: 'gpt-4',
-  messages: [{ role: 'user', content: prompt }]
+  messages: [{ role: 'user', content: prompt }],
 });
 const latencyMs = Date.now() - startTime;
 
@@ -133,9 +134,9 @@ await axonflow.auditLLMCall({
   tokenUsage: {
     promptTokens: response.usage?.prompt_tokens || 0,
     completionTokens: response.usage?.completion_tokens || 0,
-    totalTokens: response.usage?.total_tokens || 0
+    totalTokens: response.usage?.total_tokens || 0,
   },
-  latencyMs
+  latencyMs,
 });
 
 console.log('Response:', response.choices[0].message.content);
@@ -151,7 +152,7 @@ import { AxonFlow } from '@axonflow/sdk';
 const axonflow = new AxonFlow({
   clientId: process.env.AXONFLOW_CLIENT_ID,
   clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
-  endpoint: 'http://localhost:8080'
+  endpoint: 'http://localhost:8080',
 });
 
 // Single call - policies checked, query processed, audit logged
@@ -161,8 +162,8 @@ const response = await axonflow.executeQuery({
   requestType: 'chat',
   context: {
     provider: 'openai',
-    model: 'gpt-4'
-  }
+    model: 'gpt-4',
+  },
 });
 
 if (response.success) {
@@ -182,7 +183,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Self-hosted (localhost) - no license key needed!
 const axonflow = new AxonFlow({
-  endpoint: 'http://localhost:8080'
+  endpoint: 'http://localhost:8080',
   // That's it - no authentication required for localhost
 });
 
@@ -191,7 +192,7 @@ const prompt = 'Test with self-hosted AxonFlow';
 
 const ctx = await axonflow.getPolicyApprovedContext({
   userToken: 'user-123',
-  query: prompt
+  query: prompt,
 });
 
 if (!ctx.approved) {
@@ -201,7 +202,7 @@ if (!ctx.approved) {
 const startTime = Date.now();
 const response = await openai.chat.completions.create({
   model: 'gpt-4',
-  messages: [{ role: 'user', content: prompt }]
+  messages: [{ role: 'user', content: prompt }],
 });
 
 // Don't forget to audit!
@@ -213,15 +214,16 @@ await axonflow.auditLLMCall({
   tokenUsage: {
     promptTokens: response.usage?.prompt_tokens || 0,
     completionTokens: response.usage?.completion_tokens || 0,
-    totalTokens: response.usage?.total_tokens || 0
+    totalTokens: response.usage?.total_tokens || 0,
   },
-  latencyMs: Date.now() - startTime
+  latencyMs: Date.now() - startTime,
 });
 
 console.log(response.choices[0].message.content);
 ```
 
 **Self-hosted deployment:**
+
 ```bash
 # Clone and start AxonFlow
 git clone https://github.com/getaxonflow/axonflow.git
@@ -233,6 +235,7 @@ docker-compose up
 ```
 
 **Features:**
+
 - ✅ Full AxonFlow features without license
 - ✅ Perfect for local development and testing
 - ✅ Same API as production
@@ -249,7 +252,7 @@ import { AxonFlow, PolicyViolationError } from '@axonflow/sdk';
 
 const axonflow = new AxonFlow({
   clientId: process.env.AXONFLOW_CLIENT_ID,
-  clientSecret: process.env.AXONFLOW_CLIENT_SECRET
+  clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
 });
 
 // Execute a chat query with policy enforcement
@@ -259,8 +262,8 @@ const response = await axonflow.executeQuery({
   requestType: 'chat',
   context: {
     provider: 'openai',
-    model: 'gpt-4'
-  }
+    model: 'gpt-4',
+  },
 });
 
 if (response.success) {
@@ -276,7 +279,7 @@ try {
   await axonflow.executeQuery({
     userToken: 'user-123',
     query: 'Process this SSN: 123-45-6789',
-    requestType: 'chat'
+    requestType: 'chat',
   });
 } catch (error) {
   if (error instanceof PolicyViolationError) {
@@ -293,7 +296,7 @@ try {
 const sqlResponse = await axonflow.executeQuery({
   userToken: 'analyst-user',
   query: 'SELECT name, email FROM customers WHERE status = active LIMIT 100',
-  requestType: 'sql'
+  requestType: 'sql',
 });
 ```
 
@@ -313,13 +316,13 @@ if (health.status === 'healthy') {
 
 ### Request Types
 
-| Request Type | Description |
-|--------------|-------------|
-| `chat` | General chat/LLM queries |
-| `sql` | SQL queries (with injection detection) |
-| `mcp-query` | MCP connector queries |
-| `multi-agent-plan` | Generate multi-agent plans |
-| `execute-plan` | Execute a generated plan |
+| Request Type       | Description                            |
+| ------------------ | -------------------------------------- |
+| `chat`             | General chat/LLM queries               |
+| `sql`              | SQL queries (with injection detection) |
+| `mcp-query`        | MCP connector queries                  |
+| `multi-agent-plan` | Generate multi-agent plans             |
+| `execute-plan`     | Execute a generated plan               |
 
 ## Gateway Mode (Direct LLM Calls)
 
@@ -330,7 +333,7 @@ Gateway Mode is for advanced users who want to make direct LLM calls while still
 const ctx = await axonflow.getPolicyApprovedContext({
   userToken: 'user-jwt',
   query: 'Analyze customer data',
-  dataSources: ['postgres']
+  dataSources: ['postgres'],
 });
 
 if (!ctx.approved) {
@@ -340,7 +343,7 @@ if (!ctx.approved) {
 // Step 2: Make direct LLM call with approved data
 const llmResponse = await openai.chat.completions.create({
   model: 'gpt-4',
-  messages: [{ role: 'user', content: JSON.stringify(ctx.approvedData) }]
+  messages: [{ role: 'user', content: JSON.stringify(ctx.approvedData) }],
 });
 
 // Step 3: Audit the call
@@ -352,9 +355,9 @@ await axonflow.auditLLMCall({
   tokenUsage: {
     promptTokens: llmResponse.usage.prompt_tokens,
     completionTokens: llmResponse.usage.completion_tokens,
-    totalTokens: llmResponse.usage.total_tokens
+    totalTokens: llmResponse.usage.total_tokens,
   },
-  latencyMs: 250
+  latencyMs: 250,
 });
 ```
 
@@ -367,7 +370,7 @@ import { useState } from 'react';
 const axonflow = new AxonFlow({
   clientId: process.env.REACT_APP_AXONFLOW_CLIENT_ID,
   clientSecret: process.env.REACT_APP_AXONFLOW_CLIENT_SECRET,
-  endpoint: process.env.REACT_APP_AXONFLOW_ENDPOINT || 'http://localhost:8080'
+  endpoint: process.env.REACT_APP_AXONFLOW_ENDPOINT || 'http://localhost:8080',
 });
 
 function ChatComponent() {
@@ -382,7 +385,7 @@ function ChatComponent() {
       const result = await axonflow.executeQuery({
         userToken: 'user-123', // Replace with actual user token
         query: prompt,
-        requestType: 'chat'
+        requestType: 'chat',
       });
 
       if (result.success) {
@@ -411,7 +414,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const axonflow = new AxonFlow({
   clientId: process.env.AXONFLOW_CLIENT_ID,
   clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
-  endpoint: process.env.AXONFLOW_ENDPOINT || 'http://localhost:8080'
+  endpoint: process.env.AXONFLOW_ENDPOINT || 'http://localhost:8080',
 });
 
 export default async function handler(req, res) {
@@ -421,7 +424,7 @@ export default async function handler(req, res) {
     // Step 1: Pre-check policies
     const ctx = await axonflow.getPolicyApprovedContext({
       userToken: userToken || 'anonymous',
-      query: prompt
+      query: prompt,
     });
 
     if (!ctx.approved) {
@@ -432,7 +435,7 @@ export default async function handler(req, res) {
     const startTime = Date.now();
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }]
+      messages: [{ role: 'user', content: prompt }],
     });
     const latencyMs = Date.now() - startTime;
 
@@ -445,9 +448,9 @@ export default async function handler(req, res) {
       tokenUsage: {
         promptTokens: completion.usage?.prompt_tokens || 0,
         completionTokens: completion.usage?.completion_tokens || 0,
-        totalTokens: completion.usage?.total_tokens || 0
+        totalTokens: completion.usage?.total_tokens || 0,
       },
-      latencyMs
+      latencyMs,
     });
 
     res.json({ success: true, response: completion.choices[0].message.content });
@@ -545,20 +548,20 @@ The wire types AND their runtime validators are **generated** from the platform'
 ```typescript
 const axonflow = new AxonFlow({
   // Authentication (OAuth2 client credentials)
-  clientId: 'your-client-id',         // Required for cloud/enterprise
+  clientId: 'your-client-id', // Required for cloud/enterprise
   clientSecret: 'your-client-secret', // Required for cloud/enterprise
 
   // Optional settings
-  mode: 'production',                // or 'sandbox' for testing
+  mode: 'production', // or 'sandbox' for testing
   endpoint: 'https://staging-eu.getaxonflow.com', // Default public endpoint
-  tenant: 'your-tenant-id',         // For multi-tenant setups
-  debug: true,                       // Enable debug logging
+  tenant: 'your-tenant-id', // For multi-tenant setups
+  debug: true, // Enable debug logging
 
   // Cache configuration
   cache: {
     enabled: true,
-    ttl: 60000  // 1 minute
-  }
+    ttl: 60000, // 1 minute
+  },
 });
 ```
 
@@ -582,14 +585,15 @@ For customers running within AWS VPC, use the private endpoint for lowest latenc
 const axonflow = new AxonFlow({
   clientId: process.env.AXONFLOW_CLIENT_ID,
   clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
-  endpoint: 'https://vpc-private-endpoint.getaxonflow.com:8443',  // VPC private endpoint
-  mode: 'production'
+  endpoint: 'https://vpc-private-endpoint.getaxonflow.com:8443', // VPC private endpoint
+  mode: 'production',
 });
 
 // VPC deployment provides lowest latency due to intra-VPC routing
 ```
 
 **Network Latency Characteristics:**
+
 - Public endpoint: Higher latency (internet routing overhead)
 - VPC private endpoint: Lower latency (intra-VPC routing)
 
@@ -608,7 +612,7 @@ try {
   const response = await axonflow.executeQuery({
     userToken: 'test-user',
     query: 'My SSN is 123-45-6789',
-    requestType: 'chat'
+    requestType: 'chat',
   });
 } catch (error) {
   // Expected: PolicyViolationError - PII detected
@@ -626,6 +630,7 @@ try {
 ## What Gets Protected?
 
 AxonFlow automatically:
+
 - **Blocks** prompts containing sensitive data (PII, credentials, etc.)
 - **Redacts** personal information from responses
 - **Enforces** rate limits and usage quotas
@@ -639,11 +644,11 @@ AxonFlow automatically:
 **per-user identity** you present, not to the tenant credential. Since platform
 #2922:
 
-| What you present | What an enterprise stack returns |
-|---|---|
-| a tenant-wide role (`admin`, `owner`, `policy_admin`) | the whole tenant |
-| any other identity (`developer`, `viewer`) | only the rows attributed to it |
-| **no identity** | **nothing at all** — every list is empty, every explain is not-found |
+| What you present                                      | What an enterprise stack returns                                     |
+| ----------------------------------------------------- | -------------------------------------------------------------------- |
+| a tenant-wide role (`admin`, `owner`, `policy_admin`) | the whole tenant                                                     |
+| any other identity (`developer`, `viewer`)            | only the rows attributed to it                                       |
+| **no identity**                                       | **nothing at all** — every list is empty, every explain is not-found |
 
 `clientId`/`clientSecret` authenticate the **organization**. They do not say who
 is asking, so on their own they land in the third row. Community and
@@ -699,7 +704,7 @@ rows — the error reports the scope the read ran under, never a claim about wha
 exists.
 
 > **A valid token can still resolve to nobody.** The platform reserves the whole
-> of `@axonflow.local` and `@axonflow.internal` for *shared* identities and
+> of `@axonflow.local` and `@axonflow.internal` for _shared_ identities and
 > censuses them to nothing before scoping. A correctly-signed developer token
 > minted at `demo-user@axonflow.local` — which is `generate-jwt.sh`'s own
 > default — reads zero rows and reports `identityMissing`, exactly like no token
@@ -721,7 +726,7 @@ try {
   const response = await axonflow.executeQuery({
     userToken: 'user-123',
     query: prompt,
-    requestType: 'chat'
+    requestType: 'chat',
   });
 } catch (error) {
   if (error instanceof PolicyViolationError) {
@@ -744,14 +749,16 @@ try {
 ## Production Best Practices
 
 1. **Environment Variables**: Never hardcode credentials
+
    ```typescript
    const axonflow = new AxonFlow({
      clientId: process.env.AXONFLOW_CLIENT_ID,
-     clientSecret: process.env.AXONFLOW_CLIENT_SECRET
+     clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
    });
    ```
 
 2. **Fail Open**: In production, AxonFlow fails open if unreachable
+
    ```typescript
    // If AxonFlow is down, the original call proceeds
    // This ensures your app stays operational
@@ -762,7 +769,7 @@ try {
    const axonflow = new AxonFlow({
      clientId: process.env.AXONFLOW_CLIENT_ID,
      clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
-     tenant: getCurrentTenantId()
+     tenant: getCurrentTenantId(),
    });
    ```
 
@@ -776,14 +783,14 @@ Complete working examples for all features are available in the [examples folder
 // PII Detection - Automatically detect sensitive data
 const result = await axonflow.getPolicyApprovedContext({
   userToken: 'user-123',
-  query: 'My SSN is 123-45-6789'
+  query: 'My SSN is 123-45-6789',
 });
 // result.approved = true, result.requiresRedaction = true (SSN detected)
 
 // SQL Injection Detection - Block prohibited queries
 const result = await axonflow.getPolicyApprovedContext({
   userToken: 'user-123',
-  query: "SELECT * FROM users WHERE role = 'admin'"
+  query: "SELECT * FROM users WHERE role = 'admin'",
 });
 // result.approved = false, result.blockReason = "SQL query policy violation"
 
@@ -795,7 +802,7 @@ const policies = await axonflow.listPolicies();
 await axonflow.createDynamicPolicy({
   name: 'block-competitor-queries',
   conditions: { contains: ['competitor', 'pricing'] },
-  action: 'block'
+  action: 'block',
 });
 
 // MCP Connectors - Query external data sources
@@ -813,7 +820,7 @@ await axonflow.auditLLMCall({
   provider: 'openai',
   model: 'gpt-4',
   tokenUsage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
-  latencyMs: 450
+  latencyMs: 450,
 });
 ```
 
@@ -827,7 +834,7 @@ const prResult = await axonflow.reviewPullRequest({
   repoOwner: 'your-org',
   repoName: 'your-repo',
   prNumber: 123,
-  checkTypes: ['security', 'style', 'performance']
+  checkTypes: ['security', 'style', 'performance'],
 });
 
 // Cost Controls - Budget management for LLM usage
@@ -881,9 +888,9 @@ await axonflow.installConnector({
     // Host/port as seen from the platform (orchestrator), not from this
     // process — 'redis' on the docker-compose stack.
     host: 'redis',
-    port: 6379
+    port: 6379,
   },
-  credentials: {}
+  credentials: {},
 });
 
 console.log('Connector installed successfully!');
@@ -894,13 +901,9 @@ console.log('Connector installed successfully!');
 ```typescript
 // Query the Redis connector. Redis connector queries are command
 // statements (GET / EXISTS / TTL / KEYS) with the key in params.
-const resp = await axonflow.queryConnector(
-  'redis-cache',
-  'GET',
-  {
-    key: 'user:123:preferences'
-  }
-);
+const resp = await axonflow.queryConnector('redis-cache', 'GET', {
+  key: 'user:123:preferences',
+});
 
 if (resp.success) {
   console.log('Redis data:', resp.data);
@@ -923,7 +926,7 @@ const contacts = await axonflow.queryConnector(
   'salesforce-crm',
   'Find all contacts for account Acme Corp',
   {
-    soql: "SELECT Id, Name, Email, Phone FROM Contact WHERE AccountId = '001xx000003DHP0'"
+    soql: "SELECT Id, Name, Email, Phone FROM Contact WHERE AccountId = '001xx000003DHP0'",
   }
 );
 
@@ -948,7 +951,7 @@ const analytics = await axonflow.queryConnector(
           FROM orders
           WHERE order_date >= DATEADD(month, -12, CURRENT_DATE())
           GROUP BY month
-          ORDER BY month`
+          ORDER BY month`,
   }
 );
 
@@ -974,10 +977,10 @@ const result = await axonflow.queryConnector(
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Deployment Status*\n✅ All systems operational'
-        }
-      }
-    ]
+          text: '*Deployment Status*\n✅ All systems operational',
+        },
+      },
+    ],
   }
 );
 
@@ -988,15 +991,15 @@ console.log('Message sent:', result.success);
 
 #### Available Connectors
 
-| Connector | Type | Use Case |
-|-----------|------|----------|
-| PostgreSQL | Database | Relational data access |
-| Redis | Cache | Distributed rate limiting |
-| Slack | Communication | Team notifications |
-| Salesforce | CRM | Customer data, SOQL queries |
-| Snowflake | Data Warehouse | Analytics, reporting |
-| Amadeus GDS | Travel | Flight/hotel booking |
-| Cassandra | NoSQL | Distributed database |
+| Connector   | Type           | Use Case                    |
+| ----------- | -------------- | --------------------------- |
+| PostgreSQL  | Database       | Relational data access      |
+| Redis       | Cache          | Distributed rate limiting   |
+| Slack       | Communication  | Team notifications          |
+| Salesforce  | CRM            | Customer data, SOQL queries |
+| Snowflake   | Data Warehouse | Analytics, reporting        |
+| Amadeus GDS | Travel         | Flight/hotel booking        |
+| Cassandra   | NoSQL          | Distributed database        |
 
 For complete connector documentation, see [https://docs.getaxonflow.com/docs/mcp/overview](https://docs.getaxonflow.com/docs/mcp/overview)
 
@@ -1052,7 +1055,7 @@ Generate and execute complex multi-step plans using AI agent orchestration:
 // Generate a travel planning workflow
 const plan = await axonflow.generatePlan(
   'Plan a 3-day trip to Paris with moderate budget',
-  'travel'  // Domain hint (optional)
+  'travel' // Domain hint (optional)
 );
 
 console.log(`Generated plan ${plan.planId} with ${plan.steps.length} steps`);
@@ -1111,7 +1114,7 @@ async function planTrip() {
   const axonflow = new AxonFlow({
     clientId: process.env.AXONFLOW_CLIENT_ID,
     clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
-    debug: true
+    debug: true,
   });
 
   // 1. Generate multi-agent plan
@@ -1145,25 +1148,28 @@ planTrip().catch(console.error);
 If you're using older authentication methods (`apiKey` or `licenseKey`), migrate to OAuth2 client credentials:
 
 **Before (v2.x):**
+
 ```typescript
 const axonflow = new AxonFlow({
-  apiKey: process.env.AXONFLOW_API_KEY
+  apiKey: process.env.AXONFLOW_API_KEY,
 });
 // or
 const axonflow = new AxonFlow({
-  licenseKey: process.env.AXONFLOW_LICENSE_KEY
+  licenseKey: process.env.AXONFLOW_LICENSE_KEY,
 });
 ```
 
 **After (v3.x):**
+
 ```typescript
 const axonflow = new AxonFlow({
   clientId: process.env.AXONFLOW_CLIENT_ID,
-  clientSecret: process.env.AXONFLOW_CLIENT_SECRET
+  clientSecret: process.env.AXONFLOW_CLIENT_SECRET,
 });
 ```
 
 **How to get credentials:**
+
 1. Contact AxonFlow support at [hello@getaxonflow.com](mailto:hello@getaxonflow.com)
 2. Credentials are provided as part of your AxonFlow subscription
 3. Store credentials securely in environment variables or secrets management systems
@@ -1201,6 +1207,48 @@ The value is read from the `tier` field of the platform's own `/health` response
 The field is **omitted entirely** whenever the tier could not be determined — the platform is unreachable, returns an error, returns an unparseable body, or returns no `tier` field. It is never defaulted to a guessed value, so an absent field means "not known", never "community".
 
 `AXONFLOW_TELEMETRY=off` suppresses this field along with the rest of the heartbeat.
+
+### Platform build and deployment mode (`edition`, `platform_deployment_mode`)
+
+Each heartbeat also reports which **build** the connected platform is running (`edition`: `community` or `enterprise`) and the platform's **own deployment mode** (`platform_deployment_mode`). Neither is derivable from the other or from the licence tier — the Community SaaS fleet runs the _enterprise_ build against the _community-saas_ schema.
+
+Both are read from the platform's own `/health` response — the **same response** the heartbeat already fetches for the platform version and licence tier. **No additional network request is made.** Both are **omitted entirely** when the platform did not report them; an absent field means "not known" and is never defaulted.
+
+These are adoption-analytics signals, **not entitlement ones**: whoever operates your configured endpoint controls both values and the SDK verifies neither.
+
+> One naming caution for anyone reading raw payloads: the heartbeat's own `deployment_mode` field is a **different** dimension — a coarse topology this SDK derives from the endpoint URL you configured. The platform's own mode travels as `platform_deployment_mode`.
+
+### Declaring a framework adapter (`registerAdapter`)
+
+If you are building a framework integration on top of this SDK, you can declare it so aggregate adoption figures can tell adapter-driven usage apart from bare SDK usage. Without this they are indistinguishable: an adapter reports the same `sdk`, the same `sdk_version` and the same endpoint as any other client.
+
+```typescript
+import { registerAdapter } from '@axonflow/sdk';
+
+registerAdapter('my-framework');
+```
+
+**The SDK's own `AxonFlowLangGraphAdapter` already does this**, so simply using it is enough — no telemetry code in your application.
+
+The name is added to the `features` array of the heartbeat that already fires, as `adapter:my-framework`. **It adds no network request**, and calling `registerAdapter` does not itself send anything. It is idempotent.
+
+The heartbeat fires on the client's **first outbound request**, not at construction, so anything registered before that request is on the very first ping. A name registered afterwards rides the next heartbeat.
+
+What is and is not collected:
+
+- **Collected:** the adapter name you pass, lowercased and trimmed.
+- **Not collected:** anything about what the adapter _does_ — no prompts, no payloads, no tool names, no user identities, no configuration.
+
+Bounds, so a malformed call cannot damage the ping it rides on:
+
+- A name longer than **64 bytes** is **dropped whole**, never truncated — a truncated adapter name is a name nothing is running. A name that is empty after trimming, or not a string, is ignored.
+- The `features` array carries at most **32 entries**, none longer than **128 bytes**.
+
+The name is **not** validated against a list of known frameworks. The canonical vocabulary lives on the receiving service, which folds an unrecognised name into an `adapter:unknown` bucket while keeping the raw name on the row.
+
+> **`heartbeatReady` moved with the trigger.** It resolves after the first request's heartbeat rather than after a constructor ping, and stays pending for a client that never sends a request. If you `await client.heartbeatReady` in a short-lived process, move that await to **after** your first API call.
+
+`AXONFLOW_TELEMETRY=off` suppresses all of the above along with the rest of the heartbeat.
 
 `DO_NOT_TRACK` is **not** honored as an opt-out for AxonFlow telemetry. It is commonly inherited from host tools and developer environments, which makes it an unreliable expression of user intent.
 

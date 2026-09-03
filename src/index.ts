@@ -481,3 +481,7 @@ export { VERSION } from './version';
 // Default export for convenience
 import { AxonFlow } from './client';
 export default AxonFlow;
+
+// Telemetry: declaring a framework adapter on the existing heartbeat.
+// See telemetry.ts registerAdapter; it performs no I/O.
+export { registerAdapter } from './telemetry';
