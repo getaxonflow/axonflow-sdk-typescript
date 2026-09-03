@@ -29,6 +29,24 @@ import * as path from 'path';
 const CLIENT = path.join(__dirname, '..', 'src', 'client.ts');
 
 /**
+ * Modules deliberately OUTSIDE this census, and why.
+ *
+ * `src/community.ts` issues one bare `fetch` to `/api/v1/register` from
+ * `registerTry`, a MODULE-LEVEL exported function rather than a client method:
+ * registration is how a tenant is created, so there is no client and no
+ * configured endpoint for a heartbeat to describe. Pinging there would report a
+ * deployment that does not exist yet. The Go SDK exempts `register.go` and the
+ * Python SDK exempts `community.py` on identical grounds.
+ *
+ * Named here rather than left implicit, so "the census only reads client.ts" is
+ * a decision on the record instead of an accident of scope.
+ */
+const OUT_OF_SCOPE_MODULES: Record<string, string> = {
+  'src/community.ts':
+    'module-level tenant registration — no client, no endpoint, nothing for a heartbeat to describe',
+};
+
+/**
  * A bare `fetch(` — but NOT `this._fetch(`, which is the wrapper, and not a
  * `.fetch(` method call on some other object.
  *
@@ -81,6 +99,17 @@ describe('the heartbeat request-site census', () => {
       // reporting a bare number nobody can act on.
     ).toBe(ALLOWED_BARE_FETCH_CALLS);
     expect(rendered).toContain('fetch(');
+  });
+
+  it('the out-of-scope modules still look the way this census assumes', () => {
+    // The exclusion rests on `registerTry` being module-level and client-free.
+    // If that stops being true the exclusion is stale, so the premise is
+    // asserted rather than trusted.
+    const community = fs.readFileSync(path.join(__dirname, '..', 'src', 'community.ts'), 'utf8');
+    expect(Object.keys(OUT_OF_SCOPE_MODULES)).toContain('src/community.ts');
+    expect(community).toContain('export async function registerTry');
+    expect(community).not.toContain('this._fetch');
+    expect(community).not.toContain('_preRequestHook');
   });
 
   it('the needle has no false positives', () => {

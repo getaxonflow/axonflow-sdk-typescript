@@ -118,9 +118,14 @@ const adapterRegistry = new Set<string>();
  * that already fires; there is no second ping, no second endpoint and no new
  * configuration surface. Calling it does not itself send anything.
  *
- * CALL IT BEFORE CONSTRUCTING THE CLIENT for day-one attribution: the client
- * consults the heartbeat gate at construction, so a name registered afterwards
- * rides the NEXT heartbeat rather than the first.
+ * CALL IT BEFORE YOUR FIRST API CALL for day-one attribution. The heartbeat
+ * fires on the client's FIRST OUTBOUND REQUEST, not at construction, so
+ * anything registered before that request is on the very first ping and a name
+ * registered afterwards rides the next heartbeat.
+ *
+ * The SDK's own `AxonFlowLangGraphAdapter` registers from its constructor, so
+ * simply using it is enough — an adapter is necessarily built after the client
+ * and before any call through it.
  *
  * Idempotent. Repeat registrations of the same name collapse to one entry.
  *

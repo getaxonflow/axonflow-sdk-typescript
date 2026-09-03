@@ -91,6 +91,17 @@ function record(req: http.IncomingMessage, seen: SeenRequest[]): Promise<void> {
   });
 }
 
+/**
+ * The telemetry POSTs the listener saw.
+ *
+ * FILTERED, because these fixtures point the SDK's endpoint AND its checkpoint
+ * at one listener, so it also records the `/health` probe and the API call.
+ * Asserting on the raw length counted three and said nothing about delivery.
+ */
+function pings(seen: SeenRequest[]): SeenRequest[] {
+  return seen.filter(r => r.method === 'POST' && r.url.endsWith('/v1/ping'));
+}
+
 // ---------------------------------------------------------------------------
 // Item 1 — the registry
 // ---------------------------------------------------------------------------
@@ -353,7 +364,7 @@ describe('redirect refusal', () => {
     try {
       const delivered = await sendTelemetryPingNow({ mode: 'production', endpoint: '' });
       expect(delivered).toBe(true);
-      expect(checkpoint.seen).toHaveLength(1);
+      expect(pings(checkpoint.seen)).toHaveLength(1);
       const body = JSON.parse(checkpoint.seen[0].body);
       expect(body.features).toEqual(['adapter:litellm']);
       expect(body.telemetry_type).toBe('sdk');
@@ -406,6 +417,59 @@ describe('heartbeatReady', () => {
     expect(settled).toBe('pending');
   });
 
+  it('resolves for a client derived with asUser(), on ITS first request', async () => {
+    // `asUser()` derives with `Object.assign`, which copies the promise but
+    // cannot copy a WeakMap entry keyed on the parent. Keyed on `this`, a
+    // derived client's first request resolved NOTHING and this await hung
+    // forever — while the README told callers to await exactly that. The
+    // resolver is keyed on `heartbeatRoot`, which Object.assign does copy.
+    const checkpoint = await listen((req, res, seen) => {
+      void record(req, seen).then(() => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{}');
+      });
+    });
+    const previousUrl = process.env.AXONFLOW_CHECKPOINT_URL;
+    const previousOff = process.env.AXONFLOW_TELEMETRY;
+    process.env.AXONFLOW_CHECKPOINT_URL = `${checkpoint.url}/v1/ping`;
+    process.env.AXONFLOW_TELEMETRY = '';
+
+    const { AxonFlow } = await import('../src/client');
+    const { replaceHeartbeatStateForTest, restoreHeartbeatStateForTest } = await import(
+      '../src/heartbeat'
+    );
+    const previousState = replaceHeartbeatStateForTest(null);
+    try {
+      const parent = new AxonFlow({ endpoint: checkpoint.url });
+      const derived = parent.asUser('alice-token');
+
+      // Only the DERIVED client sends. The parent never does.
+      await derived.listDecisions().catch(() => undefined);
+
+      const settled = await Promise.race([
+        derived.heartbeatReady.then(() => 'resolved'),
+        new Promise<string>(resolve => setTimeout(() => resolve('pending'), 2000)),
+      ]);
+      expect(settled).toBe('resolved');
+      expect(pings(checkpoint.seen)).toHaveLength(1);
+
+      // The parent's promise is the SAME object, so it is settled too — one
+      // heartbeat per process, one promise, whichever client sends first.
+      const parentSettled = await Promise.race([
+        parent.heartbeatReady.then(() => 'resolved'),
+        new Promise<string>(resolve => setTimeout(() => resolve('pending'), 250)),
+      ]);
+      expect(parentSettled).toBe('resolved');
+    } finally {
+      restoreHeartbeatStateForTest(previousState);
+      if (previousUrl === undefined) delete process.env.AXONFLOW_CHECKPOINT_URL;
+      else process.env.AXONFLOW_CHECKPOINT_URL = previousUrl;
+      if (previousOff === undefined) delete process.env.AXONFLOW_TELEMETRY;
+      else process.env.AXONFLOW_TELEMETRY = previousOff;
+      await checkpoint.close();
+    }
+  });
+
   it('resolves once the first request has run the gate', async () => {
     const checkpoint = await listen((req, res, seen) => {
       void record(req, seen).then(() => {
@@ -434,6 +498,13 @@ describe('heartbeatReady', () => {
         new Promise<string>(resolve => setTimeout(() => resolve('pending'), 2000)),
       ]);
       expect(settled).toBe('resolved');
+
+      // AND THE POST ACTUALLY LANDED BY THEN. Without this, replacing the
+      // awaited `flushHeartbeat()` with a fire-and-forget `void flushHeartbeat()`
+      // survives — the promise resolves, a caller does `process.exit(0)`, and
+      // the ping is truncated. "Resolved" is not the contract; "resolved AFTER
+      // delivery settled" is.
+      expect(pings(checkpoint.seen)).toHaveLength(1);
     } finally {
       restoreHeartbeatStateForTest(previousState);
       if (previousUrl === undefined) delete process.env.AXONFLOW_CHECKPOINT_URL;
@@ -442,5 +513,26 @@ describe('heartbeatReady', () => {
       else process.env.AXONFLOW_TELEMETRY = previousOff;
       await checkpoint.close();
     }
+  });
+});
+
+describe('the shipped LangGraph adapter', () => {
+  it('declares itself from its constructor', async () => {
+    // MUTATION GATE: delete `registerAdapter('langgraph')` from
+    // AxonFlowLangGraphAdapter's constructor and this fails.
+    //
+    // Before this test only the runtime-e2e driver caught that mutant, and the
+    // e2e does not run in the unit job — so the registration could have been
+    // removed and jest would have stayed green. A pin that only a
+    // never-executed suite enforces is not a pin.
+    const { AxonFlowLangGraphAdapter } = await import('../src/adapters/langgraph');
+
+    // Positive control: the import ALONE registers nothing. Without this the
+    // assertion below would also pass for import-time registration, which is a
+    // different (over-reporting) contract.
+    expect(registeredFeatures()).toEqual([]);
+
+    new AxonFlowLangGraphAdapter({} as never, 'wf');
+    expect(registeredFeatures()).toEqual(['adapter:langgraph']);
   });
 });

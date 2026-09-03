@@ -213,7 +213,34 @@ import {
 } from './read-identity';
 import type { ReadIdentityOptions } from './read-identity';
 
-const heartbeatReadyResolvers = new WeakMap<object, () => void>();
+interface HeartbeatReadyState {
+  resolve: () => void;
+  settled: boolean;
+}
+
+/**
+ * State backing each client's {@link AxonFlow.heartbeatReady}, keyed by the
+ * client's `heartbeatRoot`.
+ *
+ * KEYED ON THE ROOT, NOT ON `this`, AND THAT IS A BUG FIX RATHER THAN A
+ * REFINEMENT. `asUser()` derives with `Object.assign(derived, this)`, which
+ * copies the `heartbeatReady` PROMISE onto the derived client but cannot copy a
+ * WeakMap entry keyed on the parent. Keyed on `this`, a derived client's first
+ * request looked up nothing, resolved nothing, and `await derived.heartbeatReady`
+ * hung forever — while the README told callers to await exactly that after
+ * their first call. A documented deadlock.
+ *
+ * `heartbeatRoot` is a plain own property, so `Object.assign` copies it and every
+ * derived client reaches the same entry. That is also the correct semantics: the
+ * heartbeat gate is process-global, there is ONE ping, and the promise copied
+ * onto the derived client is the same object — so whichever client sends first
+ * settles it for all of them.
+ *
+ * It is a non-function property, which keeps the `read-identity.test.ts`
+ * invariant ("a fresh instance has no own-property functions") green — that test
+ * is what caught the first attempt at storing a resolver on the instance.
+ */
+const heartbeatReadyState = new WeakMap<object, HeartbeatReadyState>();
 
 /**
  * Redirect statuses the identity-aware follower handles, and the hop bound.
@@ -378,8 +405,14 @@ export class AxonFlow {
    */
   public readonly heartbeatReady: Promise<void>;
 
-  /** Guards the {@link heartbeatReady} resolver to a single call. */
-  private heartbeatReadySettled = false;
+  /**
+   * Identity of the client that owns this heartbeat promise.
+   *
+   * `this` on an original client; copied by `Object.assign` onto every client
+   * derived from it with `asUser()`, so a derived client settles the SAME
+   * promise rather than one nothing can reach. See {@link heartbeatReadyState}.
+   */
+  private readonly heartbeatRoot: object = this;
 
   constructor(config: AxonFlowConfig) {
     // Configuration validation
@@ -476,7 +509,7 @@ export class AxonFlow {
       //
       // A WeakMap also means the entry disappears with the client rather than
       // pinning it alive.
-      heartbeatReadyResolvers.set(this, resolve);
+      heartbeatReadyState.set(this, { resolve, settled: false });
     });
   }
 
@@ -509,13 +542,20 @@ export class AxonFlow {
     // delivery it started has settled. Guarded to one call: this hook runs on
     // every request, and re-resolving is harmless but chaining flushHeartbeat
     // on every request would not be.
-    if (!this.heartbeatReadySettled) {
-      this.heartbeatReadySettled = true;
+    const state = heartbeatReadyState.get(this.heartbeatRoot);
+    if (state && !state.settled) {
+      state.settled = true;
+      // AWAITED, not fire-and-forget. `heartbeatReady` exists so a short-lived
+      // process can `await` it and then exit without truncating the POST, so
+      // resolving before the in-flight delivery settles would make the promise
+      // a lie — it would resolve, the caller would `process.exit(0)`, and the
+      // ping would be lost. `telemetry-adapter-registry.test.ts` asserts the
+      // checkpoint actually received the POST at the moment this resolves.
       const inFlight = flushHeartbeat();
       if (inFlight) {
         await inFlight;
       }
-      heartbeatReadyResolvers.get(this)?.();
+      state.resolve();
     }
   }
 

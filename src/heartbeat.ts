@@ -6,8 +6,12 @@
  *   AxonFlow emits at most one heartbeat per environment every
  *   7 days during SDK activity.
  *
- * The gate is consulted at client construction and at every public HTTP
- * request site (via `_preRequestHook`). Each gate run:
+ * The gate is consulted at every public HTTP request site, via
+ * `_preRequestHook`. It is NOT consulted at client construction
+ * (axonflow-enterprise#3682): every framework adapter takes a client, so an
+ * adapter registering from its own constructor could never reach a
+ * constructor-time ping. A client that is constructed and never used does not
+ * ping. Each gate run:
  *
  *  1. Re-evaluates `AXONFLOW_TELEMETRY=off` cheaply (lock-free) so a
  *     mid-process opt-out toggle takes effect immediately.
@@ -252,8 +256,10 @@ function isOptedOut(): boolean {
 }
 
 /**
- * Central gate for telemetry pings. Called from the AxonFlow constructor
- * and from `_preRequestHook` on every public HTTP entry point.
+ * Central gate for telemetry pings. Called from `_preRequestHook` on every
+ * public HTTP entry point — and NOT from the AxonFlow constructor, which
+ * stopped pinging in axonflow-enterprise#3682 so that an adapter registering
+ * from its own constructor can reach the first ping.
  *
  * The `pingFn` callback returns a Promise<boolean> indicating delivery
  * success. The stamp is written ONLY when this resolves to true,
