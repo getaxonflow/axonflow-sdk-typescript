@@ -385,9 +385,16 @@ export class AxonFlow {
   private sessionCookie: string | null = null;
 
   /**
-   * Promise that resolves when the heartbeat gate evaluation triggered by this
-   * client's FIRST OUTBOUND REQUEST has finished — whether it sent a ping or
+   * Promise that resolves when the heartbeat gate evaluation triggered by the
+   * FIRST OUTBOUND REQUEST has finished — whether it sent a ping or
    * short-circuited — and any in-flight delivery has settled.
+   *
+   * "The first request" means the first from ANY client sharing this one's
+   * root: an original client and every client derived from it with `asUser()`
+   * share one promise, because there is one heartbeat per process. A client
+   * derived AFTER that request is therefore already resolved, and awaiting it
+   * returns immediately rather than waiting for a second ping that will not
+   * happen.
    *
    * CHANGED IN axonflow-enterprise#3682, and the change is visible to callers.
    * It used to resolve after a gate run the CONSTRUCTOR performed. The
