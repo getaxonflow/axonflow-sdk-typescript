@@ -68,20 +68,23 @@ import {
  */
 export const AUTHZEN_ATTRIBUTE_MARKER = '__axonflow_authzen_attribute__';
 
-/** The AuthZEN evaluation endpoint. */
-export const AUTHZEN_PATH = '/api/v1/access/evaluation';
-
 /**
- * How a Policy Enforcement Point negotiates the AxonFlow profile.
+ * AUTHZEN_PATH and AUTHZEN_PROFILE_HEADER are GENERATED (./types/authzen.gen) and
+ * re-exported here under the names this module has always had. They used to be
+ * literals in this file - the SDK's own copy of two strings the platform also
+ * wrote by hand - and nothing compared the copies (axonflow-enterprise#3603).
+ * The artifact now carries them, so a platform rename is a regenerate-and-diff
+ * failure rather than a runtime 404.
  *
- * The SDK always sends it. AuthZEN 1.0's response is a bare boolean, and the
- * four-valued state, the obligations and the approval challenge ride in the
- * response context, which the server returns only to a caller that asked for it
- * by version. This SDK understands the profile, so there is no reason to ask
- * for less than it can read — and a response WITHOUT the context is therefore a
- * protocol failure here rather than a decision with no obligations.
+ * The SDK always sends the profile header. AuthZEN 1.0's response is a bare
+ * boolean, and the four-valued state, the obligations and the approval challenge
+ * ride in the response context, which the server returns only to a caller that
+ * asked for it by version. This SDK understands the profile, so there is no
+ * reason to ask for less than it can read - and a response WITHOUT the context is
+ * therefore a protocol failure here rather than a decision with no obligations.
  */
-export const AUTHZEN_PROFILE_HEADER = 'X-Axonflow-AuthZEN-Profile';
+export { AUTHZEN_PATH, AUTHZEN_PROFILE_HEADER } from './types/authzen.gen';
+import { AUTHZEN_PATH, AUTHZEN_PROFILE_HEADER } from './types/authzen.gen';
 
 // ---------------------------------------------------------------------------
 // Why an attribute could not be established.

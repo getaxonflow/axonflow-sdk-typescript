@@ -68,7 +68,7 @@ const SUPPORTED_ARTIFACT_VERSION = 1;
 //
 // Bumping it is the deliberate act of re-vendoring: re-copy from the platform,
 // update this constant, regenerate, and name the platform commit in the PR.
-const VENDORED_ARTIFACT_SHA256 = '7f768b8ad0d6278d3531e1410decad172459808ebda627da44dca5bb4c9f36f8';
+const VENDORED_ARTIFACT_SHA256 = '36eb608375957ea9e29e68795759992d2e7b892b2683f18a21ec9b781e4fd9ed';
 
 // The column limit prettier is configured with. Generated code is formatted and
 // linted like every other module here, so the emitter has to respect it: a file
@@ -79,6 +79,8 @@ const SURFACE_MEMBERS = new Set([
   'artifact',
   'artifact_version',
   'profile',
+  'profile_header',
+  'route',
   'contract_schema_version',
   'source_schema_id',
   'source_schema_sha256',
@@ -362,17 +364,41 @@ function parseSurface(rawText) {
     throw new SurfaceError('the surface artifact must be a JSON object');
   }
   rejectUnknown('artifact', doc, SURFACE_MEMBERS);
+  // The route and header are what the generated client CALLS. An artifact
+  // without them would generate a client with nowhere to send a request, so
+  // they are required, not defaulted (axonflow-enterprise#3603).
+  const route = doc.route;
+  if (route === null || typeof route !== 'object' || Array.isArray(route)) {
+    throw new SurfaceError('artifact.route: the artifact carries no route');
+  }
+  rejectUnknown('artifact.route', route, new Set(['method', 'path']));
+  const routeMethod = String(route.method ?? '');
+  const routePath = String(route.path ?? '');
+  if (routeMethod !== 'POST' || !routePath.startsWith('/') || routePath.endsWith('/')) {
+    throw new SurfaceError(
+      `artifact.route: ${JSON.stringify(routeMethod)} ${JSON.stringify(routePath)}; want POST ` +
+        `and an absolute path with no trailing slash`
+    );
+  }
+  const profileHeader = String(doc.profile_header ?? '');
+  if (profileHeader === '' || /[\s:]/.test(profileHeader)) {
+    throw new SurfaceError(
+      `artifact.profile_header: ${JSON.stringify(profileHeader)} is not a header name`
+    );
+  }
   // The class, not the enumerated sites. The first pass swept type, field and
-  // enum strings; these five are copied into code by the header emitter and
-  // were left unchecked, so a quote in `profile` still emitted a module that
-  // does not compile.
+  // enum strings; these are copied into code by the header emitter and were
+  // left unchecked, so a quote in `profile` still emitted a module that does
+  // not compile.
   [
     'artifact',
     'profile',
+    'profile_header',
     'contract_schema_version',
     'source_schema_id',
     'source_schema_sha256',
   ].forEach(member => checkLiteral(`artifact.${member}`, String(doc[member] ?? '')));
+  checkLiteral('artifact.route.path', routePath);
 
   const enumNames = new Set();
   const enums = (doc.enums || []).map(raw => parseEnum(raw, enumNames));
@@ -383,6 +409,9 @@ function parseSurface(rawText) {
     artifact: doc.artifact || '',
     artifactVersion: doc.artifact_version || 0,
     profile: doc.profile || '',
+    profileHeader,
+    routeMethod,
+    routePath,
     contractSchemaVersion: doc.contract_schema_version || '',
     sourceSchemaId: doc.source_schema_id || '',
     sourceSchemaSha256: doc.source_schema_sha256 || '',
@@ -957,6 +986,17 @@ function emitHeader(out, surface) {
       `echoes in AuthZENResponseContext.schema_version.`
   );
   out.push(`export const AUTHZEN_CONTRACT_SCHEMA_VERSION = '${surface.contractSchemaVersion}';`);
+  out.push('');
+  lineComment(
+    out,
+    '',
+    `The one route the AuthZEN surface is served on, and the request header the profile ` +
+      `is negotiated with. Both are generated from the platform's contract through the ` +
+      `artifact, not written here: a rename on the platform is a regenerate-and-diff ` +
+      `failure in this SDK, not a 404 in production (axonflow-enterprise#3603).`
+  );
+  out.push(`export const AUTHZEN_PATH = '${surface.routePath}';`);
+  out.push(`export const AUTHZEN_PROFILE_HEADER = '${surface.profileHeader}';`);
   out.push('');
   lineComment(
     out,

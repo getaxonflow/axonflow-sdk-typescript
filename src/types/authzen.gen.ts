@@ -5,7 +5,7 @@
  *   artifact:        axonflow-authzen-surface v1
  *   profile:         axonflow-authzen-profile-2026-08-29
  *   contract schema: 2026-08-29
- *   schema digest:   sha256:647e16f769766f0ee8cf4913aaf5ac5c4567660fd2903da6766eead5db279efe
+ *   schema digest:   sha256:04f63f4d97215faa9fbf2b6a5152630f7310edbe47440b975d0f66ad63df811f
  *
  * Regenerate with:
  *
@@ -26,11 +26,18 @@ export const AUTHZEN_PROFILE_V1 = 'axonflow-authzen-profile-2026-08-29';
 // echoes in AuthZENResponseContext.schema_version.
 export const AUTHZEN_CONTRACT_SCHEMA_VERSION = '2026-08-29';
 
+// The one route the AuthZEN surface is served on, and the request header the profile
+// is negotiated with. Both are generated from the platform's contract through the
+// artifact, not written here: a rename on the platform is a regenerate-and-diff
+// failure in this SDK, not a 404 in production (axonflow-enterprise#3603).
+export const AUTHZEN_PATH = '/api/v1/access/evaluation';
+export const AUTHZEN_PROFILE_HEADER = 'X-Axonflow-AuthZEN-Profile';
+
 // The digest of the JSON Schema the artifact was reduced from. It is carried so a
 // support conversation can establish which contract a deployed SDK was built against
 // without reading its dependency tree.
 export const AUTHZEN_SOURCE_SCHEMA_SHA256 =
-  'sha256:647e16f769766f0ee8cf4913aaf5ac5c4567660fd2903da6766eead5db279efe';
+  'sha256:04f63f4d97215faa9fbf2b6a5152630f7310edbe47440b975d0f66ad63df811f';
 
 /**
  * Raised when a value does not match the AuthZEN contract. The message always
