@@ -3,7 +3,35 @@
 // X-Axonflow-Client: sdk-typescript/<VERSION> on every governed request.
 // Per CLAUDE.md HARD RULE #0 — this test MUST hit a real agent.
 
+import { readFileSync } from 'node:fs';
 import { AxonFlow, VERSION } from '../../dist/esm/index.js';
+
+// THE BUILT CONSTANT AND THE MANIFEST ARE TWO SITES, AND THIS SUITE COULD NOT
+// SEE THEM DISAGREE. Everything below asserts the wire against VERSION, which
+// is `src/version.ts` compiled into the bundle - so on a release where
+// package.json moved and `npm run stamp-version` was not run, BOTH sides of
+// that comparison read the OLD number and this suite passed. That is not
+// hypothetical: it is exactly what shipped in the 9.3.0 prep PR before its
+// version-alignment check caught it, and a runtime suite that cannot see the
+// defect its own subject is about is the gap this closes.
+//
+// package.json is the version npm publishes under; VERSION is the version the
+// published package tells the platform it is. A caller installs the first and
+// the platform reads the second, so a disagreement means /health recommends a
+// version that, once installed, reports itself as a different one and takes a
+// downgrade warning for ever.
+const pkgVersion = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+).version;
+if (VERSION !== pkgVersion) {
+  console.error(
+    `FAIL: the built VERSION constant is ${VERSION} and package.json is ${pkgVersion}. ` +
+      'These are the version npm publishes under and the version the published package ' +
+      'reports on the wire; run `npm run stamp-version`.',
+  );
+  process.exit(1);
+}
+console.log(`Version sites agree: package.json = src/version.ts = ${VERSION}`);
 
 const endpoint = process.env.AXONFLOW_AGENT_URL || 'http://localhost:8080';
 const tenantId = process.env.AXONFLOW_TENANT_ID;

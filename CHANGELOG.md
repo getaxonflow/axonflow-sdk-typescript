@@ -5,7 +5,7 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [9.3.0] - 2026-09-06: read-path identity, a heartbeat that fires on first use, and the inert cache option removed
 
 ### Added
 
@@ -78,6 +78,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bounded at 32 entries of 128 bytes.
 
 ### Fixed
+
+- **`runtime-e2e/x-axonflow-client` could not see the two version sites
+  disagree, which is the only defect it is about.** It asserted the wire
+  against `VERSION` — the `src/version.ts` constant compiled into the bundle —
+  so on a release where `package.json` moved and `npm run stamp-version` was
+  not run, BOTH sides of that comparison read the same stale number and the
+  suite passed. `package.json` is the version npm publishes under; `VERSION` is
+  the version the published package reports on the wire, and a disagreement
+  means the platform recommends a version that, once installed, identifies
+  itself as a different one and takes a downgrade warning on every governed
+  call for ever. The suite now compares the two before it compares anything to
+  the wire, and names `npm run stamp-version` in the failure.
 
 - **Redirects were followed on both telemetry legs, and on the checkpoint POST
   that silently cost a week of telemetry.** `fetch` follows redirects by
