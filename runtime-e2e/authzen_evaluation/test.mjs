@@ -43,6 +43,8 @@ import {
   AUTHZEN_ERROR_CODE_UNSUPPORTED_ACTION,
   AUTHZEN_ERROR_CODE_UNSUPPORTED_SUBJECT,
   AUTHZEN_OPERATIONAL_STATE_DENY,
+  AUTHZEN_PATH,
+  AUTHZEN_PROFILE_HEADER,
   AUTHZEN_PROFILE_V1,
   AuthZENRefusal,
   AuthenticationError,
@@ -108,6 +110,67 @@ async function decideVerdict(query) {
   const verdict = JSON.parse(text).verdict;
   if (!verdict) throw new Error(`/api/v1/decide returned no verdict: ${text}`);
   return verdict;
+}
+
+/**
+ * POST the evaluation to the GENERATED path with the given header NAME.
+ *
+ * Bypasses the SDK client on purpose: the leg below proves that the constants
+ * this SDK generated are the ones the server reads, and the client would use
+ * the same constants, so sending through it would prove nothing.
+ */
+async function rawEvaluate(headerName, query) {
+  const headers = { 'Content-Type': 'application/json', [headerName]: AUTHZEN_PROFILE_V1 };
+  if (clientId) {
+    headers.Authorization = `Basic ${Buffer.from(`${clientId}:${clientSecret ?? ''}`).toString('base64')}`;
+  }
+  const response = await fetch(`${endpoint}${AUTHZEN_PATH}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ evaluation: request(query) }),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`POST ${AUTHZEN_PATH} returned ${response.status}: ${text}`);
+  return JSON.parse(text);
+}
+
+/**
+ * The served route and header NAME are the ones this SDK generated.
+ *
+ * AUTHZEN_PATH and AUTHZEN_PROFILE_HEADER come from the platform's surface
+ * artifact (axonflow-enterprise#3603), not from a literal here. With the
+ * generated header name the server returns the negotiated profile context;
+ * with the name altered by one character it must NOT - the bare boolean is the
+ * proof that the NAME is what the handler reads.
+ */
+async function checkGeneratedRouteAndHeader() {
+  let name = 'the generated route and header name negotiate the profile on the live wire';
+  try {
+    const body = await rawEvaluate(AUTHZEN_PROFILE_HEADER, BENIGN);
+    const profile = body.context?.profile;
+    check(
+      name,
+      profile === AUTHZEN_PROFILE_V1
+        ? null
+        : `POST ${AUTHZEN_PATH} with ${AUTHZEN_PROFILE_HEADER} returned ${JSON.stringify(body)}`
+    );
+  } catch (err) {
+    check(name, String(err));
+  }
+
+  const offByOne = AUTHZEN_PROFILE_HEADER.slice(0, -1);
+  name = 'a header name one character off is not read, so the constant is the name';
+  try {
+    const body = await rawEvaluate(offByOne, BENIGN);
+    let problem = null;
+    if ('context' in body)
+      problem = `header ${offByOne} still negotiated a context: ${JSON.stringify(body)}`;
+    else if (!('decision' in body))
+      problem = `header ${offByOne} returned no decision member at all: ${JSON.stringify(body)}`;
+    check(name, problem);
+  } catch (err) {
+    check(name, String(err));
+  }
 }
 
 async function checkRouteAnswers(client) {
@@ -324,6 +387,7 @@ async function main() {
   await checkPluralPointer(client);
   await checkBulkMeets(client);
   await checkAgreementWithDecide(client);
+  await checkGeneratedRouteAndHeader();
   await checkAuthFailuresAreObservable();
 
   console.log();
