@@ -67,6 +67,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`runtime-e2e/x-axonflow-client` could not see the two version sites
+  disagree, which is the only defect it is about.** It asserted the wire
+  against `VERSION` — the `src/version.ts` constant compiled into the bundle —
+  so on a release where `package.json` moved and `npm run stamp-version` was
+  not run, BOTH sides of that comparison read the same stale number and the
+  suite passed. `package.json` is the version npm publishes under; `VERSION` is
+  the version the published package reports on the wire, and a disagreement
+  means the platform recommends a version that, once installed, identifies
+  itself as a different one and takes a downgrade warning on every governed
+  call for ever. The suite now compares the two before it compares anything to
+  the wire, and names `npm run stamp-version` in the failure.
+
 - **Redirects were followed on both telemetry legs, and on the checkpoint POST
   that silently cost a week of telemetry.** `fetch` follows redirects by
   default. On `/health` that meant every relayed value could describe the
