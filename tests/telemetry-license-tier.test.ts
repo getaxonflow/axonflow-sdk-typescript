@@ -20,6 +20,30 @@ import { probePlatformHealth, sendTelemetryPing, sendTelemetryPingNow } from '..
 
 const originalEnv = { ...process.env };
 
+/**
+ * Close a stand-in server without waiting out its keep-alive timeout.
+ *
+ * `fetch` (undici) leaves the socket OPEN for reuse after the response is
+ * read. On Node 18 `server.close()` stops accepting new connections but waits
+ * for the existing idle one to expire on its own, which costs the full default
+ * `server.keepAliveTimeout` — measured here at 4998ms per close. Node >= 19
+ * closes idle connections as part of `close()` (0ms), which is why this only
+ * ever went red on the Node 18 lane.
+ *
+ * Every test in this file pays that per server, so the single-ping cases sat
+ * just under the 10s budget while the two that LOOP (a table of health bodies,
+ * and the deployment_mode pair) ran two-to-four closes and blew it.
+ *
+ * `closeIdleConnections()` drops exactly the sockets nothing is using — every
+ * request here is fully awaited before teardown, so nothing in flight is cut
+ * short and no assertion loses its bytes. Optional-called because it landed in
+ * Node 18.2.
+ */
+async function closeServer(server: http.Server): Promise<void> {
+  server.closeIdleConnections?.();
+  await new Promise<void>(resolve => server.close(() => resolve()));
+}
+
 /** A stand-in platform whose /health returns a fixed status and raw body. */
 async function startStandInPlatform(
   status: number,
@@ -37,7 +61,7 @@ async function startStandInPlatform(
   const port = (server.address() as AddressInfo).port;
   return {
     url: `http://127.0.0.1:${port}`,
-    close: () => new Promise<void>(resolve => server.close(() => resolve())),
+    close: () => closeServer(server),
   };
 }
 
@@ -64,7 +88,7 @@ async function startCountingStandInPlatform(
   return {
     url: `http://127.0.0.1:${port}`,
     healthRequests: () => served,
-    close: () => new Promise<void>(resolve => server.close(() => resolve())),
+    close: () => closeServer(server),
   };
 }
 
@@ -89,7 +113,7 @@ async function startCheckpoint(): Promise<{
   return {
     url: `http://127.0.0.1:${port}/v1/ping`,
     body: () => captured,
-    close: () => new Promise<void>(resolve => server.close(() => resolve())),
+    close: () => closeServer(server),
   };
 }
 
