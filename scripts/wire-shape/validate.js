@@ -15,6 +15,9 @@
  *   3. SDK-vs-spec per-type drift — blocked on new drift outside
  *      the baseline; baselined entries are allowed (burn them down
  *      in targeted follow-up PRs).
+ *   0. The pin: when the specs dir is the generated snapshot, the platform
+ *      commit its headers name must be the baseline's openapi_specs_sha,
+ *      or the baseline names a spec the contract never read.
  *   4. Registered-type coverage — a type that was in the baseline's
  *      registered_types list disappearing from either the SDK or
  *      the spec is flagged; forces deliberate rename/removal.
@@ -36,6 +39,7 @@ const {
   discoverSDKInterfaces,
   loadBaseline,
   difference,
+  snapshotCommit,
 } = require('./lib');
 
 function specsDir() {
@@ -55,8 +59,8 @@ function main() {
     console.log(
       '⏭️  AXONFLOW_OPENAPI_SPECS_DIR not set to a directory; wire-shape gate skipped.'
     );
-    console.log('    The dedicated CI job clones getaxonflow/axonflow at the pinned SHA');
-    console.log('    and exports this variable before running the validator.');
+    console.log('    The dedicated CI job points it at the committed snapshot,');
+    console.log('    tests/fixtures/openapi, before running the validator.');
     process.exit(0);
   }
 
@@ -75,6 +79,30 @@ function main() {
   const sdk = discoverSDKInterfaces();
   const baseline = loadBaseline();
   let errors = 0;
+
+  // Gate 0: the pin. A generated snapshot names the platform commit it was
+  // derived at in every file's header, and the baseline must be pinned to it.
+  let pinned;
+  try {
+    pinned = snapshotCommit(dir);
+  } catch (e) {
+    console.error(`❌ ${e.message}`);
+    process.exit(1);
+  }
+  if (pinned === null) {
+    console.log(`ℹ️  ${dir} is not a generated snapshot, so the pin is not compared with it.\n`);
+  } else if (pinned !== baseline.openapi_specs_sha) {
+    console.error(
+      `❌ The snapshot's headers name platform commit ${pinned}, but the baseline's ` +
+        `openapi_specs_sha is ${baseline.openapi_specs_sha || '(empty)'}.`
+    );
+    console.error(
+      '   Regenerate it from the snapshot: node scripts/wire-shape/refresh.js tests/fixtures/openapi'
+    );
+    errors += 1;
+  } else {
+    console.log(`📌 The baseline is pinned to the snapshot's platform commit ${pinned}.\n`);
+  }
 
   // Gate 1: cross-spec divergence.
   const baselinedCross = baseline.cross_spec_duplicates;

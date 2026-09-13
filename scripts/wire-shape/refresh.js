@@ -2,18 +2,16 @@
 /**
  * Regenerate tests/fixtures/wire-shape-baseline.json from a directory of
  * the platform's OpenAPI specs: normally the committed snapshot,
- * tests/fixtures/openapi (see its README), or a checkout of the community
- * mirror's docs/api. Always pass --sha for the committed snapshot: a
- * directory inside this repository would otherwise resolve to the SDK's
- * own HEAD, not the platform commit.
+ * tests/fixtures/openapi (see its README).
  *
  * Usage:
  *   node scripts/wire-shape/refresh.js <specs_dir> [--sha <SHA>]
  *
- * When --sha is omitted, the script tries `git -C <specs_dir>
- * rev-parse HEAD` to pin the commit. If neither is available, it
- * exits non-zero rather than write a baseline with an empty
- * openapi_specs_sha (the next CI run would fail at bootstrap).
+ * The platform commit recorded as openapi_specs_sha is read from the
+ * snapshot's generated headers, and a --sha that disagrees with them is
+ * refused. A directory that is not a generated snapshot, such as a platform
+ * checkout's docs/api, names no commit, so --sha is required for it. See
+ * resolveSpecsSha in lib.js.
  *
  * The baseline is written atomically (temp-file + rename) so a
  * mid-encode crash can't leave a truncated file behind.
@@ -21,7 +19,6 @@
 
 'use strict';
 
-const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const {
@@ -29,19 +26,9 @@ const {
   discoverSDKInterfaces,
   writeBaseline,
   difference,
+  resolveSpecsSha,
   BASELINE_PATH,
 } = require('./lib');
-
-function gitHeadSHA(dir) {
-  try {
-    return execSync(`git -C "${dir}" rev-parse HEAD`, {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch {
-    return '';
-  }
-}
 
 function main() {
   const args = process.argv.slice(2);
@@ -72,16 +59,13 @@ function main() {
     process.exit(2);
   }
 
-  const sha = (explicitSha !== null ? explicitSha : gitHeadSHA(specsDir)).trim();
-  if (!sha) {
-    console.error(
-      'error: could not determine OpenAPI specs commit SHA.\n' +
-        '  Either run this script against a specs_dir that sits inside a git\n' +
-        '  checkout of the getaxonflow/axonflow community mirror, or pass\n' +
-        '  --sha <commit-sha> explicitly. An empty SHA would poison\n' +
-        '  tests/fixtures/wire-shape-baseline.json and break the next CI\n' +
-        '  wire-shape-contract run at bootstrap.'
-    );
+  // Resolve the commit before touching any models or schemas, so a bad one
+  // fails fast and never writes a poisoned baseline.
+  let sha;
+  try {
+    sha = resolveSpecsSha(specsDir, explicitSha === null ? null : explicitSha.trim());
+  } catch (e) {
+    console.error(`error: ${e.message}`);
     process.exit(2);
   }
 

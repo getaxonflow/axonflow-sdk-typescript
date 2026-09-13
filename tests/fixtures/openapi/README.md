@@ -43,14 +43,17 @@ also change SDK types. Do not edit the files by hand.
 To refresh the snapshot from a platform commit (Python 3 with PyYAML for the first step):
 
 ```
-python scripts/snapshot_openapi_schemas.py <path to docs/api> tests/fixtures/openapi --source-commit <commit>
-node scripts/wire-shape/refresh.js tests/fixtures/openapi --sha <commit>
+python scripts/snapshot_openapi_schemas.py <path to docs/api> tests/fixtures/openapi --source-commit <full 40-character commit>
+node scripts/wire-shape/refresh.js tests/fixtures/openapi
 AXONFLOW_OPENAPI_SPECS_DIR=tests/fixtures/openapi node scripts/audit-binding/check.js --vendor
 ```
 
-Then update the table above.
+Then update the table above. The refresh reads the platform commit from the files' headers and
+refuses a `--sha` that disagrees with them, and the validator fails when the headers name a
+different commit from the baseline's `openapi_specs_sha`.
 
 The workflow runs `python scripts/snapshot_openapi_schemas.py --self-test` and
-`--check-snapshot tests/fixtures/openapi`. The check refuses anything beyond the derived form (prose,
+`--check-snapshot tests/fixtures/openapi`. The check requires every header to name one full platform
+commit, and refuses anything beyond the derived form (prose,
 types, a spec copied in verbatim). It cannot see a declaration added by hand in the derived form
 itself; the `spec-pin-bump` label that any change here requires is what makes that visible.
