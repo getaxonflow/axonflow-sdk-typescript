@@ -47,6 +47,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declaration sends none. On an Enterprise deployment, an allow carrying a
   mandatory obligation the declared set cannot discharge becomes a deny.
 
+- **Typed policy authoring (`client.typedPolicies`).** The v11 successor to the
+  legacy policy routes: `edition()`, `validate()`, `publish()`, `activate()`,
+  `active()` and `system()` over the six routes the agent proxies under
+  `/api/v1/typed-policies`. Every refusal throws `TypedPolicyRefusal`, an
+  `APIError` carrying the platform's `reason`, any findings and `retryAfter`;
+  a 401 throws `AuthenticationError`. A JSON `null` for a collection reads as
+  empty. `activate()` promotes a published digest; rollback and withdraw are
+  customer portal operations that the agent does not proxy, so the SDK has no
+  method for them.
+
 ## [9.3.0] - 2026-09-06: read-path identity, a heartbeat that fires on first use, and the inert cache option removed
 
 ### Added

@@ -179,6 +179,19 @@ import {
   PolicyConflictResponse,
 } from './types';
 import {
+  TYPED_POLICIES_PATH,
+  type ActiveTypedPolicy,
+  type AuthoringFinding,
+  type EditionConstructReport,
+  type TypedAuthoringDocumentRequest,
+  type TypedAuthoringEdition,
+  type TypedPolicyActivation,
+  type TypedPolicyPublication,
+  type TypedPolicySystemControl,
+  type TypedPolicySystemCorpus,
+  type TypedPolicyValidation,
+} from './types/typed-policies';
+import {
   AuthenticationError,
   APIError,
   PolicyViolationError,
@@ -191,6 +204,8 @@ import {
   ObligationNotFulfillableError,
   LegacyPolicyWriteFrozenError,
   PlatformRouteDeprecationWarning,
+  AxonFlowError,
+  TypedPolicyRefusal,
 } from './errors';
 import {
   CONTENT_TYPE_TEXT,
@@ -6808,6 +6823,314 @@ export class AxonFlow {
   // ===========================================================================
   // MAS FEAT Compliance Methods (Enterprise)
   // ===========================================================================
+
+  // ============================================================================
+  // Typed policy authoring (v11)
+  // ============================================================================
+
+  /**
+   * Typed policy authoring: the v11 successor to the legacy policy routes.
+   *
+   * A v11 platform authors policy as a typed document: validated, published as
+   * a signed artifact pinned by its digest, and promoted to active. The agent
+   * proxies six routes under `/api/v1/typed-policies` for that, with this
+   * client's credentials:
+   *
+   * - `edition()`: what this deployment may author, consulted BEFORE a
+   *   publication rather than learned from a refusal.
+   * - `validate(document, fixtures?)`: every finding for a candidate document.
+   *   It answers identically on every edition; the edition's boundary applies at
+   *   publication. A refused document is still a successful validation: read
+   *   `success` and the findings.
+   * - `publish(document, fixtures)`: validates, compiles, runs the declared
+   *   fixtures, signs, and pins the artifact by its digest. A publication with
+   *   no fixtures is refused.
+   * - `activate(digest, { reason })`: promotes a published digest to active.
+   * - `active()`: the document in force, as the exact text that was signed, or
+   *   `null` when nothing is active.
+   * - `system()`: the platform's own controls, read-only.
+   *
+   * The organization and the author are the ones this client's credentials
+   * resolve to: the agent stamps both, and neither can be named in a request.
+   * Activation PROMOTES: a digest whose version does not advance past the
+   * active one is refused. Rolling back to an earlier document and withdrawing
+   * the active one are operations of the customer portal, behind its session;
+   * the agent does not proxy them, so this client has no method for either. On
+   * an edition with separation of duties, `publish` refuses every publication
+   * with the finding code `APPROVER_IS_AUTHOR`: this route names no approver,
+   * and such a deployment approves in the customer portal.
+   *
+   * Every refusal throws {@link TypedPolicyRefusal} with the HTTP status, the
+   * platform's `reason`, any findings and `retryAfter`; a 401 throws
+   * {@link AuthenticationError} carrying the platform's explanation.
+   *
+   * @example
+   * ```typescript
+   * const published = await axonflow.typedPolicies.publish(document, fixtures);
+   * await axonflow.typedPolicies.activate(published.digest);
+   * const active = await axonflow.typedPolicies.active();
+   * ```
+   */
+  get typedPolicies() {
+    return {
+      edition: this.typedPoliciesEdition.bind(this),
+      validate: this.typedPoliciesValidate.bind(this),
+      publish: this.typedPoliciesPublish.bind(this),
+      activate: this.typedPoliciesActivate.bind(this),
+      active: this.typedPoliciesActive.bind(this),
+      system: this.typedPoliciesSystem.bind(this),
+    };
+  }
+
+  private async typedPoliciesEdition(): Promise<TypedAuthoringEdition> {
+    const body = await this.typedPolicyJSON('GET', '/edition');
+    return {
+      success: body.success === true,
+      catalog: this.typedString(body.catalog),
+      root: this.typedString(body.root),
+      max_documents: this.typedNumber(body.max_documents),
+      constructs: this.isTypedRecord(body.constructs)
+        ? this.typedConstructs(body.constructs)
+        : undefined,
+      persistence: this.typedString(body.persistence),
+      signing_key_custody: this.typedString(body.signing_key_custody),
+    };
+  }
+
+  private async typedPoliciesValidate(
+    document: Record<string, unknown>,
+    fixtures?: Array<Record<string, unknown>>
+  ): Promise<TypedPolicyValidation> {
+    const body = await this.typedPolicyJSON(
+      'POST',
+      '/validate',
+      this.typedDocumentRequest(document, fixtures)
+    );
+    return { success: body.success === true, findings: this.typedFindings(body.findings) };
+  }
+
+  private async typedPoliciesPublish(
+    document: Record<string, unknown>,
+    fixtures: Array<Record<string, unknown>>
+  ): Promise<TypedPolicyPublication> {
+    const body = await this.typedPolicyJSON(
+      'POST',
+      '/publish',
+      this.typedDocumentRequest(document, fixtures)
+    );
+    if (typeof body.digest !== 'string' || body.digest === '') {
+      throw new AxonFlowError(`${TYPED_POLICIES_PATH}/publish answered success without a digest`);
+    }
+    return {
+      success: body.success === true,
+      digest: body.digest,
+      version: this.typedNumber(body.version),
+      findings: this.typedFindings(body.findings),
+    };
+  }
+
+  private async typedPoliciesActivate(
+    digest: string,
+    options: { reason?: string } = {}
+  ): Promise<TypedPolicyActivation> {
+    // JSON.stringify omits an undefined reason, so none is sent when none is given.
+    const body = await this.typedPolicyJSON('POST', '/activate', {
+      digest,
+      reason: options.reason,
+    });
+    return {
+      success: body.success === true,
+      activation: this.isTypedRecord(body.activation) ? body.activation : {},
+    };
+  }
+
+  private async typedPoliciesActive(): Promise<ActiveTypedPolicy | null> {
+    const response = await this.typedPolicySend('GET', '/active');
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      return this.throwTypedPolicyRefusal(response, '/active');
+    }
+    // The source is the exact text that was signed: re-serialising the parsed
+    // document would change what its digest covers.
+    const source = await response.text();
+    const document: unknown = this.typedParse(source, '/active');
+    if (!this.isTypedRecord(document)) {
+      throw new AxonFlowError(
+        `${TYPED_POLICIES_PATH}/active answered with a body that is not an object`
+      );
+    }
+    return { source, document };
+  }
+
+  private async typedPoliciesSystem(): Promise<TypedPolicySystemCorpus> {
+    const body = await this.typedPolicyJSON('GET', '/system');
+    const system = this.isTypedRecord(body.system) ? body.system : {};
+    return {
+      root: this.typedString(system.root),
+      version: this.typedNumber(system.version),
+      digest: this.typedString(system.digest),
+      authority: this.typedString(system.authority),
+      controls: this.typedRecords(system.controls).map(control => this.typedControl(control)),
+      assurance_counts: this.typedCounts(system.assurance_counts),
+      document: this.isTypedRecord(system.document) ? system.document : {},
+    };
+  }
+
+  private typedDocumentRequest(
+    document: Record<string, unknown>,
+    fixtures?: Array<Record<string, unknown>>
+  ): TypedAuthoringDocumentRequest {
+    // JSON.stringify omits undefined fixtures, so a validation without any sends none.
+    return { document, fixtures };
+  }
+
+  private typedConstructs(raw: Record<string, unknown>): EditionConstructReport {
+    return {
+      edition: this.typedString(raw.edition),
+      obligation_families: this.typedStrings(raw.obligation_families),
+      attribute_namespaces: this.typedStrings(raw.attribute_namespaces),
+      group_scope: this.typedBoolean(raw.group_scope),
+      separation_of_duties: this.typedBoolean(raw.separation_of_duties),
+      tier_established: this.typedBoolean(raw.tier_established),
+      reserved: this.typedStrings(raw.reserved),
+    };
+  }
+
+  private typedFinding(raw: Record<string, unknown>): AuthoringFinding {
+    return {
+      code: this.typedString(raw.code) ?? '',
+      severity: this.typedString(raw.severity) ?? '',
+      policy_id: this.typedString(raw.policy_id),
+      summary: this.typedString(raw.summary),
+      detail: this.typedString(raw.detail),
+    };
+  }
+
+  private typedControl(raw: Record<string, unknown>): TypedPolicySystemControl {
+    return {
+      id: this.typedString(raw.id) ?? '',
+      authority: this.typedString(raw.authority),
+      assurance: this.typedString(raw.assurance),
+      mandatory: this.typedBoolean(raw.mandatory),
+      description: this.typedString(raw.description),
+      obligations: this.typedRecords(raw.obligations),
+    };
+  }
+
+  /** The findings of a body. The platform sends a nil Go slice as JSON null. */
+  private typedFindings(raw: unknown): AuthoringFinding[] {
+    return this.typedRecords(raw).map(finding => this.typedFinding(finding));
+  }
+
+  /** The objects of a JSON array; null (a nil Go slice) and absence read as empty. */
+  private typedRecords(raw: unknown): Array<Record<string, unknown>> {
+    return Array.isArray(raw) ? raw.filter(item => this.isTypedRecord(item)) : [];
+  }
+
+  private typedStrings(raw: unknown): string[] {
+    return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
+  }
+
+  private typedCounts(raw: unknown): Record<string, number> {
+    const counts: Record<string, number> = {};
+    if (this.isTypedRecord(raw)) {
+      for (const [key, value] of Object.entries(raw)) {
+        if (typeof value === 'number') {
+          counts[key] = value;
+        }
+      }
+    }
+    return counts;
+  }
+
+  private typedString(raw: unknown): string | undefined {
+    return typeof raw === 'string' ? raw : undefined;
+  }
+
+  private typedNumber(raw: unknown): number | undefined {
+    return typeof raw === 'number' ? raw : undefined;
+  }
+
+  private typedBoolean(raw: unknown): boolean | undefined {
+    return typeof raw === 'boolean' ? raw : undefined;
+  }
+
+  private isTypedRecord(raw: unknown): raw is Record<string, unknown> {
+    return typeof raw === 'object' && raw !== null && !Array.isArray(raw);
+  }
+
+  private typedParse(text: string, route: string): unknown {
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new AxonFlowError(
+        `${TYPED_POLICIES_PATH}${route} answered with a body that is not JSON`
+      );
+    }
+  }
+
+  private async typedPolicySend(
+    method: 'GET' | 'POST',
+    route: string,
+    payload?: unknown
+  ): Promise<Response> {
+    return this._fetch(`${this.config.endpoint}${TYPED_POLICIES_PATH}${route}`, {
+      method,
+      headers:
+        payload === undefined
+          ? { ...this.getAuthHeaders() }
+          : { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: payload === undefined ? undefined : JSON.stringify(payload),
+      signal: AbortSignal.timeout(this.config.timeout),
+    });
+  }
+
+  /** One typed-policy request whose 2xx answer is a JSON object; any refusal throws. */
+  private async typedPolicyJSON(
+    method: 'GET' | 'POST',
+    route: string,
+    payload?: unknown
+  ): Promise<Record<string, unknown>> {
+    const response = await this.typedPolicySend(method, route, payload);
+    if (!response.ok) {
+      return this.throwTypedPolicyRefusal(response, route);
+    }
+    const body = this.typedParse(await response.text(), route);
+    if (!this.isTypedRecord(body)) {
+      throw new AxonFlowError(
+        `${TYPED_POLICIES_PATH}${route} answered ${response.status} with a body that is not an object`
+      );
+    }
+    return body;
+  }
+
+  /** Throw the typed refusal for a non-2xx answer: 401 as AuthenticationError. */
+  private async throwTypedPolicyRefusal(response: Response, route: string): Promise<never> {
+    const text = await response.text();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = undefined;
+    }
+    const body = this.isTypedRecord(parsed) ? parsed : {};
+    const message =
+      typeof body.error === 'string' && body.error !== ''
+        ? body.error
+        : `HTTP ${response.status} from ${route}`;
+    if (response.status === 401) {
+      throw new AuthenticationError(message);
+    }
+    const retryAfter = response.headers.get('Retry-After') ?? '';
+    throw new TypedPolicyRefusal(message, response.status, response.statusText, text, {
+      reason: this.typedString(body.reason),
+      code: this.typedString(body.code),
+      findings: this.typedFindings(body.findings),
+      retryAfter: /^\d+$/.test(retryAfter) ? Number(retryAfter) : undefined,
+    });
+  }
 
   /**
    * MAS FEAT compliance module for Singapore regulatory compliance.
