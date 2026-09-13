@@ -2948,6 +2948,12 @@ export class AxonFlow {
    * actions would be taken, without affecting live traffic. Available on
    * Evaluation tier and above.
    *
+   * @deprecated The platform deprecates `POST /api/v1/policies/simulate` in v11.0.0 and
+   * removes it in v11.1. It stamps `X-AxonFlow-Removed-In: v11.1` and a `Link` to
+   * `/api/v1/typed-policies` on every response, and this client reports the route once
+   * through {@link PlatformRouteDeprecationWarning}. Its successor is the typed simulate on
+   * `/api/v1/typed-policies`, which ships with the v11 series.
+   *
    * @param request - The simulated request to evaluate against policies
    * @returns Promise resolving to simulation results
    *
@@ -2984,6 +2990,12 @@ export class AxonFlow {
    * block rate, and per-input behavior. Useful for tuning policy configurations
    * before deploying to production.
    *
+   * @deprecated The platform deprecates `POST /api/v1/policies/impact-report` in v11.0.0
+   * and removes it in v11.1. It stamps `X-AxonFlow-Removed-In: v11.1` and a `Link` to
+   * `/api/v1/typed-policies` on every response, and this client reports the route once
+   * through {@link PlatformRouteDeprecationWarning}. Policy is authored and tested through
+   * the typed policy methods (see `client.typedPolicies.validate`).
+   *
    * @param policyId - The ID of the policy to evaluate
    * @param inputs - Array of sample inputs to test against the policy
    * @returns Promise resolving to the impact report
@@ -3018,6 +3030,12 @@ export class AxonFlow {
    *
    * Analyzes policies for overlapping rules, contradictory actions, or
    * other conflict patterns. Optionally scoped to a specific policy.
+   *
+   * @deprecated The platform deprecates `POST /api/v1/policies/conflicts` in v11.0.0 and
+   * removes it in v11.1. It stamps `X-AxonFlow-Removed-In: v11.1` and a `Link` to
+   * `/api/v1/typed-policies` on every response, and this client reports the route once
+   * through {@link PlatformRouteDeprecationWarning}. Policy is authored and tested through
+   * the typed policy methods (see `client.typedPolicies.validate`).
    *
    * @param policyId - Optional policy ID to check conflicts for a specific policy
    * @returns Promise resolving to detected conflicts
@@ -4186,6 +4204,10 @@ export class AxonFlow {
    * Create an override for a static policy.
    * Overrides allow changing how a system policy behaves at the organization level.
    *
+   * On a v11.0.0 platform per-policy overrides are retired: the platform refuses this
+   * write with `409 LEGACY_POLICY_WRITE_FROZEN`, thrown as
+   * {@link LegacyPolicyWriteFrozenError}.
+   *
    * @param policyId - ID of the policy to override
    * @param override - Override configuration
    * @returns The created override
@@ -4218,6 +4240,10 @@ export class AxonFlow {
   /**
    * Delete an override for a static policy.
    * This restores the policy to its default behavior.
+   *
+   * On a v11.0.0 platform per-policy overrides are retired: the platform refuses this
+   * write with `409 LEGACY_POLICY_WRITE_FROZEN`, thrown as
+   * {@link LegacyPolicyWriteFrozenError}.
    *
    * @param policyId - ID of the policy whose override to delete
    *
