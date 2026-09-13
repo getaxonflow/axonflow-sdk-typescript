@@ -3,6 +3,7 @@ import { maybeSendHeartbeat, flushHeartbeat } from './heartbeat';
 import { sendTelemetryPingNow } from './telemetry';
 import { AuthZENDecision, AuthZENTransport, buildEnvelope, evaluateEnvelope } from './authzen';
 import { AuthZENBulk, AuthZENRequest } from './types/authzen.gen';
+import { PEP_HANDSHAKE_HEADER, PEPHandshake, type PEPHandshakeCallOptions } from './pep-handshake';
 import {
   AxonFlowConfig,
   AIRequest,
@@ -417,6 +418,20 @@ function routeDeprecationFrom(
   });
 }
 
+/**
+ * `value` as a declaration, refusing anything that is not one. A hand-built
+ * object or an already-encoded string would otherwise be dropped silently or
+ * sent as bytes the platform refuses.
+ */
+function checkedPEPHandshake(value: unknown): PEPHandshake | undefined {
+  if (value === undefined || value instanceof PEPHandshake) {
+    return value;
+  }
+  throw new TypeError(
+    `pepHandshake must be a PEPHandshake or undefined, not ${value === null ? 'null' : typeof value}`
+  );
+}
+
 export class AxonFlow {
   private readonly warnedDeprecatedRoutes = new Set<string>();
   private config: {
@@ -424,6 +439,8 @@ export class AxonFlow {
     clientSecret?: string;
     /** The read-path per-user identity; see AxonFlowConfig.userToken. */
     userToken?: string;
+    /** The client-level PEP capability declaration; see AxonFlowConfig.pepHandshake. */
+    pepHandshake?: PEPHandshake;
     endpoint: string;
     mode: 'sandbox' | 'production';
     tenant: string;
@@ -552,6 +569,7 @@ export class AxonFlow {
       clientId: config.clientId,
       clientSecret: config.clientSecret,
       userToken: config.userToken,
+      pepHandshake: checkedPEPHandshake(config.pepHandshake),
       endpoint,
       mode: config.mode ?? 'production',
       tenant: config.tenant ?? '',
@@ -1814,6 +1832,7 @@ export class AxonFlow {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...this.getAuthHeaders(),
+      ...this.pepHandshakeHeaders(options.pepHandshake),
     };
 
     const body: Record<string, any> = {
@@ -1897,6 +1916,7 @@ export class AxonFlow {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...this.getAuthHeaders(),
+      ...this.pepHandshakeHeaders(options.pepHandshake),
     };
 
     const body: Record<string, any> = {
@@ -2460,6 +2480,7 @@ export class AxonFlow {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...this.getAuthHeaders(),
+      ...this.pepHandshakeHeaders(options.pepHandshake),
     };
 
     if (this.config.debug) {
@@ -3264,6 +3285,8 @@ export class AxonFlow {
    * if (!decision.allowed) throw new Error(`blocked: ${decision.state}`);
    * ```
    *
+   * @param options - `pepHandshake` declares this call's capabilities in place
+   *   of the client's; see {@link PEPHandshake}.
    * @throws AuthZENRefusal when the request was NOT evaluated. This is not a
    *   denial — `pointer` names the member to fix, and only `retryable` is worth
    *   sending again.
@@ -3272,12 +3295,15 @@ export class AxonFlow {
    * @throws AuthenticationError on 401 — the gateway refused the credentials
    *   before the route ran.
    */
-  async evaluate(request: AuthZENRequest): Promise<AuthZENDecision> {
+  async evaluate(
+    request: AuthZENRequest,
+    options?: PEPHandshakeCallOptions
+  ): Promise<AuthZENDecision> {
     // Bound at the CALL SITE, so the transport belongs to whichever client
     // is calling — including one derived by `asUser`. Passing the method
     // unbound would lose `this` entirely; capturing it in a field would
     // reintroduce the parent-bound copy this method exists to avoid.
-    return evaluateEnvelope(this.sendAuthZEN.bind(this), buildEnvelope(request));
+    return evaluateEnvelope(this.authzenTransport(options?.pepHandshake), buildEnvelope(request));
   }
 
   /**
@@ -3305,9 +3331,18 @@ export class AxonFlow {
    *   ],
    * });
    * ```
+   *
+   * @param options - `pepHandshake` declares this call's capabilities in place
+   *   of the client's; see {@link PEPHandshake}.
    */
-  async evaluateAll(bulk: AuthZENBulk): Promise<AuthZENDecision> {
-    return evaluateEnvelope(this.sendAuthZEN.bind(this), buildEnvelope(undefined, bulk));
+  async evaluateAll(
+    bulk: AuthZENBulk,
+    options?: PEPHandshakeCallOptions
+  ): Promise<AuthZENDecision> {
+    return evaluateEnvelope(
+      this.authzenTransport(options?.pepHandshake),
+      buildEnvelope(undefined, bulk)
+    );
   }
 
   /**
@@ -3325,14 +3360,19 @@ export class AxonFlow {
    *
    * @param request - The {@link DecideRequest} (`stage` ∈ {"llm","tool","agent"}
    *   and `query` are required).
+   * @param options - `pepHandshake` declares this call's capabilities in place
+   *   of the client's; see {@link PEPHandshake}.
    * @returns The {@link DecideResponse} verdict, with `obligations` always a
    *   (possibly empty) array.
    * @throws AuthenticationError on 401 (bad / demo credentials).
    * @throws APIError on other non-200 responses.
    */
-  async decide(request: DecideRequest): Promise<DecideResponse> {
+  async decide(request: DecideRequest, options?: PEPHandshakeCallOptions): Promise<DecideResponse> {
     const url = `${this.config.endpoint}${DECIDE_PATH}`;
-    const headers = this.buildAuthHeaders();
+    const headers = {
+      ...this.buildAuthHeaders(),
+      ...this.pepHandshakeHeaders(options?.pepHandshake),
+    };
 
     // Drop undefined-valued keys so the wire body matches the spec
     // (user_token / context omitted when empty).
@@ -3404,6 +3444,8 @@ export class AxonFlow {
    *
    * @param decision - The verdict returned by {@link AxonFlow.decide}.
    * @param statement - The request content to fulfill.
+   * @param options - `pepHandshake` declares the engine round-trip's
+   *   capabilities in place of the client's; see {@link PEPHandshake}.
    * @returns `[content, didRedact]`. `content` is the engine-redacted statement
    *   (or the original when no obligation mutates the request). `didRedact`
    *   reflects whether the ENGINE actually changed the content, not merely that
@@ -3415,7 +3457,11 @@ export class AxonFlow {
    *   reported the redactor did not run (`redaction_evaluated=false`). The
    *   caller MUST fail closed (block) — never forward the original `statement`.
    */
-  async fulfillRequest(decision: DecideResponse, statement: string): Promise<[string, boolean]> {
+  async fulfillRequest(
+    decision: DecideResponse,
+    statement: string,
+    options?: PEPHandshakeCallOptions
+  ): Promise<[string, boolean]> {
     let redacted = statement;
     let didRedact = false;
     for (const ob of decision.obligations ?? []) {
@@ -3441,7 +3487,7 @@ export class AxonFlow {
             'the request-redaction endpoint'
         );
       }
-      redacted = await this.fulfillViaCheckInput(redacted);
+      redacted = await this.fulfillViaCheckInput(redacted, options?.pepHandshake);
       if (redacted !== statement) {
         didRedact = true;
       }
@@ -3458,7 +3504,10 @@ export class AxonFlow {
    * false/absent — never returns unredacted content under an unfulfillable
    * condition.
    */
-  private async fulfillViaCheckInput(statement: string): Promise<string> {
+  private async fulfillViaCheckInput(
+    statement: string,
+    pepHandshake: PEPHandshake | undefined
+  ): Promise<string> {
     let result: MCPCheckInputResponse;
     try {
       result = await this.mcpCheckInput({
@@ -3466,6 +3515,7 @@ export class AxonFlow {
         statement,
         operation: 'execute',
         contentType: CONTENT_TYPE_TEXT,
+        pepHandshake,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -3499,6 +3549,8 @@ export class AxonFlow {
    * (ADR-056, #2563).
    *
    * @param request - The {@link DecideRequest}.
+   * @param options - `pepHandshake` is presented on the decide call and on the
+   *   engine round-trip alike: both come from one enforcement point.
    * @returns `[verdict, content, decision]`. Branch on `verdict`: forward
    *   `content` on `"allow"`; block on `"deny"` / `"needs_approval"`.
    * @throws ObligationNotFulfillableError on the not-fulfillable path AFTER
@@ -3506,12 +3558,15 @@ export class AxonFlow {
    *   cannot accidentally forward the unredacted query — fail-closed by
    *   construction.
    */
-  async decideAndFulfill(request: DecideRequest): Promise<[string, string, DecideResponse]> {
-    const decision = await this.decide(request);
+  async decideAndFulfill(
+    request: DecideRequest,
+    options?: PEPHandshakeCallOptions
+  ): Promise<[string, string, DecideResponse]> {
+    const decision = await this.decide(request, options);
     if (decision.verdict !== VERDICT_ALLOW) {
       return [decision.verdict, request.query, decision];
     }
-    const [redacted] = await this.fulfillRequest(decision, request.query);
+    const [redacted] = await this.fulfillRequest(decision, request.query, options);
     return [decision.verdict, redacted, decision];
   }
 
@@ -3733,6 +3788,24 @@ export class AxonFlow {
    * Includes Content-Type and X-Org-ID for policy APIs.
    * Uses getAuthHeaders() for authentication credentials.
    */
+  /**
+   * The header one call to a plane that reads the PEP handshake adds: the
+   * per-call declaration, else the client's, else none. Only decide, the
+   * AuthZEN evaluation route, the MCP check routes and the gateway pre-check
+   * call this. It is never a default header, so no other route receives it.
+   */
+  private pepHandshakeHeaders(perCall: PEPHandshake | undefined): Record<string, string> {
+    const declared = checkedPEPHandshake(perCall) ?? this.config.pepHandshake;
+    return declared ? { [PEP_HANDSHAKE_HEADER]: declared.headerValue } : {};
+  }
+
+  /** {@link sendAuthZEN}, also carrying this call's PEP handshake when one is declared. */
+  private authzenTransport(perCall: PEPHandshake | undefined): AuthZENTransport {
+    const declared = this.pepHandshakeHeaders(perCall);
+    return (path, body, extraHeaders) =>
+      this.sendAuthZEN(path, body, { ...extraHeaders, ...declared });
+  }
+
   private buildAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
