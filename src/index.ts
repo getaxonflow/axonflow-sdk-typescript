@@ -103,9 +103,23 @@ export {
   LegacyPolicyWriteFrozenError,
   PlatformRouteDeprecationWarning,
   PEPHandshakeError,
+  TypedPolicyRefusal,
 } from './errors';
 export type { UpgradeInfo } from './errors';
 export type { LegacyValidatorAction, PolicyIdentity } from './types/provenance';
+export { TYPED_POLICIES_PATH } from './types/typed-policies';
+export type {
+  ActiveTypedPolicy,
+  AuthoringFinding,
+  EditionConstructReport,
+  TypedAuthoringDocumentRequest,
+  TypedAuthoringEdition,
+  TypedPolicyActivation,
+  TypedPolicyPublication,
+  TypedPolicySystemControl,
+  TypedPolicySystemCorpus,
+  TypedPolicyValidation,
+} from './types/typed-policies';
 
 // Export Decision Mode PEP contract: decide -> fulfill -> forward
 // (ADR-056, epic #2563). Types, constants, and the pure helpers a PEP uses
