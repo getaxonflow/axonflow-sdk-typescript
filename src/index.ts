@@ -100,8 +100,11 @@ export {
   IdempotencyKeyMismatchError,
   APIError,
   ObligationNotFulfillableError,
+  LegacyPolicyWriteFrozenError,
+  PlatformRouteDeprecationWarning,
 } from './errors';
 export type { UpgradeInfo } from './errors';
+export type { LegacyValidatorAction, PolicyIdentity } from './types/provenance';
 
 // Export Decision Mode PEP contract: decide -> fulfill -> forward
 // (ADR-056, epic #2563). Types, constants, and the pure helpers a PEP uses

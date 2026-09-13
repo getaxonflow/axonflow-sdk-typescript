@@ -408,3 +408,56 @@ export class APIError extends AxonFlowError {
     Object.setPrototypeOf(this, APIError.prototype);
   }
 }
+
+/**
+ * A legacy policy write was refused: v11 authors policy through the typed route.
+ *
+ * From v11.0.0 the platform freezes its static- and dynamic-policy write routes and
+ * answers `409 LEGACY_POLICY_WRITE_FROZEN`, naming the typed policy route
+ * (`/api/v1/typed-policies`) in its message. It extends {@link APIError}, so code
+ * that already catches `APIError` keeps working.
+ */
+export class LegacyPolicyWriteFrozenError extends APIError {
+  static readonly CODE = 'LEGACY_POLICY_WRITE_FROZEN';
+  public readonly code = LegacyPolicyWriteFrozenError.CODE;
+
+  constructor(platformMessage: string, statusText: string, body: string) {
+    super(409, statusText, body);
+    this.name = 'LegacyPolicyWriteFrozenError';
+    this.message = platformMessage;
+    Object.setPrototypeOf(this, LegacyPolicyWriteFrozenError.prototype);
+  }
+}
+
+/**
+ * The platform marked the route a call used as deprecated.
+ *
+ * Emitted once per route per client through `process.emitWarning` (so
+ * `process.on('warning', ...)` receives it and `--no-deprecation` silences it), or
+ * `console.warn` where `process` does not exist. `successor` is the route that
+ * replaces it, `removedIn` the release that removes it, and `deprecation` the
+ * RFC 9745 `Deprecation` value when the platform sends one.
+ */
+export class PlatformRouteDeprecationWarning extends Error {
+  public readonly code = 'AXONFLOW_PLATFORM_ROUTE_DEPRECATED';
+  public readonly route: string;
+  public readonly successor?: string;
+  public readonly removedIn?: string;
+  public readonly deprecation?: string;
+
+  constructor(
+    route: string,
+    details: { successor?: string; removedIn?: string; deprecation?: string }
+  ) {
+    const parts = [`${route} is deprecated by the AxonFlow platform`];
+    if (details.successor !== undefined) parts.push(`use ${details.successor} instead`);
+    if (details.removedIn !== undefined) parts.push(`it is removed in ${details.removedIn}`);
+    super(`${parts.join('; ')}.`);
+    this.name = 'DeprecationWarning';
+    this.route = route;
+    this.successor = details.successor;
+    this.removedIn = details.removedIn;
+    this.deprecation = details.deprecation;
+    Object.setPrototypeOf(this, PlatformRouteDeprecationWarning.prototype);
+  }
+}

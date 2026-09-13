@@ -254,6 +254,7 @@
     "PolicyConflictRef",
     "PolicyConflictResponse",
     "PolicyEvaluationResult",
+    "PolicyIdentity",
     "PolicyInfo",
     "PolicyMatch",
     "PolicyMatchInfo",
@@ -379,15 +380,7 @@
       "sdk_only": [
         "error"
       ],
-      "spec_only": [
-        "document_version",
-        "engine",
-        "legacy_validators",
-        "policy_bundle",
-        "policy_identities",
-        "policy_packs",
-        "subject_type"
-      ]
+      "spec_only": []
     },
     "DecisionExplanation": {
       "sdk_only": [],
@@ -466,12 +459,7 @@
         "policy_matches",
         "redacted_message"
       ],
-      "spec_only": [
-        "engine",
-        "legacy_validators",
-        "policy_bundle",
-        "subject_type"
-      ]
+      "spec_only": []
     },
     "Policy": {
       "sdk_only": [

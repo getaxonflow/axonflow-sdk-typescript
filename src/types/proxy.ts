@@ -5,6 +5,7 @@
  * allowing AxonFlow to handle policy enforcement and optional LLM routing.
  */
 
+import type { LegacyValidatorAction } from './provenance';
 import type { MediaContent, MediaAnalysisResponse } from './media';
 
 /**
@@ -141,6 +142,14 @@ export interface ExecuteQueryResponse {
   budgetInfo?: BudgetInfo;
   /** Media analysis results (present when media was submitted) */
   mediaAnalysis?: MediaAnalysisResponse;
+  /** The engine that decided, e.g. `anchored` (v11.0.0). Absent on older platforms. */
+  engine?: string;
+  /** Type of principal the verdict was decided for (v11.0.0). */
+  subjectType?: string;
+  /** Digest of the policy set that decided (v11.0.0). */
+  policyBundle?: string;
+  /** Validators that acted before the engine decided (v11.0.0). */
+  legacyValidators?: LegacyValidatorAction[];
 }
 
 /**

@@ -188,6 +188,8 @@ import {
   VersionConflictError,
   IdempotencyKeyMismatchError,
   ObligationNotFulfillableError,
+  LegacyPolicyWriteFrozenError,
+  PlatformRouteDeprecationWarning,
 } from './errors';
 import {
   CONTENT_TYPE_TEXT,
@@ -359,7 +361,64 @@ function parseDecisionSummary(raw: Record<string, unknown>): DecisionSummary {
 /**
  * Main AxonFlow client for invisible AI governance
  */
+/**
+ * The typed error for a v11 legacy policy write refusal, or `null`.
+ *
+ * A v11 platform answers a write to its static- or dynamic-policy routes with
+ * `409 {"error": {"code": "LEGACY_POLICY_WRITE_FROZEN", "message": ...}}`, on the
+ * agent and the orchestrator alike. Any other response keeps its own handling.
+ */
+function legacyPolicyWriteFrozenFrom(
+  status: number,
+  statusText: string,
+  body: string
+): LegacyPolicyWriteFrozenError | null {
+  if (status !== 409) return null;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  const err = (payload as { error?: unknown } | null)?.error;
+  if (!err || typeof err !== 'object') return null;
+  const { code, message } = err as { code?: unknown; message?: unknown };
+  if (code !== LegacyPolicyWriteFrozenError.CODE) return null;
+  return new LegacyPolicyWriteFrozenError(
+    typeof message === 'string' ? message : 'legacy policy write frozen',
+    statusText,
+    body
+  );
+}
+
+/**
+ * The deprecation a response's headers declare for its route, or `null`.
+ *
+ * A v11 platform stamps its legacy policy routes with `X-AxonFlow-Removed-In` and
+ * `Link: <successor>; rel="successor-version"`, and adds an RFC 9745 `Deprecation`
+ * header once the deprecating release is tagged. Either the first or the last marks
+ * the route deprecated, so this fires before the tag as well as after it.
+ */
+function routeDeprecationFrom(
+  response: Response,
+  method: string,
+  path: string
+): PlatformRouteDeprecationWarning | null {
+  const headers = response.headers;
+  if (!headers || typeof headers.get !== 'function') return null;
+  const deprecation = headers.get('Deprecation');
+  const removedIn = headers.get('X-AxonFlow-Removed-In');
+  if (deprecation === null && removedIn === null) return null;
+  const match = /<([^>]*)>\s*;\s*rel="?successor-version"?/i.exec(headers.get('Link') ?? '');
+  return new PlatformRouteDeprecationWarning(`${method} ${path.split('?')[0]}`, {
+    successor: match ? match[1] : undefined,
+    removedIn: removedIn ?? undefined,
+    deprecation: deprecation ?? undefined,
+  });
+}
+
 export class AxonFlow {
+  private readonly warnedDeprecatedRoutes = new Set<string>();
   private config: {
     clientId?: string;
     clientSecret?: string;
@@ -1279,6 +1338,10 @@ export class AxonFlow {
       error: data.error,
       blocked: data.blocked ?? false,
       blockReason: data.block_reason,
+      engine: data.engine,
+      subjectType: data.subject_type,
+      policyBundle: data.policy_bundle,
+      legacyValidators: data.legacy_validators,
     };
 
     // Parse policy info if present
@@ -1602,6 +1665,10 @@ export class AxonFlow {
       data: agentResponse.data,
       error: agentResponse.error,
       meta: agentResponse.metadata,
+      engine: agentResponse.engine,
+      subject_type: agentResponse.subject_type,
+      policy_bundle: agentResponse.policy_bundle,
+      legacy_validators: agentResponse.legacy_validators,
     };
   }
 
@@ -1697,6 +1764,10 @@ export class AxonFlow {
       redacted: responseData.redacted,
       redacted_fields: responseData.redacted_fields,
       policy_info: responseData.policy_info,
+      engine: responseData.engine,
+      subject_type: responseData.subject_type,
+      policy_bundle: responseData.policy_bundle,
+      legacy_validators: responseData.legacy_validators,
     };
   }
 
@@ -2426,6 +2497,12 @@ export class AxonFlow {
       policies: data.policies ?? [],
       expiresAt,
       blockReason: data.block_reason,
+      decisionId: data.decision_id,
+      verdict: data.verdict,
+      engine: data.engine,
+      subjectType: data.subject_type,
+      policyBundle: data.policy_bundle,
+      legacyValidators: data.legacy_validators,
     };
 
     // Parse rate limit info if present
@@ -3305,6 +3382,13 @@ export class AxonFlow {
       stage: data?.stage,
       expires_at: data?.expires_at,
       error: data?.error,
+      engine: data?.engine,
+      subject_type: data?.subject_type,
+      policy_bundle: data?.policy_bundle,
+      legacy_validators: data?.legacy_validators,
+      policy_identities: data?.policy_identities,
+      policy_packs: data?.policy_packs,
+      document_version: data?.document_version,
     };
   }
 
@@ -3664,6 +3748,17 @@ export class AxonFlow {
   /**
    * Generic HTTP request helper for policy APIs
    */
+  private warnIfRouteDeprecated(response: Response, method: string, path: string): void {
+    const warning = routeDeprecationFrom(response, method, path);
+    if (!warning || this.warnedDeprecatedRoutes.has(warning.route)) return;
+    this.warnedDeprecatedRoutes.add(warning.route);
+    if (typeof process !== 'undefined' && typeof process.emitWarning === 'function') {
+      process.emitWarning(warning);
+    } else {
+      console.warn(warning.message);
+    }
+  }
+
   private async policyRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.config.endpoint}${path}`;
     const headers = this.buildAuthHeaders();
@@ -3679,9 +3774,12 @@ export class AxonFlow {
     }
 
     const response = await this._fetch(url, options);
+    this.warnIfRouteDeprecated(response, method, path);
 
     if (!response.ok) {
       const errorText = await response.text();
+      const frozen = legacyPolicyWriteFrozenFrom(response.status, response.statusText, errorText);
+      if (frozen) throw frozen;
       if (response.status === 401 || response.status === 403) {
         throw new AuthenticationError(`Request failed: ${errorText}`);
       }
@@ -5085,9 +5183,12 @@ export class AxonFlow {
     }
 
     const response = await this._fetch(url, options, scoped?.userToken);
+    this.warnIfRouteDeprecated(response, method, path);
 
     if (!response.ok) {
       const errorText = await response.text();
+      const frozen = legacyPolicyWriteFrozenFrom(response.status, response.statusText, errorText);
+      if (frozen) throw frozen;
       // A scoped miss reports WHY it missed. Only 404 is interpreted: the scope
       // header is stamped before the handler writes its status, so it also
       // rides a 500 from further down the handler, and explaining a server
