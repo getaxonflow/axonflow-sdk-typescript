@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The first TypeScript SDK release carrying these entries sends the PEP
+capability handshake, which a platform reads from v10.4.0, and reaches
+`/api/v1/typed-policies`, which needs a v11.0.0 platform. Upgrade the SDK
+before the platform: from v11.0.0, `decide` refuses a client that does not
+declare redaction, including one that sends no handshake, wherever the
+organization has a redact override. Against an older platform this release
+works unchanged.
+
 ### Added
 
 - **v11 decision provenance on every governed response.** From a v11.0.0
@@ -45,7 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   never sent to `proxyLLMCall` (`/api/request`), the OpenAI-compatible route
   or any other route, none of which reads it, and a client given no
   declaration sends none. On an Enterprise deployment, an allow carrying a
-  mandatory obligation the declared set cannot discharge becomes a deny.
+  mandatory obligation the declared set cannot discharge becomes a deny. From
+  v11.0.0, in every edition, `decide` under an organization's redact override
+  refuses a client that does not declare redaction, including one that sends
+  no handshake.
 
 - **Typed policy authoring (`client.typedPolicies`).** The v11 successor to the
   legacy policy routes: `edition()`, `validate()`, `publish()`, `activate()`,
@@ -56,6 +67,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty. `activate()` promotes a published digest; rollback and withdraw are
   customer portal operations that the agent does not proxy, so the SDK has no
   method for them.
+- **Examples for the v11.0.0 platform.** `examples/typed-policies` authors
+  policy as a typed document (it publishes and activates only when asked),
+  and `examples/pep-handshake` declares an enforcement point's capabilities
+  for the client and for one call. Both exit non-zero when a step fails, and
+  CI type-checks them. The README gains a "v11.0.0 platform" section naming
+  what each part needs from the platform, and its feature overview no longer
+  shows `listPolicies()`, which this SDK does not have, or a dynamic-policy
+  write, which a v11.0.0 platform refuses.
 
 ### Deprecated
 

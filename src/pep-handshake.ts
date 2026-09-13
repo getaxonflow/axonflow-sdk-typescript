@@ -24,8 +24,10 @@
  * (`/api/request`) and the OpenAI-compatible route do not read it, and the
  * client never sends it there.
  *
- * ABSENT IS NOT EMPTY. A client with no declaration sends no header, and the
- * platform behaves exactly as it did before the handshake existed. There is no
+ * ABSENT IS NOT EMPTY. A client with no declaration sends no header. The
+ * platform reads the declaration from v10.4.0; from v11.0.0, `decide` under an
+ * organization's redact override refuses a caller that does not declare
+ * redaction, so a client that sends none is refused there. There is no
  * default declaration: only the caller knows what its enforcement point can
  * discharge. `capabilities: []` declares that it discharges nothing, which on
  * Enterprise turns every allow that carries a mandatory obligation into a deny.
