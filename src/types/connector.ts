@@ -2,6 +2,8 @@
  * MCP Connector types for AxonFlow SDK
  */
 
+import type { LegacyValidatorAction } from './provenance';
+
 export interface ConnectorMetadata {
   id: string;
   name: string;
@@ -142,6 +144,14 @@ export interface ConnectorResponse {
   redacted_fields?: string[];
   /** Policy evaluation details for this request/response cycle */
   policy_info?: MCPPolicyInfo;
+  /** The engine that decided, e.g. `anchored` (v11.0.0). Absent on older platforms. */
+  engine?: string;
+  /** Type of principal the verdict was decided for (v11.0.0). */
+  subject_type?: string;
+  /** Digest of the policy set that decided (v11.0.0). */
+  policy_bundle?: string;
+  /** Validators that acted before the engine decided (v11.0.0). */
+  legacy_validators?: LegacyValidatorAction[];
 }
 
 /**
@@ -318,6 +328,14 @@ export interface MCPCheckOutputResponse {
    * MCPCheckOutputResponse.
    */
   redaction_evaluated?: boolean;
+  /** The engine that decided, e.g. `anchored` (v11.0.0). Absent on older platforms. */
+  engine?: string;
+  /** Type of principal the verdict was decided for (v11.0.0). */
+  subject_type?: string;
+  /** Digest of the policy set that decided (v11.0.0). */
+  policy_bundle?: string;
+  /** Validators that acted before the engine decided (v11.0.0). */
+  legacy_validators?: LegacyValidatorAction[];
 }
 
 /**

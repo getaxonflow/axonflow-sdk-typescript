@@ -5,6 +5,32 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **v11 decision provenance on every governed response.** From a v11.0.0
+  platform, `DecideResponse`, `MCPCheckOutputResponse` and `ConnectorResponse`
+  carry `engine`, `subject_type`, `policy_bundle` and `legacy_validators`, and
+  the gateway pre-check result (`PolicyApprovalResult`) and `proxyLLMCall`'s
+  `ExecuteQueryResponse` carry `engine`, `subjectType`, `policyBundle` and
+  `legacyValidators`. `DecideResponse` also carries `policy_identities` (each
+  matched policy named, as `PolicyIdentity`), `policy_packs` and
+  `document_version`; the pre-check result carries `decisionId` and `verdict`.
+  Every new field is absent on an older platform.
+- **`LegacyPolicyWriteFrozenError`.** A v11.0.0 platform refuses writes to the
+  static- and dynamic-policy routes with `409 LEGACY_POLICY_WRITE_FROZEN`. The
+  SDK throws this typed error, a subclass of `APIError` (so existing `APIError`
+  handling still catches it), carrying the platform's message, which names the
+  typed policy route. Every other 409 is handled as before.
+- **`PlatformRouteDeprecationWarning`.** When the platform stamps the route a
+  call used as deprecated (`X-AxonFlow-Removed-In`, or the RFC 9745
+  `Deprecation` header), the SDK emits this warning once per route per client,
+  through `process.emitWarning` (or `console.warn` where `process` does not
+  exist), naming the successor route from `Link: rel="successor-version"` and
+  the removal release. A v11.0.0 platform stamps the legacy static-policy,
+  dynamic-policy and policy-simulation routes.
+
 ## [9.3.0] - 2026-09-06: read-path identity, a heartbeat that fires on first use, and the inert cache option removed
 
 ### Added

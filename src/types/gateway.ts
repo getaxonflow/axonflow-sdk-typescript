@@ -5,6 +5,8 @@
  * Pre-check policies before calling your LLM, then audit the call afterward.
  */
 
+import type { LegacyValidatorAction } from './provenance';
+
 /**
  * Token usage information for audit logging
  */
@@ -43,6 +45,18 @@ export interface PolicyApprovalResult {
   expiresAt: Date;
   /** Reason for blocking (if not approved) */
   blockReason?: string;
+  /** The decision's identifier (v11.0.0). */
+  decisionId?: string;
+  /** The canonical answer, `allow` or `deny` (v11.0.0). */
+  verdict?: string;
+  /** The engine that decided, e.g. `anchored` (v11.0.0). Absent on older platforms. */
+  engine?: string;
+  /** Type of principal the verdict was decided for (v11.0.0). */
+  subjectType?: string;
+  /** Digest of the policy set that decided (v11.0.0). */
+  policyBundle?: string;
+  /** Validators that acted before the engine decided (v11.0.0). */
+  legacyValidators?: LegacyValidatorAction[];
 }
 
 /**

@@ -24,6 +24,8 @@
  * so the SDK PEP cannot reimplement redaction the way a hand-rolled regex would.
  */
 
+import type { LegacyValidatorAction, PolicyIdentity } from './types/provenance';
+
 // --- Obligation contract constants (mirror platform/agent decision handler) ---
 
 /**
@@ -166,6 +168,20 @@ export interface DecideResponse {
   stage?: string;
   expires_at?: string;
   error?: string;
+  /** The engine that decided, e.g. `anchored` (v11.0.0). Absent on older platforms. */
+  engine?: string;
+  /** Type of principal the verdict was decided for (v11.0.0). */
+  subject_type?: string;
+  /** Digest of the policy set that decided (v11.0.0). */
+  policy_bundle?: string;
+  /** Validators that acted before the engine decided (v11.0.0). */
+  legacy_validators?: LegacyValidatorAction[];
+  /** Each matched policy named, in `evaluated_policies` order (v11.0.0). */
+  policy_identities?: PolicyIdentity[];
+  /** Add-on policy packs whose controls composed (v11.0.0). */
+  policy_packs?: string[];
+  /** Published version of the organization's active typed document (v11.0.0). */
+  document_version?: number;
 }
 
 /**
