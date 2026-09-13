@@ -540,9 +540,21 @@ The tri-state applies to attribute **data**, not to the structural members (`sub
 
 The wire types AND their runtime validators are **generated** from the platform's canonical contract artifact (`scripts/gen-authzen-types/generate.js`); CI fails if the committed module is not what the artifact produces. A TypeScript interface is erased at runtime, so the validators are what actually refuses a body this build cannot interpret. Runnable example: [`examples/authzen/index.ts`](examples/authzen/index.ts). Migration notes: [`docs/AUTHZEN_MIGRATION_DRAFT.md`](docs/AUTHZEN_MIGRATION_DRAFT.md).
 
+## v11.0.0 platform
+
+Against a v11.0.0 platform this SDK reaches the new decision plane. Against an older platform the calls that existed before work as before, and each v11 field is absent. What each part needs from the platform:
+
+- **Decision provenance (v11.0.0).** `DecideResponse`, `MCPCheckOutputResponse` and `ConnectorResponse` carry `engine`, `subject_type`, `policy_bundle` and `legacy_validators`, and the gateway pre-check result and `proxyLLMCall`'s response carry them in camelCase. A decision adds `policy_identities`, `policy_packs` and `document_version`. `legacy_validators` is filled only where a checksum validator acted, so it is absent on `proxyLLMCall` by design.
+- **Frozen legacy policy writes (v11.0.0).** A write to the static- or dynamic-policy routes is refused with `409 LEGACY_POLICY_WRITE_FROZEN`, thrown as `LegacyPolicyWriteFrozenError`, whose message names the typed policy route.
+- **Route deprecation (v11.0.0).** The platform stamps its legacy policy routes, and the client reports each stamped route once through `PlatformRouteDeprecationWarning`. `simulatePolicies`, `getPolicyImpactReport` and `detectPolicyConflicts` are marked `@deprecated`: the platform removes their routes in v11.1.
+- **The PEP capability handshake (v10.4.0).** The platform reads the declaration from v10.4.0. From v11.0.0, an organization's redact override on `decide` refuses a caller that does not declare redaction (see [PEP Capability Handshake](#pep-capability-handshake)).
+- **Typed policy authoring (v11.0.0).** An older platform does not serve these routes: `edition()`, `validate()`, `publish()` and `activate()` throw `TypedPolicyRefusal` with the platform's answer, and `active()` reads a 404 as nothing active (see [Typed Policy Authoring](#typed-policy-authoring)).
+
+Runnable programs: [`examples/typed-policies`](examples/typed-policies) and [`examples/pep-handshake`](examples/pep-handshake).
+
 ## PEP Capability Handshake
 
-A v11 platform lets an enforcement point declare, on each call, the exact obligation types and schema versions it can discharge. Build the declaration once and give it to the client:
+The platform, from v10.4.0, lets an enforcement point declare, on each call, the exact obligation types and schema versions it can discharge. Build the declaration once and give it to the client:
 
 ```typescript
 import { AxonFlow, PEPHandshake } from '@axonflow/sdk';
@@ -561,8 +573,8 @@ The client sends it on every call to a plane that reads it: `decide`, `evaluate`
 
 One process can be two enforcement points: a request path and a response path that discharge different obligations. Pass `pepHandshake` to one of those methods (in its options object, or as `{ pepHandshake }` after the request for `decide`, `evaluate`, `evaluateAll`, `fulfillRequest` and `decideAndFulfill`) to declare it for that call only, in place of the client's.
 
-- **There is no default.** A client given no declaration sends no header, and the platform behaves as it did before the handshake existed. `capabilities: []` declares that the enforcement point discharges nothing.
-- **What a declaration changes.** On an Enterprise deployment, an allow verdict carrying a mandatory obligation the declared set cannot discharge becomes a deny, so declare every obligation your enforcement point carries out, and only those. A Community deployment records the declaration without denying on it, and drops any capability in a family it does not issue.
+- **There is no default.** A client given no declaration sends no header. From v11.0.0 that is not neutral: `decide` under an organization's redact override refuses a caller that does not declare redaction, in every edition. `capabilities: []` declares that the enforcement point discharges nothing.
+- **What a declaration changes.** On an Enterprise deployment, an allow verdict carrying a mandatory obligation the declared set cannot discharge becomes a deny, so declare every obligation your enforcement point carries out, and only those. A Community deployment does not turn such an allow into a deny, and drops any capability in a family it does not issue; the redact-override refusal above applies in every edition.
 - **Refused before it is sent.** `new PEPHandshake(...)` applies the platform's own rules and throws `PEPHandshakeError` naming the member at fault (`.pointer` is `/pep_id`, `/audience` or `/capabilities`), instead of the first governed call coming back `400`. An entry is exactly `{ type, version }`.
 
 ## Typed Policy Authoring
@@ -830,16 +842,10 @@ const result = await axonflow.getPolicyApprovedContext({
 });
 // result.approved = false, result.blockReason = "SQL query policy violation"
 
-// Static Policies - List and manage built-in policies
-const policies = await axonflow.listPolicies();
-// Returns: [{name: "pii-detection", enabled: true}, ...]
-
-// Dynamic Policies - Create runtime policies
-await axonflow.createDynamicPolicy({
-  name: 'block-competitor-queries',
-  conditions: { contains: ['competitor', 'pricing'] },
-  action: 'block'
-});
+// Typed Policy Authoring (v11.0.0) - validate, publish and activate a policy document
+const validation = await axonflow.typedPolicies.validate(document, fixtures);
+const published = await axonflow.typedPolicies.publish(document, fixtures);
+await axonflow.typedPolicies.activate(published.digest);
 
 // MCP Connectors - Query external data sources
 const resp = await axonflow.queryConnector('postgres-db', 'SELECT name FROM customers', {});
