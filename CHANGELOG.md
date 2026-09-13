@@ -57,6 +57,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   customer portal operations that the agent does not proxy, so the SDK has no
   method for them.
 
+### Deprecated
+
+- **`simulatePolicies`, `getPolicyImpactReport` and `detectPolicyConflicts` are
+  deprecated.** A v11.0.0 platform deprecates the policy simulation routes and
+  removes them in v11.1. Each method carries an `@deprecated` tag saying so, and
+  the client reports each route once through `PlatformRouteDeprecationWarning`
+  when the platform stamps it; the successor is `/api/v1/typed-policies`.
+  `createPolicyOverride` and `deletePolicyOverride` document that a v11.0.0
+  platform refuses them with `409 LEGACY_POLICY_WRITE_FROZEN`, thrown as
+  `LegacyPolicyWriteFrozenError`.
+
 ## [9.3.0] - 2026-09-06: read-path identity, a heartbeat that fires on first use, and the inert cache option removed
 
 ### Added
