@@ -1,6 +1,6 @@
 {
   "_comment": "Audit-surface schemas vendored from the pinned OpenAPI specs so the binding gate always runs (no env-dependent skip). Regenerate with: AXONFLOW_OPENAPI_SPECS_DIR=<docs/api at the pinned SHA> node scripts/audit-binding/check.js --vendor",
-  "openapi_specs_sha": "df027c788b60c18d044278c45aa4bce3a1ac8717",
+  "openapi_specs_sha": "36e0e96b7e5c16626d394272b727b533f2b94a04",
   "schemas": {
     "AuditLogEntry": [
       "client_id",

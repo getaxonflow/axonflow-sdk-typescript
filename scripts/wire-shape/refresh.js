@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * Regenerate tests/fixtures/wire-shape-baseline.json from a local
- * checkout of getaxonflow/axonflow's docs/api directory.
+ * Regenerate tests/fixtures/wire-shape-baseline.json from a directory of
+ * the platform's OpenAPI specs: normally the committed snapshot,
+ * tests/fixtures/openapi (see its README), or a checkout of the community
+ * mirror's docs/api. Always pass --sha for the committed snapshot: a
+ * directory inside this repository would otherwise resolve to the SDK's
+ * own HEAD, not the platform commit.
  *
  * Usage:
  *   node scripts/wire-shape/refresh.js <specs_dir> [--sha <SHA>]
