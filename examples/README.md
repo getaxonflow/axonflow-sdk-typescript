@@ -81,7 +81,22 @@ cd examples/wcp-retry-idempotency
 npx tsx index.ts
 ```
 
-### 6. Typed Policy Authoring (`examples/typed-policies/`)
+### 6. PEP Capability Handshake (`examples/pep-handshake/`)
+
+Declaring what an enforcement point can discharge. The platform reads the declaration from v10.4.0.
+
+```bash
+npx tsx examples/pep-handshake/index.ts
+```
+
+Demonstrates:
+- A declaration for every call the client makes to a plane that reads it
+- A per-call declaration, for a second enforcement point in the same process
+- A declaration the platform would refuse, failing before anything is sent
+
+After a document with an organization-scope constraint is activated, a decide that does not supply the attribute the constraint conditions on is denied fail-closed with reasons ["unknown_constraint"]; supply the attribute or run this example on a fresh stack.
+
+### 7. Typed Policy Authoring (`examples/typed-policies/`)
 
 Authoring policy as a typed document against a v11.0.0 platform. Run it from the repository root, since it reads `tests/fixtures/typed-policy-publish-body.json` (or the file `AXONFLOW_TYPED_POLICY_BODY` names):
 
@@ -95,19 +110,6 @@ Demonstrates:
 - Publishing and activating it, only with `AXONFLOW_TYPED_POLICY_PUBLISH=1`, since that changes the organization's active policy
 - Reading a refusal's status, reason and findings
 - The document in force, as the exact signed text
-
-### 7. PEP Capability Handshake (`examples/pep-handshake/`)
-
-Declaring what an enforcement point can discharge. The platform reads the declaration from v10.4.0.
-
-```bash
-npx tsx examples/pep-handshake/index.ts
-```
-
-Demonstrates:
-- A declaration for every call the client makes to a plane that reads it
-- A per-call declaration, for a second enforcement point in the same process
-- A declaration the platform would refuse, failing before anything is sent
 
 Both read `AXONFLOW_AGENT_URL` (default `http://localhost:8080`), `AXONFLOW_CLIENT_ID` and `AXONFLOW_CLIENT_SECRET`, and exit non-zero when a step fails.
 
