@@ -461,3 +461,22 @@ export class PlatformRouteDeprecationWarning extends Error {
     Object.setPrototypeOf(this, PlatformRouteDeprecationWarning.prototype);
   }
 }
+
+/**
+ * A PEP capability declaration the platform would refuse, caught before it is sent.
+ *
+ * Thrown when a {@link PEPHandshake} is constructed. `pointer` is the RFC 6901
+ * JSON Pointer of the offending member of the handshake document (`/pep_id`,
+ * `/audience` or `/capabilities`), or `''` when the document as a whole encodes
+ * past the header's size limit.
+ */
+export class PEPHandshakeError extends AxonFlowError {
+  public readonly pointer: string;
+
+  constructor(message: string, pointer: string) {
+    super(message, { pointer });
+    this.name = 'PEPHandshakeError';
+    this.pointer = pointer;
+    Object.setPrototypeOf(this, PEPHandshakeError.prototype);
+  }
+}

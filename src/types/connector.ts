@@ -2,6 +2,7 @@
  * MCP Connector types for AxonFlow SDK
  */
 
+import type { PEPHandshake } from '../pep-handshake';
 import type { LegacyValidatorAction } from './provenance';
 
 export interface ConnectorMetadata {
@@ -183,6 +184,11 @@ export interface MCPCheckInputOptions {
    * Source of truth: platform/agent MCPCheckInputRequest.
    */
   contentType?: string;
+  /**
+   * Declares the PEP capability handshake for this call only, in place of the
+   * client's `pepHandshake`. See {@link PEPHandshake}.
+   */
+  pepHandshake?: PEPHandshake;
 }
 
 /**
@@ -287,6 +293,11 @@ export interface MCPCheckOutputOptions {
   message?: string;
   metadata?: Record<string, any>;
   rowCount?: number;
+  /**
+   * Declares the PEP capability handshake for this call only, in place of the
+   * client's `pepHandshake`. See {@link PEPHandshake}.
+   */
+  pepHandshake?: PEPHandshake;
 }
 
 /**

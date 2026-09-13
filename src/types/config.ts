@@ -1,6 +1,8 @@
 /**
  * Configuration options for the AxonFlow SDK
  */
+
+import type { PEPHandshake } from '../pep-handshake';
 export interface AxonFlowConfig {
   /**
    * Client ID for OAuth2-style authentication
@@ -46,6 +48,16 @@ export interface AxonFlowConfig {
    * to one person with `client.asUser(token)`.
    */
   userToken?: string;
+
+  /**
+   * The PEP capability declaration this client presents on every call to a
+   * plane that reads it: `decide`, `evaluate` and `evaluateAll`, the MCP check
+   * methods (and the fulfilment helpers that call them), and the gateway
+   * pre-check. It is never sent to any other route, and a client given none
+   * presents none. Override it for one call with the `pepHandshake` option on
+   * those methods. See {@link PEPHandshake}.
+   */
+  pepHandshake?: PEPHandshake;
 
   /**
    * AxonFlow API endpoint (optional)

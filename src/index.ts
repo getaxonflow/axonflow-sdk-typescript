@@ -102,6 +102,7 @@ export {
   ObligationNotFulfillableError,
   LegacyPolicyWriteFrozenError,
   PlatformRouteDeprecationWarning,
+  PEPHandshakeError,
 } from './errors';
 export type { UpgradeInfo } from './errors';
 export type { LegacyValidatorAction, PolicyIdentity } from './types/provenance';
@@ -131,6 +132,17 @@ export type {
   DecisionCallerIdentity,
   DecisionTarget,
 } from './pep';
+
+// Export the PEP capability handshake (ADR-065): the declaration a PEP sends
+// on the planes that read it.
+export {
+  PEP_HANDSHAKE_HEADER,
+  PEP_HANDSHAKE_PROFILE_V1,
+  MAX_PEP_HANDSHAKE_BYTES,
+  MAX_PEP_HANDSHAKE_CAPABILITIES,
+  PEPHandshake,
+} from './pep-handshake';
+export type { PEPCapability, PEPHandshakeInit, PEPHandshakeCallOptions } from './pep-handshake';
 
 // Export types for TypeScript users
 export type {

@@ -540,6 +540,31 @@ The tri-state applies to attribute **data**, not to the structural members (`sub
 
 The wire types AND their runtime validators are **generated** from the platform's canonical contract artifact (`scripts/gen-authzen-types/generate.js`); CI fails if the committed module is not what the artifact produces. A TypeScript interface is erased at runtime, so the validators are what actually refuses a body this build cannot interpret. Runnable example: [`examples/authzen/index.ts`](examples/authzen/index.ts). Migration notes: [`docs/AUTHZEN_MIGRATION_DRAFT.md`](docs/AUTHZEN_MIGRATION_DRAFT.md).
 
+## PEP Capability Handshake
+
+A v11 platform lets an enforcement point declare, on each call, the exact obligation types and schema versions it can discharge. Build the declaration once and give it to the client:
+
+```typescript
+import { AxonFlow, PEPHandshake } from '@axonflow/sdk';
+
+const pepHandshake = new PEPHandshake({
+  pepId: 'checkout-gateway', // names this enforcement point within your credential
+  audience: 'https://pep.example.com', // what a decision proof is bound to
+  capabilities: [{ type: 'field_redact', version: 1 }],
+});
+
+const axonflow = new AxonFlow({ endpoint, clientId, clientSecret, pepHandshake });
+const decision = await axonflow.decide(request); // carries X-Axonflow-PEP-Handshake
+```
+
+The client sends it on every call to a plane that reads it: `decide`, `evaluate` and `evaluateAll`, `mcpCheckInput` and `mcpCheckOutput` (and their `checkTool*` aliases), the engine round-trip of `fulfillRequest` and `decideAndFulfill`, and the gateway pre-check (`getPolicyApprovedContext`, `preCheck`). It does **not** send it to `proxyLLMCall` (`/api/request`), the OpenAI-compatible route or any other route, because none of them reads it.
+
+One process can be two enforcement points: a request path and a response path that discharge different obligations. Pass `pepHandshake` to one of those methods (in its options object, or as `{ pepHandshake }` after the request for `decide`, `evaluate`, `evaluateAll`, `fulfillRequest` and `decideAndFulfill`) to declare it for that call only, in place of the client's.
+
+- **There is no default.** A client given no declaration sends no header, and the platform behaves as it did before the handshake existed. `capabilities: []` declares that the enforcement point discharges nothing.
+- **What a declaration changes.** On an Enterprise deployment, an allow verdict carrying a mandatory obligation the declared set cannot discharge becomes a deny, so declare every obligation your enforcement point carries out, and only those. A Community deployment records the declaration without denying on it, and drops any capability in a family it does not issue.
+- **Refused before it is sent.** `new PEPHandshake(...)` applies the platform's own rules and throws `PEPHandshakeError` naming the member at fault (`.pointer` is `/pep_id`, `/audience` or `/capabilities`), instead of the first governed call coming back `400`. An entry is exactly `{ type, version }`.
+
 ## Configuration Options
 
 ```typescript

@@ -5,6 +5,7 @@
  * Pre-check policies before calling your LLM, then audit the call afterward.
  */
 
+import type { PEPHandshake } from '../pep-handshake';
 import type { LegacyValidatorAction } from './provenance';
 
 /**
@@ -71,6 +72,11 @@ export interface PolicyApprovalOptions {
   dataSources?: string[];
   /** Additional context for policy evaluation */
   context?: Record<string, unknown>;
+  /**
+   * Declares the PEP capability handshake for this call only, in place of the
+   * client's `pepHandshake`. See {@link PEPHandshake}.
+   */
+  pepHandshake?: PEPHandshake;
 }
 
 /**

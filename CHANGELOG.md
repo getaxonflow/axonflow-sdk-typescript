@@ -30,6 +30,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exist), naming the successor route from `Link: rel="successor-version"` and
   the removal release. A v11.0.0 platform stamps the legacy static-policy,
   dynamic-policy and policy-simulation routes.
+- **The PEP capability handshake.** A v11 platform lets an enforcement point
+  declare, on each call, the exact obligation types and versions it can
+  discharge, in the `X-Axonflow-PEP-Handshake` header. `PEPHandshake` builds
+  the declaration (`pepId`, `audience` and the exact `{ type, version }`
+  capability set, which may be empty), validates it by the platform's own
+  rules, throwing `PEPHandshakeError` with the JSON Pointer of the member at
+  fault, and encodes it once. Pass it as `pepHandshake` in the client config
+  to present it on every call to a plane that reads it: `decide`, `evaluate`,
+  `evaluateAll`, `mcpCheckInput`, `mcpCheckOutput`, `checkToolInput`,
+  `checkToolOutput`, `getPolicyApprovedContext`, `preCheck`, and the engine
+  round-trip of `fulfillRequest` and `decideAndFulfill`. Pass it to one of
+  those methods as `pepHandshake` to declare it for that call only. It is
+  never sent to `proxyLLMCall` (`/api/request`), the OpenAI-compatible route
+  or any other route, none of which reads it, and a client given no
+  declaration sends none. On an Enterprise deployment, an allow carrying a
+  mandatory obligation the declared set cannot discharge becomes a deny.
 
 ## [9.3.0] - 2026-09-06: read-path identity, a heartbeat that fires on first use, and the inert cache option removed
 
