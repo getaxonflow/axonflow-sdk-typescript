@@ -5,11 +5,13 @@ name: Wire-Shape Contract
 # Runs on every PR and push to main. Drift NOT covered by the baseline
 # fails the check.
 #
-# Specs are fetched from the getaxonflow/axonflow community mirror at
-# the SHA recorded in tests/fixtures/wire-shape-baseline.json so the
-# gate is deterministic. A 'spec-pin-bump' label is required on PRs
-# that change the SHA, preserving review integrity (a PR that both
-# moved the SHA and the TS types could otherwise silence drift).
+# Specs are a schema snapshot committed under tests/fixtures/openapi/
+# (see its README), derived from the platform's docs/api at the commit
+# recorded as openapi_specs_sha in tests/fixtures/wire-shape-baseline.json
+# by scripts/snapshot_openapi_schemas.py, so the gate is deterministic. A
+# 'spec-pin-bump' label is required on PRs that change the SHA OR any file
+# under tests/fixtures/openapi/, preserving review integrity (a PR that
+# moved the pin and the TS types together could otherwise silence drift).
 #
 # To regenerate the baseline:
 #   node scripts/wire-shape/refresh.js <specs_dir>
@@ -23,6 +25,8 @@ on:
       - 'tests/fixtures/audit-binding-spec.json'
       - 'scripts/wire-shape/**'
       - 'scripts/audit-binding/**'
+      - 'scripts/snapshot_openapi_schemas.py'
+      - 'tests/fixtures/openapi/**'
       - '.github/workflows/wire-shape-contract.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -34,6 +38,8 @@ on:
       - 'tests/fixtures/audit-binding-spec.json'
       - 'scripts/wire-shape/**'
       - 'scripts/audit-binding/**'
+      - 'scripts/snapshot_openapi_schemas.py'
+      - 'tests/fixtures/openapi/**'
       - '.github/workflows/wire-shape-contract.yml'
       - 'package.json'
       - 'package-lock.json'
@@ -91,17 +97,26 @@ jobs:
             echo "::notice::Base branch has no openapi_specs_sha yet; treating this PR as first pin introduction."
             exit 0
           fi
-          if [ "$BASE_SHA" = "$PR_SHA" ]; then
-            echo "openapi_specs_sha unchanged (${PR_SHA})."
+          SNAPSHOT_CHANGED=false
+          if ! git diff --quiet "origin/${BASE_REF}...HEAD" -- tests/fixtures/openapi/; then
+            SNAPSHOT_CHANGED=true
+          fi
+          if [ "$BASE_SHA" = "$PR_SHA" ] && [ "$SNAPSHOT_CHANGED" = false ]; then
+            echo "openapi_specs_sha unchanged (${PR_SHA}) and tests/fixtures/openapi/ unchanged."
             exit 0
           fi
-          echo "SHA change detected: ${BASE_SHA} -> ${PR_SHA}"
+          echo "Pin change detected: openapi_specs_sha ${BASE_SHA} -> ${PR_SHA}; snapshot changed: ${SNAPSHOT_CHANGED}"
           HAS_LABEL=$(printf '%s' "$PR_LABELS" | python3 -c "import json, sys; print('spec-pin-bump' in json.load(sys.stdin))")
           if [ "$HAS_LABEL" = "True" ]; then
             echo "::notice::'spec-pin-bump' label present — SHA bump authorized."
             exit 0
           fi
-          echo "::error::openapi_specs_sha changed from ${BASE_SHA} to ${PR_SHA}."
+          if [ "$BASE_SHA" != "$PR_SHA" ]; then
+            echo "::error::openapi_specs_sha changed from ${BASE_SHA} to ${PR_SHA}."
+          fi
+          if [ "$SNAPSHOT_CHANGED" = true ]; then
+            echo "::error::tests/fixtures/openapi/ changed; the spec snapshot is part of the pin."
+          fi
           echo "::error::The wire-shape contract's spec revision is pinned to preserve"
           echo "::error::review integrity: a SHA change in the same PR as SDK changes"
           echo "::error::can silence drift by retargeting the contract to a friendlier"
@@ -109,12 +124,19 @@ jobs:
           echo "::error::apply the 'spec-pin-bump' label to this PR."
           exit 1
 
-      - name: Checkout OpenAPI specs (pinned to baseline SHA)
-        uses: actions/checkout@v4
+      - name: Set up Python (spec snapshot checks)
+        uses: actions/setup-python@v5
         with:
-          repository: getaxonflow/axonflow
-          ref: ${{ steps.specs_sha.outputs.sha }}
-          path: axonflow-community
+          python-version: '3.11'
+
+      - name: Check the committed spec snapshot
+        # The derivation's own self-test, then the committed snapshot must be
+        # exactly the script's derived form (prose, types or a spec copied in
+        # verbatim are refused). Any change to it also needs the label above.
+        run: |
+          python -m pip install --quiet pyyaml
+          python scripts/snapshot_openapi_schemas.py --self-test
+          python scripts/snapshot_openapi_schemas.py --check-snapshot tests/fixtures/openapi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -127,7 +149,7 @@ jobs:
 
       - name: Run wire-shape contract validator
         env:
-          AXONFLOW_OPENAPI_SPECS_DIR: ${{ github.workspace }}/axonflow-community/docs/api
+          AXONFLOW_OPENAPI_SPECS_DIR: ${{ github.workspace }}/tests/fixtures/openapi
         run: node scripts/wire-shape/validate.js
 
       - name: Run audit-surface binding gate (#3254)
@@ -138,9 +160,9 @@ jobs:
         # skip. The seven deprecated fiction fields + request_type are
         # carried as curated, noted debt. The vendored fixture keeps the
         # gate running without this env var; setting it here additionally
-        # cross-checks the fixture against the live pinned spec.
+        # cross-checks the fixture against the pinned spec snapshot.
         env:
-          AXONFLOW_OPENAPI_SPECS_DIR: ${{ github.workspace }}/axonflow-community/docs/api
+          AXONFLOW_OPENAPI_SPECS_DIR: ${{ github.workspace }}/tests/fixtures/openapi
         run: node scripts/audit-binding/check.js
 
       - name: Run transformer-coverage gate (type-vs-implementation)
