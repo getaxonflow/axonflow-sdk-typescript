@@ -19,6 +19,11 @@ name: Wire-Shape Contract
 on:
   pull_request:
     branches: [main]
+    # The pin guard reads the PR's labels from the event payload. A label
+    # attached after the PR opens (`gh pr create --label` adds it in a second
+    # call) is not in the `opened` payload, so the guard must re-run when a
+    # label is added or removed, or its verdict describes stale labels.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - 'src/**/*.ts'
       - 'tests/fixtures/wire-shape-baseline.json'
