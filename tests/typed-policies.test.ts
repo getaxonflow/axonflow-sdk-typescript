@@ -9,8 +9,9 @@
  * carry the null a real stack sends.
  */
 
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { DEFAULT_BODY_PATH } from '../examples/typed-policies/body';
 import { AxonFlow } from '../src/client';
 import { APIError, AuthenticationError, AxonFlowError, TypedPolicyRefusal } from '../src/errors';
 import { HEADER_USER_TOKEN } from '../src/read-identity';
@@ -176,6 +177,133 @@ describe('the operations', () => {
     await expect(client().typedPolicies.active()).resolves.toBeNull();
   });
 
+  it.each([
+    ['a plain-text 404', () => answer('404 page not found', 404), undefined],
+    [
+      'a 404 with another reason',
+      () => answerJSON({ success: false, reason: 'no_such_endpoint', error: 'no route' }, 404),
+      'no_such_endpoint',
+    ],
+  ])('active() on %s is a typed refusal, not nothing active', async (_label, respond, reason) => {
+    // A platform before v11.0.0, or an endpoint that is not an agent, is not
+    // "nothing active".
+    respond();
+    const caught = await client()
+      .typedPolicies.active()
+      .catch((e: unknown) => e);
+    expect(caught).toBeInstanceOf(TypedPolicyRefusal);
+    expect([
+      (caught as TypedPolicyRefusal).statusCode,
+      (caught as TypedPolicyRefusal).reason,
+    ]).toEqual([404, reason]);
+  });
+
+  it('edition() names its vocabulary', async () => {
+    answerJSON({
+      success: true,
+      catalog: 'deployment',
+      catalog_digest: 'sha256:vocabulary',
+      registry_version: 2,
+      catalog_fixture: true,
+    });
+    const edition = await client().typedPolicies.edition();
+    expect([edition.catalog_digest, edition.registry_version, edition.catalog_fixture]).toEqual([
+      'sha256:vocabulary',
+      2,
+      true,
+    ]);
+  });
+
+  it('edition() without the vocabulary members reads them as absent', async () => {
+    answerJSON({ success: true, catalog: 'deployment' });
+    const edition = await client().typedPolicies.edition();
+    expect([edition.catalog_digest, edition.registry_version, edition.catalog_fixture]).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it('publish() carries the template omission report', async () => {
+    answerJSON({
+      success: true,
+      digest: DIGEST,
+      version: 1,
+      findings: [],
+      template_omissions: { omitted: ['sys_a', 'sys_b'], of: 22, message: 'omits 2 of 22' },
+    });
+    const published = await client().typedPolicies.publish(BODY.document, BODY.fixtures);
+    expect(published.template_omissions).toEqual({
+      omitted: ['sys_a', 'sys_b'],
+      of: 22,
+      message: 'omits 2 of 22',
+    });
+    expect(published.template_omissions_unavailable).toBeUndefined();
+  });
+
+  it('a publication whose omission report is unavailable says why', async () => {
+    answerJSON({
+      success: true,
+      digest: DIGEST,
+      version: 1,
+      template_omissions_unavailable: 'the organization template could not be read',
+    });
+    const published = await client().typedPolicies.publish(BODY.document, BODY.fixtures);
+    expect(published.template_omissions).toBeUndefined();
+    expect(published.template_omissions_unavailable).toBe(
+      'the organization template could not be read'
+    );
+  });
+
+  it('activate() carries the omission report beside the record, not inside it', async () => {
+    answerJSON({
+      success: true,
+      activation: { digest: DIGEST },
+      template_omissions: { omitted: ['sys_a'], of: 22, message: 'omits 1 of 22' },
+    });
+    const activation = await client().typedPolicies.activate(DIGEST);
+    expect(activation.template_omissions).toEqual({
+      omitted: ['sys_a'],
+      of: 22,
+      message: 'omits 1 of 22',
+    });
+    expect(activation.template_omissions_unavailable).toBeUndefined();
+    expect(activation.activation).not.toHaveProperty('template_omissions');
+  });
+
+  it('an activation whose omission report is unavailable says why', async () => {
+    answerJSON({
+      success: true,
+      activation: { digest: DIGEST },
+      template_omissions_unavailable: 'the organization template could not be read',
+    });
+    const activation = await client().typedPolicies.activate(DIGEST);
+    expect(activation.template_omissions).toBeUndefined();
+    expect(activation.template_omissions_unavailable).toBe(
+      'the organization template could not be read'
+    );
+  });
+
+  it('a system control names itself, and is not mandatory when unsaid', async () => {
+    answerJSON({
+      success: true,
+      system: {
+        controls: [
+          { id: 'sys.a', name: 'Block DROP TABLE', mandatory: true },
+          { id: 'sys.b' },
+          { id: 'sys.c', mandatory: null },
+        ],
+      },
+    });
+    const system = await client().typedPolicies.system();
+    // Compared by value against false, so a drift back to undefined fails here.
+    expect(system.controls.map(c => [c.id, c.name, c.mandatory])).toEqual([
+      ['sys.a', 'Block DROP TABLE', true],
+      ['sys.b', undefined, false],
+      ['sys.c', undefined, false],
+    ]);
+  });
+
   it('system() returns the shipped corpus', async () => {
     answerJSON({
       success: true,
@@ -258,6 +386,22 @@ describe('what the platform sends for a nil Go collection: JSON null', () => {
       ],
       [[], {}, {}],
     ],
+    [
+      'publish',
+      { success: true, digest: DIGEST, template_omissions: null },
+      (r: { template_omissions: unknown }) => r.template_omissions,
+      undefined,
+    ],
+    [
+      'publish',
+      {
+        success: true,
+        digest: DIGEST,
+        template_omissions: { omitted: null, of: 22, message: 'm' },
+      },
+      (r: { template_omissions: { omitted: unknown } }) => r.template_omissions.omitted,
+      [],
+    ],
   ])('%s reads null as empty', async (operation, body, read, expected) => {
     answerJSON(body);
     expect(read((await call(operation)) as never)).toEqual(expected);
@@ -294,7 +438,7 @@ describe('the refusals', () => {
       'publish 402, the tier limit',
       'publish',
       402,
-      refusal('tier_limit', { code: 'ERR_TIER_LIMIT_ORG_ROOT_POLICY' }),
+      refusal('tier_limit', { code: 'ERR_TIER_LIMIT_ORG_ROOT_POLICY', policy: 'grant.refund' }),
       {},
     ],
     [
@@ -322,6 +466,9 @@ describe('the refusals', () => {
     expect(typed.retryAfter).toBe(
       headers['Retry-After'] ? Number(headers['Retry-After']) : undefined
     );
+    // A tier refusal names the policy that crossed the ceiling; an outage
+    // refusal (with Retry-After) names none.
+    expect(typed.policy).toBe(body.policy);
   });
 
   it('a refusal is still an APIError, carrying the status and the body', async () => {
@@ -377,5 +524,35 @@ describe('the clients', () => {
     answerJSON(system);
     await parent.typedPolicies.system();
     expect(sent().headers.get(HEADER_USER_TOKEN)).toBeNull();
+  });
+});
+
+describe('when the platform cannot be reached', () => {
+  // The transport's own error reaches the caller: not a refusal, and not a
+  // "nothing active".
+  it.each<[string, () => Error]>([
+    ['a connection refusal', () => new TypeError('fetch failed')],
+    [
+      'a timeout',
+      () => new DOMException('The operation was aborted due to timeout', 'TimeoutError'),
+    ],
+  ])('%s on active(), publish() and activate() is the transport error', async (_label, error) => {
+    for (const operation of ['active', 'publish', 'activate'] as Operation[]) {
+      const thrown = error();
+      mockFetch.mockReset();
+      mockFetch.mockRejectedValue(thrown);
+      const caught = await call(operation).catch((e: unknown) => e);
+      expect(caught).toBe(thrown);
+      expect(caught).not.toBeInstanceOf(TypedPolicyRefusal);
+    }
+  });
+});
+
+describe('the example', () => {
+  it('finds its default document from its own location', () => {
+    // examples/typed-policies runs from any directory: its default body is found
+    // from the file's own location, and it is the vendored fixture.
+    expect(DEFAULT_BODY_PATH).toBe(join(__dirname, 'fixtures', 'typed-policy-publish-body.json'));
+    expect(existsSync(DEFAULT_BODY_PATH)).toBe(true);
   });
 });

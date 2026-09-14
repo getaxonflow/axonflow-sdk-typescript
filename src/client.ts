@@ -189,6 +189,7 @@ import {
   type TypedPolicyPublication,
   type TypedPolicySystemControl,
   type TypedPolicySystemCorpus,
+  type TemplateOmissionReport,
   type TypedPolicyValidation,
 } from './types/typed-policies';
 import {
@@ -414,11 +415,17 @@ function legacyPolicyWriteFrozenFrom(
  * `Link: <successor>; rel="successor-version"`, and adds an RFC 9745 `Deprecation`
  * header once the deprecating release is tagged. Either the first or the last marks
  * the route deprecated, so this fires before the tag as well as after it.
+ *
+ * The route is keyed by method and route: for a call whose path carries an id,
+ * the route template it was built from (`GET /api/v1/static-policies/{id}`), so a
+ * stamped route is reported once, not once per id; otherwise the path without the
+ * query.
  */
 function routeDeprecationFrom(
   response: Response,
   method: string,
-  path: string
+  path: string,
+  route?: string
 ): PlatformRouteDeprecationWarning | null {
   const headers = response.headers;
   if (!headers || typeof headers.get !== 'function') return null;
@@ -426,11 +433,20 @@ function routeDeprecationFrom(
   const removedIn = headers.get('X-AxonFlow-Removed-In');
   if (deprecation === null && removedIn === null) return null;
   const match = /<([^>]*)>\s*;\s*rel="?successor-version"?/i.exec(headers.get('Link') ?? '');
-  return new PlatformRouteDeprecationWarning(`${method} ${path.split('?')[0]}`, {
+  return new PlatformRouteDeprecationWarning(`${method} ${route ?? path.split('?')[0]}`, {
     successor: match ? match[1] : undefined,
     removedIn: removedIn ?? undefined,
     deprecation: deprecation ?? undefined,
   });
+}
+
+/**
+ * Fill the `{id}` in a route template with `id`. The id is sent as given, not
+ * percent-encoded (getaxonflow/axonflow-sdk-typescript#289). A replacer function,
+ * so an id containing `$&` or `$1` is inserted as written.
+ */
+function routeWithId(template: string, id: string): string {
+  return template.replace('{id}', () => id);
 }
 
 /**
@@ -2951,8 +2967,10 @@ export class AxonFlow {
    * @deprecated The platform deprecates `POST /api/v1/policies/simulate` in v11.0.0 and
    * removes it in v11.1. It stamps `X-AxonFlow-Removed-In: v11.1` and a `Link` to
    * `/api/v1/typed-policies` on every response, and this client reports the route once
-   * through {@link PlatformRouteDeprecationWarning}. Its successor is the typed simulate on
-   * `/api/v1/typed-policies`, which ships with the v11 series.
+   * through {@link PlatformRouteDeprecationWarning}. It keeps answering until v11.1; on a
+   * v11.0.0 platform its result comes from the legacy engine, which no longer decides, so
+   * it does not predict what the platform enforces. Policy is authored and tested through
+   * the typed policy methods (see `client.typedPolicies.validate`).
    *
    * @param request - The simulated request to evaluate against policies
    * @returns Promise resolving to simulation results
@@ -2993,7 +3011,9 @@ export class AxonFlow {
    * @deprecated The platform deprecates `POST /api/v1/policies/impact-report` in v11.0.0
    * and removes it in v11.1. It stamps `X-AxonFlow-Removed-In: v11.1` and a `Link` to
    * `/api/v1/typed-policies` on every response, and this client reports the route once
-   * through {@link PlatformRouteDeprecationWarning}. Policy is authored and tested through
+   * through {@link PlatformRouteDeprecationWarning}. It keeps answering until v11.1; on a
+   * v11.0.0 platform its result comes from the legacy engine, which no longer decides, so
+   * it does not predict what the platform enforces. Policy is authored and tested through
    * the typed policy methods (see `client.typedPolicies.validate`).
    *
    * @param policyId - The ID of the policy to evaluate
@@ -3034,7 +3054,9 @@ export class AxonFlow {
    * @deprecated The platform deprecates `POST /api/v1/policies/conflicts` in v11.0.0 and
    * removes it in v11.1. It stamps `X-AxonFlow-Removed-In: v11.1` and a `Link` to
    * `/api/v1/typed-policies` on every response, and this client reports the route once
-   * through {@link PlatformRouteDeprecationWarning}. Policy is authored and tested through
+   * through {@link PlatformRouteDeprecationWarning}. It keeps answering until v11.1; on a
+   * v11.0.0 platform its result comes from the legacy engine, which no longer decides, so
+   * it does not predict what the platform enforces. Policy is authored and tested through
    * the typed policy methods (see `client.typedPolicies.validate`).
    *
    * @param policyId - Optional policy ID to check conflicts for a specific policy
@@ -3854,8 +3876,13 @@ export class AxonFlow {
   /**
    * Generic HTTP request helper for policy APIs
    */
-  private warnIfRouteDeprecated(response: Response, method: string, path: string): void {
-    const warning = routeDeprecationFrom(response, method, path);
+  private warnIfRouteDeprecated(
+    response: Response,
+    method: string,
+    path: string,
+    route?: string
+  ): void {
+    const warning = routeDeprecationFrom(response, method, path, route);
     if (!warning || this.warnedDeprecatedRoutes.has(warning.route)) return;
     this.warnedDeprecatedRoutes.add(warning.route);
     if (typeof process !== 'undefined' && typeof process.emitWarning === 'function') {
@@ -3865,7 +3892,27 @@ export class AxonFlow {
     }
   }
 
-  private async policyRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
+  /**
+   * {@link policyRequest} for a route that carries an id: `template` is the route
+   * with `{id}` where the id goes (for example `/api/v1/static-policies/{id}`), and
+   * the path is built from it, so the two cannot disagree and the once-per-route
+   * deprecation record keys on the route, not on each id.
+   */
+  private async policyRequestAt<T>(
+    method: string,
+    template: string,
+    id: string,
+    body?: unknown
+  ): Promise<T> {
+    return this.policyRequest<T>(method, routeWithId(template, id), body, template);
+  }
+
+  private async policyRequest<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    route?: string
+  ): Promise<T> {
     const url = `${this.config.endpoint}${path}`;
     const headers = this.buildAuthHeaders();
 
@@ -3880,7 +3927,7 @@ export class AxonFlow {
     }
 
     const response = await this._fetch(url, options);
-    this.warnIfRouteDeprecated(response, method, path);
+    this.warnIfRouteDeprecated(response, method, path, route);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -3957,7 +4004,7 @@ export class AxonFlow {
       debugLog('Getting static policy', { id });
     }
 
-    return this.policyRequest<StaticPolicy>('GET', `/api/v1/static-policies/${id}`);
+    return this.policyRequestAt<StaticPolicy>('GET', '/api/v1/static-policies/{id}', id);
   }
 
   /**
@@ -4031,7 +4078,7 @@ export class AxonFlow {
       debugLog('Updating static policy', { id, updates: Object.keys(policy) });
     }
 
-    return this.policyRequest<StaticPolicy>('PUT', `/api/v1/static-policies/${id}`, policy);
+    return this.policyRequestAt<StaticPolicy>('PUT', '/api/v1/static-policies/{id}', id, policy);
   }
 
   /**
@@ -4049,7 +4096,7 @@ export class AxonFlow {
       debugLog('Deleting static policy', { id });
     }
 
-    await this.policyRequest<void>('DELETE', `/api/v1/static-policies/${id}`);
+    await this.policyRequestAt<void>('DELETE', '/api/v1/static-policies/{id}', id);
   }
 
   /**
@@ -4070,7 +4117,9 @@ export class AxonFlow {
       debugLog('Toggling static policy', { id, enabled });
     }
 
-    return this.policyRequest<StaticPolicy>('PATCH', `/api/v1/static-policies/${id}`, { enabled });
+    return this.policyRequestAt<StaticPolicy>('PATCH', '/api/v1/static-policies/{id}', id, {
+      enabled,
+    });
   }
 
   /**
@@ -4152,7 +4201,7 @@ export class AxonFlow {
       debugLog('Getting static policy versions', { id });
     }
 
-    const response = await this.policyRequest<{
+    const response = await this.policyRequestAt<{
       policy_id: string;
       versions: Array<{
         // Wire-canonical fields (server actually emits these per
@@ -4173,7 +4222,7 @@ export class AxonFlow {
         new_values?: Record<string, unknown>;
       }>;
       count: number;
-    }>('GET', `/api/v1/static-policies/${id}/versions`);
+    }>('GET', '/api/v1/static-policies/{id}/versions', id);
 
     // Transform snake_case API response to camelCase, populating
     // both the wire-canonical fields (`id`, `policy_id`,
@@ -4230,9 +4279,10 @@ export class AxonFlow {
       debugLog('Creating policy override', { policyId, action: override.action_override });
     }
 
-    return this.policyRequest<PolicyOverride>(
+    return this.policyRequestAt<PolicyOverride>(
       'POST',
-      `/api/v1/static-policies/${policyId}/override`,
+      '/api/v1/static-policies/{id}/override',
+      policyId,
       override
     );
   }
@@ -4257,7 +4307,7 @@ export class AxonFlow {
       debugLog('Deleting policy override', { policyId });
     }
 
-    await this.policyRequest<void>('DELETE', `/api/v1/static-policies/${policyId}/override`);
+    await this.policyRequestAt<void>('DELETE', '/api/v1/static-policies/{id}/override', policyId);
   }
 
   /**
@@ -4344,9 +4394,10 @@ export class AxonFlow {
     }
 
     // API returns {"policy": {...}} wrapper via Agent proxy
-    const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
+    const response = await this.orchestratorRequestAt<{ policy: DynamicPolicy } | DynamicPolicy>(
       'GET',
-      `/api/v1/dynamic-policies/${id}`
+      '/api/v1/dynamic-policies/{id}',
+      id
     );
     // Handle both wrapped and unwrapped responses for compatibility
     return 'policy' in response ? response.policy : response;
@@ -4431,9 +4482,10 @@ export class AxonFlow {
     if (policy.enabled !== undefined) requestBody.enabled = policy.enabled;
 
     // API returns {"policy": {...}} wrapper via Agent proxy
-    const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
+    const response = await this.orchestratorRequestAt<{ policy: DynamicPolicy } | DynamicPolicy>(
       'PUT',
-      `/api/v1/dynamic-policies/${id}`,
+      '/api/v1/dynamic-policies/{id}',
+      id,
       requestBody
     );
     // Handle both wrapped and unwrapped responses for compatibility
@@ -4450,7 +4502,7 @@ export class AxonFlow {
       debugLog('Deleting dynamic policy', { id });
     }
 
-    await this.orchestratorRequest<void>('DELETE', `/api/v1/dynamic-policies/${id}`);
+    await this.orchestratorRequestAt<void>('DELETE', '/api/v1/dynamic-policies/{id}', id);
   }
 
   /**
@@ -4466,9 +4518,10 @@ export class AxonFlow {
     }
 
     // API returns {"policy": {...}} wrapper via Agent proxy
-    const response = await this.orchestratorRequest<{ policy: DynamicPolicy } | DynamicPolicy>(
+    const response = await this.orchestratorRequestAt<{ policy: DynamicPolicy } | DynamicPolicy>(
       'PUT',
-      `/api/v1/dynamic-policies/${id}`,
+      '/api/v1/dynamic-policies/{id}',
+      id,
       { enabled }
     );
     // Handle both wrapped and unwrapped responses for compatibility
@@ -5262,6 +5315,26 @@ export class AxonFlow {
   /**
    * Generic HTTP request helper for APIs (routes through single endpoint per ADR-026)
    */
+  /**
+   * {@link orchestratorRequest} for a route that carries an id, built from its
+   * template as {@link policyRequestAt} builds it (for example
+   * `/api/v1/dynamic-policies/{id}`).
+   */
+  private async orchestratorRequestAt<T>(
+    method: string,
+    template: string,
+    id: string,
+    body?: unknown
+  ): Promise<T> {
+    return this.orchestratorRequest<T>(
+      method,
+      routeWithId(template, id),
+      body,
+      undefined,
+      template
+    );
+  }
+
   private async orchestratorRequest<T>(
     method: string,
     path: string,
@@ -5281,7 +5354,8 @@ export class AxonFlow {
       pageKey?: string;
       /** Per-call identity, overriding the client-wide one. */
       userToken?: string;
-    }
+    },
+    route?: string
   ): Promise<T> {
     const url = `${this.config.endpoint}${path}`;
     const headers = this.buildAuthHeaders();
@@ -5297,7 +5371,7 @@ export class AxonFlow {
     }
 
     const response = await this._fetch(url, options, scoped?.userToken);
-    this.warnIfRouteDeprecated(response, method, path);
+    this.warnIfRouteDeprecated(response, method, path, route);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -6873,11 +6947,16 @@ export class AxonFlow {
    *   no fixtures is refused.
    * - `activate(digest, { reason })`: promotes a published digest to active.
    * - `active()`: the document in force, as the exact text that was signed, or
-   *   `null` when nothing is active.
+   *   `null` only when the platform answers that nothing is active (a 404 whose
+   *   reason is `nothing_active`). Any other 404, from a platform before v11.0.0
+   *   or an endpoint that is not an agent, throws {@link TypedPolicyRefusal} with
+   *   status 404. The platform currently also answers `nothing_active` when its
+   *   document store cannot be read (getaxonflow/axonflow-enterprise#4255).
    * - `system()`: the platform's own controls, read-only.
    *
-   * The organization and the author are the ones this client's credentials
-   * resolve to: the agent stamps both, and neither can be named in a request.
+   * The agent stamps the organization and the author, and neither can be named in
+   * a request: the author is the caller the agent resolved, and the organization
+   * is the one the credentials resolve to (on Community, the deployment's).
    * Activation PROMOTES: a digest whose version does not advance past the
    * active one is refused. Rolling back to an earlier document and withdrawing
    * the active one are operations of the customer portal, behind its session;
@@ -6887,7 +6966,8 @@ export class AxonFlow {
    * and such a deployment approves in the customer portal.
    *
    * Every refusal throws {@link TypedPolicyRefusal} with the HTTP status, the
-   * platform's `reason`, any findings and `retryAfter`; a 401 throws
+   * platform's `reason`, the `policy` a tier refusal names, any findings and
+   * `retryAfter`; a 401 throws
    * {@link AuthenticationError} carrying the platform's explanation.
    *
    * @example
@@ -6913,6 +6993,9 @@ export class AxonFlow {
     return {
       success: body.success === true,
       catalog: this.typedString(body.catalog),
+      catalog_digest: this.typedString(body.catalog_digest),
+      registry_version: this.typedNumber(body.registry_version),
+      catalog_fixture: this.typedBoolean(body.catalog_fixture),
       root: this.typedString(body.root),
       max_documents: this.typedNumber(body.max_documents),
       constructs: this.isTypedRecord(body.constructs)
@@ -6952,6 +7035,8 @@ export class AxonFlow {
       digest: body.digest,
       version: this.typedNumber(body.version),
       findings: this.typedFindings(body.findings),
+      template_omissions: this.typedOmissions(body.template_omissions),
+      template_omissions_unavailable: this.typedString(body.template_omissions_unavailable),
     };
   }
 
@@ -6967,12 +7052,21 @@ export class AxonFlow {
     return {
       success: body.success === true,
       activation: this.isTypedRecord(body.activation) ? body.activation : {},
+      template_omissions: this.typedOmissions(body.template_omissions),
+      template_omissions_unavailable: this.typedString(body.template_omissions_unavailable),
     };
   }
 
   private async typedPoliciesActive(): Promise<ActiveTypedPolicy | null> {
     const response = await this.typedPolicySend('GET', '/active');
-    if (response.status === 404) {
+    // Nothing is active only when the platform says so: a 404 whose reason is
+    // nothing_active. Any other 404, from a platform before v11.0.0 or an
+    // endpoint that is not an agent, is a refusal. The clone leaves the body for
+    // the refusal to read.
+    if (
+      response.status === 404 &&
+      (await this.typedReason(response.clone())) === 'nothing_active'
+    ) {
       return null;
     }
     if (!response.ok) {
@@ -7037,12 +7131,34 @@ export class AxonFlow {
   private typedControl(raw: Record<string, unknown>): TypedPolicySystemControl {
     return {
       id: this.typedString(raw.id) ?? '',
+      name: this.typedString(raw.name),
       authority: this.typedString(raw.authority),
       assurance: this.typedString(raw.assurance),
-      mandatory: this.typedBoolean(raw.mandatory),
+      // The platform omits mandatory when it is false.
+      mandatory: this.typedBoolean(raw.mandatory) ?? false,
       description: this.typedString(raw.description),
       obligations: this.typedRecords(raw.obligations),
     };
+  }
+
+  /** The organization template's controls a document omits; undefined when it omits none. */
+  private typedOmissions(raw: unknown): TemplateOmissionReport | undefined {
+    if (!this.isTypedRecord(raw)) return undefined;
+    return {
+      omitted: this.typedStrings(raw.omitted),
+      of: this.typedNumber(raw.of),
+      message: this.typedString(raw.message),
+    };
+  }
+
+  /** The platform's `reason` in a JSON answer, or undefined. */
+  private async typedReason(response: Response): Promise<string | undefined> {
+    try {
+      const body: unknown = JSON.parse(await response.text());
+      return this.isTypedRecord(body) ? this.typedString(body.reason) : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /** The findings of a body. The platform sends a nil Go slice as JSON null. */
@@ -7153,6 +7269,7 @@ export class AxonFlow {
     throw new TypedPolicyRefusal(message, response.status, response.statusText, text, {
       reason: this.typedString(body.reason),
       code: this.typedString(body.code),
+      policy: this.typedString(body.policy),
       findings: this.typedFindings(body.findings),
       retryAfter: /^\d+$/.test(retryAfter) ? Number(retryAfter) : undefined,
     });

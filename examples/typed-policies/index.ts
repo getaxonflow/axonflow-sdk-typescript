@@ -6,17 +6,30 @@
  * reads what the deployment may author, validates a document and prints every
  * finding, and shows the document in force. It publishes and activates only when
  * AXONFLOW_TYPED_POLICY_PUBLISH=1, because that changes the organization's
- * active policy.
+ * active policy. Before it activates, it prints the publication's report of the
+ * organization template's controls the document omits: activating a document
+ * that omits them removes them for the organization. A publication or activation
+ * it was asked for and refused fails the run.
+ *
+ * Run examples/pep-handshake first. After a document with an organization-scope
+ * constraint is activated, a decide that does not supply the attribute the
+ * constraint conditions on is denied fail-closed with reasons
+ * ["unknown_constraint"]; supply the attribute or run this example on a fresh
+ * stack. From v11.0.0 the deny's first reason is that code, followed by one
+ * naming each constraint it could not evaluate and the attribute it needed
+ * (getaxonflow/axonflow-enterprise#4247). The default document is such a
+ * document.
  *
  * Env vars:
  *   AXONFLOW_AGENT_URL             (default: http://localhost:8080)
  *   AXONFLOW_CLIENT_ID             (default: community)
  *   AXONFLOW_CLIENT_SECRET         (default: empty)
  *   AXONFLOW_TYPED_POLICY_BODY     a JSON file holding {"document": ..., "fixtures": [...]}
- *                                  (default: tests/fixtures/typed-policy-publish-body.json)
+ *                                  (default: the repository's tests/fixtures/typed-policy-publish-body.json)
  *   AXONFLOW_TYPED_POLICY_PUBLISH  set to 1 to also publish and activate the document
  *
- * Run it from the repository root, since the default body is a path in it:
+ * The default document is found from this example's own location, so it runs
+ * from any directory:
  *
  *   npx tsx examples/typed-policies/index.ts
  *
@@ -24,17 +37,40 @@
  */
 
 import { readFileSync } from 'fs';
-import { AxonFlow, TypedPolicyRefusal } from '@axonflow/sdk';
+import { AxonFlow, TypedPolicyRefusal, type TypedPolicyPublication } from '@axonflow/sdk';
+import { DEFAULT_BODY_PATH } from './body';
 
 interface PublishBody {
   document: Record<string, unknown>;
   fixtures: Array<Record<string, unknown>>;
 }
 
+/** Print a refusal: the platform's reason and any findings that refused it. */
+function printRefusal(what: string, refusal: TypedPolicyRefusal): void {
+  console.log(`${what}: HTTP ${refusal.statusCode} ${refusal.reason}: ${refusal.message}`);
+  for (const f of refusal.findings) {
+    console.log(`  ${f.severity} ${f.code} ${f.policy_id ?? ''}`);
+  }
+}
+
+/** Print which of the organization template's controls the document omits. */
+function printTemplateOmissions(published: TypedPolicyPublication): void {
+  const report = published.template_omissions;
+  if (report !== undefined) {
+    console.log(
+      `template omissions: ${report.omitted.length} of ${report.of} template controls: ${report.omitted.join(', ')}`
+    );
+  } else if (published.template_omissions_unavailable !== undefined) {
+    console.log(`template omissions: unavailable: ${published.template_omissions_unavailable}`);
+  } else {
+    console.log('template omissions: none');
+  }
+}
+
 async function main(): Promise<number> {
-  const bodyPath =
-    process.env.AXONFLOW_TYPED_POLICY_BODY ?? 'tests/fixtures/typed-policy-publish-body.json';
-  const body = JSON.parse(readFileSync(bodyPath, 'utf8')) as PublishBody;
+  const body = JSON.parse(
+    readFileSync(process.env.AXONFLOW_TYPED_POLICY_BODY || DEFAULT_BODY_PATH, 'utf8')
+  ) as PublishBody;
 
   const axonflow = new AxonFlow({
     endpoint: process.env.AXONFLOW_AGENT_URL ?? 'http://localhost:8080',
@@ -80,22 +116,32 @@ async function main(): Promise<number> {
 
   if (process.env.AXONFLOW_TYPED_POLICY_PUBLISH === '1') {
     await step('publish and activate', async () => {
+      let published: TypedPolicyPublication;
       try {
-        const published = await axonflow.typedPolicies.publish(body.document, body.fixtures);
-        console.log(`published ${published.digest} (version ${published.version})`);
+        published = await axonflow.typedPolicies.publish(body.document, body.fixtures);
+      } catch (err) {
+        // A refusal carries the platform's reason and, for a refused document,
+        // the findings that refused it. Publishing was asked for, so a refusal
+        // fails the run.
+        if (err instanceof TypedPolicyRefusal) printRefusal('refused', err);
+        throw err;
+      }
+      console.log(`published ${published.digest} (version ${published.version})`);
+      // Activating a document that omits the organization template's controls
+      // removes them for the organization, so the report comes first.
+      printTemplateOmissions(published);
+      try {
         await axonflow.typedPolicies.activate(published.digest, {
           reason: 'examples/typed-policies',
         });
-        console.log('activated');
       } catch (err) {
-        if (!(err instanceof TypedPolicyRefusal)) throw err;
-        // A refusal carries the platform's reason and, for a refused document,
-        // the findings that refused it.
-        console.log(`refused: HTTP ${err.statusCode} ${err.reason}: ${err.message}`);
-        for (const f of err.findings) {
-          console.log(`  ${f.severity} ${f.code} ${f.policy_id ?? ''}`);
-        }
+        // Activation promotes: a digest whose version does not advance past the
+        // active one is refused. Activating was asked for, so a refusal fails
+        // the run.
+        if (err instanceof TypedPolicyRefusal) printRefusal('activation refused', err);
+        throw err;
       }
+      console.log('activated');
     });
   }
 
