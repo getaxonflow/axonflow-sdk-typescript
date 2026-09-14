@@ -8,4 +8,4 @@
  * this value matches package.json.
  */
 // AUTO-GENERATED — do not edit. Run `npm run stamp-version` to update.
-export const VERSION = '9.3.0';
+export const VERSION = '9.4.0';
