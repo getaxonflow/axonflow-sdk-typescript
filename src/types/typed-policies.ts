@@ -54,6 +54,12 @@ export interface TypedAuthoringEdition {
   success: boolean;
   /** The configured authoring vocabulary. */
   catalog?: string;
+  /** The digest that names the authoring vocabulary. */
+  catalog_digest?: string;
+  /** The version of the action registry in that vocabulary. */
+  registry_version?: number;
+  /** True when the vocabulary is a test-world fixture, not a deployment's. */
+  catalog_fixture?: boolean;
   /** The one authority root this surface publishes under. */
   root?: string;
   /** Customer-authored documents admitted per organization; -1 is unlimited. */
@@ -70,18 +76,43 @@ export interface TypedPolicyValidation {
   findings: AuthoringFinding[];
 }
 
-/** A published artifact. Activation names `digest`, never the version. */
+/**
+ * The organization template's controls a document omits. Activating a document
+ * that omits them removes them for the organization. `of` is how many controls
+ * the template carries, and `omitted` names each one the document leaves out.
+ */
+export interface TemplateOmissionReport {
+  omitted: string[];
+  of?: number;
+  message?: string;
+}
+
+/**
+ * A published artifact. Activation names `digest`, never the version.
+ *
+ * `template_omissions` reports the organization template's controls the
+ * document omits, and is absent when it omits none; `template_omissions_unavailable`
+ * says why that report could not be produced, when it could not.
+ */
 export interface TypedPolicyPublication {
   success: boolean;
   digest: string;
   version?: number;
   findings: AuthoringFinding[];
+  template_omissions?: TemplateOmissionReport;
+  template_omissions_unavailable?: string;
 }
 
-/** The audited activation record. */
+/**
+ * The audited activation record. `template_omissions` and
+ * `template_omissions_unavailable` are the report for the activated document, as
+ * on {@link TypedPolicyPublication}, beside the record rather than inside it.
+ */
 export interface TypedPolicyActivation {
   success: boolean;
   activation: Record<string, unknown>;
+  template_omissions?: TemplateOmissionReport;
+  template_omissions_unavailable?: string;
 }
 
 /**
@@ -96,10 +127,12 @@ export interface ActiveTypedPolicy {
 /** One shipped control, with what happens when it cannot be evaluated. */
 export interface TypedPolicySystemControl {
   id: string;
+  name?: string;
   authority?: string;
   /** `enforcement`, `gating_risk` or `advisory`. */
   assurance?: string;
-  mandatory?: boolean;
+  /** False when the platform omits it. */
+  mandatory: boolean;
   description?: string;
   obligations: Array<Record<string, unknown>>;
 }

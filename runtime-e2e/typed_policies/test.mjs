@@ -4,14 +4,19 @@
 // agent and orchestrator, and asserts on a FRESH stack (nothing active on the
 // organization):
 //
-//  1. Nothing is active yet: active() answers null from the platform's 404.
-//  2. edition() reports the deployment's boundary, and system() the shipped
-//     controls with their digest.
+//  1. Nothing is active yet: active() answers null from the platform's 404
+//     whose reason is nothing_active, the reason it keys on.
+//  2. edition() reports the deployment's boundary and names its vocabulary by
+//     digest (not a test-world fixture), and system() the shipped controls with
+//     their digest, names and mandatory flags.
 //  3. The document the platform's own route test proves publishable validates
-//     clean, publishes to a digest, and activates.
-//  4. active() returns that document as the exact signed source, with the
-//     AUTHOR overwritten by the platform: the document deliberately names
-//     `someone-else`, and the platform signs the caller the agent resolved.
+//     clean, publishes to a digest, and activates. The publication reports every
+//     organization template control the document omits, and the activation
+//     reports the same.
+//  4. active() returns that document as the exact signed source, carrying the
+//     published policies, with the AUTHOR overwritten by the platform: the
+//     document deliberately names `someone-else`, and on Community the platform
+//     signs the Client principal of the presented credentials.
 //  5. Activating the same digest again is a typed 409 activation_refused:
 //     activation promotes, and the version does not advance.
 //  6. Publishing with no fixtures is a typed 422 publication_refused whose
@@ -72,12 +77,34 @@ async function run(client) {
   );
   check(edition.success && edition.root === 'organization', 'edition() reports the root');
   check(edition.constructs !== undefined, 'edition() reports the construct boundary');
+  console.log(
+    `  vocabulary: catalog_digest=${edition.catalog_digest} registry_version=${edition.registry_version} ` +
+      `catalog_fixture=${edition.catalog_fixture}`
+  );
+  check(Boolean(edition.catalog_digest), 'edition() names its vocabulary by digest');
+  check(
+    typeof edition.registry_version === 'number' && edition.registry_version > 0,
+    'edition() names the version of its action registry'
+  );
+  check(
+    edition.catalog_fixture === false,
+    "the deployment's vocabulary is not a test-world fixture, so a document can activate"
+  );
   const system = await typed.system();
   console.log(
     `  system: root=${system.root} version=${system.version} digest=${system.digest} ` +
       `controls=${system.controls.length} assurance_counts=${JSON.stringify(system.assurance_counts)}`
   );
   check(Boolean(system.digest) && system.controls.length > 0, 'system() returns the shipped corpus');
+  const named = system.controls.filter(c => c.name).length;
+  const mandatory = system.controls.filter(c => c.mandatory).length;
+  console.log(`  system controls: ${named} named, ${mandatory} mandatory, of ${system.controls.length}`);
+  check(named > 0, "system() reads each control's name");
+  check(mandatory > 0, 'system() reads which controls are mandatory');
+  check(
+    system.controls.every(c => typeof c.mandatory === 'boolean'),
+    "every control's mandatory flag is a boolean"
+  );
 
   console.log('== validate, publish, activate');
   const validation = await typed.validate(document, fixtures);
@@ -86,9 +113,24 @@ async function run(client) {
   const published = await typed.publish(document, fixtures);
   console.log(`  publish: digest=${published.digest} version=${published.version}`);
   check(Boolean(published.digest), 'publish() returns the artifact digest');
+  const report = published.template_omissions;
+  console.log(
+    report
+      ? `  template omissions: ${report.omitted.length} of ${report.of}: ${report.omitted.join(', ')}`
+      : `  template omissions: none (unavailable=${published.template_omissions_unavailable})`
+  );
+  // The document names none of the template's controls, so it omits every one.
+  check(
+    report !== undefined && (report.of ?? 0) > 0 && report.omitted.length === report.of,
+    'the publication reports every organization template control the document omits'
+  );
   const activation = await typed.activate(published.digest, { reason: 'sdk-typescript runtime proof' });
   console.log(`  activate: success=${activation.success} activation=${JSON.stringify(activation.activation)}`);
   check(activation.success, 'activate() promotes the digest');
+  check(
+    JSON.stringify(activation.template_omissions) === JSON.stringify(published.template_omissions),
+    'the activation reports the same omissions as the publication'
+  );
 
   console.log('== the document in force');
   const active = await typed.active();
@@ -102,7 +144,28 @@ async function run(client) {
       JSON.stringify(JSON.parse(active.source)) === JSON.stringify(active.document),
       'active().source is the signed source the document parses from'
     );
-    check(author.local !== 'someone-else', 'the platform signed the caller as author, not the name in the request');
+    // The signed source carries the policies that were published: compared by id
+    // against the request, not against a parse of the same bytes.
+    const ids = doc => (doc.policy?.policies ?? []).map(p => p.id).filter(Boolean);
+    console.log(`  active policy ids: ${JSON.stringify(ids(active.document))}`);
+    check(
+      ids(document).length > 0 && JSON.stringify(ids(active.document)) === JSON.stringify(ids(document)),
+      'the document in force carries the policies that were published'
+    );
+    // The author is the caller the agent stamped, never the name the request
+    // carried. On Community that caller is the API client: a Client principal in
+    // the api-credential realm, named by the client id this proof presents.
+    let stamped = Boolean(author.type) && Boolean(author.local);
+    if (edition.constructs?.edition === 'community') {
+      stamped =
+        author.type === 'Client' &&
+        author.qualifier === 'axonflow-api-credential' &&
+        author.local === (process.env.AXONFLOW_CLIENT_ID ?? 'runtime-e2e');
+    }
+    check(
+      stamped && author.local !== 'someone-else',
+      'the platform signed the caller as author, not the name in the request'
+    );
   }
 
   console.log('== typed refusals');

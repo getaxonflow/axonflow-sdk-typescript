@@ -37,7 +37,9 @@ works unchanged.
   through `process.emitWarning` (or `console.warn` where `process` does not
   exist), naming the successor route from `Link: rel="successor-version"` and
   the removal release. A v11.0.0 platform stamps the legacy static-policy,
-  dynamic-policy and policy-simulation routes.
+  dynamic-policy and policy-simulation routes. A route that carries an id is
+  reported once, by its template (for example
+  `GET /api/v1/static-policies/{id}`), not once per id.
 - **The PEP capability handshake.** A v11 platform lets an enforcement point
   declare, on each call, the exact obligation types and versions it can
   discharge, in the `X-Axonflow-PEP-Handshake` header. `PEPHandshake` builds
@@ -62,16 +64,31 @@ works unchanged.
   legacy policy routes: `edition()`, `validate()`, `publish()`, `activate()`,
   `active()` and `system()` over the six routes the agent proxies under
   `/api/v1/typed-policies`. Every refusal throws `TypedPolicyRefusal`, an
-  `APIError` carrying the platform's `reason`, any findings and `retryAfter`;
-  a 401 throws `AuthenticationError`. A JSON `null` for a collection reads as
-  empty. `activate()` promotes a published digest; rollback and withdraw are
+  `APIError` carrying the platform's `reason`, the `policy` a tier refusal
+  names, any findings and `retryAfter`; a 401 throws `AuthenticationError`. A
+  JSON `null` for a collection reads as empty. The typed answers carry
+  `TypedAuthoringEdition`'s `catalog_digest`,
+  `registry_version` and `catalog_fixture`; a `TemplateOmissionReport`
+  (`template_omissions` and `template_omissions_unavailable` on the publication
+  and the activation), naming the organization template's controls a document
+  omits, since activating it removes them; and `TypedPolicySystemControl`'s
+  `name` and `mandatory`, a plain `boolean` that is `false` when the platform
+  omits it. `active()` returns `null` only for the platform's `nothing_active`;
+  any other 404, from a platform before v11.0.0 or an endpoint that is not an
+  agent, throws `TypedPolicyRefusal` with status 404, and a v11.0.0 platform
+  answers a document store it cannot read with 503 `storage_unavailable`,
+  which throws it too (getaxonflow/axonflow-enterprise#4255). `activate()` promotes a published digest; rollback and withdraw are
   customer portal operations that the agent does not proxy, so the SDK has no
   method for them.
-- **Examples for the v11.0.0 platform.** `examples/typed-policies` authors
-  policy as a typed document (it publishes and activates only when asked),
-  and `examples/pep-handshake` declares an enforcement point's capabilities
-  for the client and for one call. Both exit non-zero when a step fails, and
-  CI type-checks them. The README gains a "v11.0.0 platform" section naming
+- **Examples for the v11.0.0 platform.** `examples/pep-handshake` declares an
+  enforcement point's capabilities for the client and for one call, and
+  `examples/typed-policies` authors policy as a typed document (it publishes
+  and activates only when asked, prints the publication's template-omission
+  report before it activates, and finds its default document from its own
+  location, so it runs from any directory). Both exit non-zero when a step
+  fails, including a publication or activation the example asked for and the
+  platform refused, and CI type-checks them; the README runs the handshake
+  example first. The README gains a "v11.0.0 platform" section naming
   what each part needs from the platform, and its feature overview no longer
   shows `listPolicies()`, which this SDK does not have, or a dynamic-policy
   write, which a v11.0.0 platform refuses.
@@ -80,7 +97,10 @@ works unchanged.
 
 - **`simulatePolicies`, `getPolicyImpactReport` and `detectPolicyConflicts` are
   deprecated.** A v11.0.0 platform deprecates the policy simulation routes and
-  removes them in v11.1. Each method carries an `@deprecated` tag saying so, and
+  removes them in v11.1. Each keeps answering until v11.1; on a v11.0.0
+  platform its result comes from the legacy engine, which no longer decides, so
+  it does not predict what the platform enforces. Each method carries an
+  `@deprecated` tag saying so, and
   the client reports each route once through `PlatformRouteDeprecationWarning`
   when the platform stamps it; the successor is `/api/v1/typed-policies`.
   `createPolicyOverride` and `deletePolicyOverride` document that a v11.0.0

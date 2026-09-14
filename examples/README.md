@@ -94,11 +94,13 @@ Demonstrates:
 - A per-call declaration, for a second enforcement point in the same process
 - A declaration the platform would refuse, failing before anything is sent
 
-After a document with an organization-scope constraint is activated, a decide that does not supply the attribute the constraint conditions on is denied fail-closed with reasons ["unknown_constraint"]; supply the attribute or run this example on a fresh stack.
+`decide` sends the request as you build it. On a Community deployment (not Community SaaS), with the client id `community` or none, a `caller_identity` tenant or organization in the request is taken as given. Otherwise (any other client id, Community SaaS, or a licensed edition), a `caller_identity` that names a different tenant or organization than the credentials is refused with 403, and the error names the member that does not match (`caller_identity.tenant_id does not match authenticated identity`, or the same for `org_id`); the audit records the attempt as `tenant_impersonation` or `org_impersonation`. This example sets no `caller_identity`, so it runs on Community with the credentials unset.
+
+Run this example before `examples/typed-policies`. After a document with an organization-scope constraint is activated, a decide that does not supply the attribute the constraint conditions on is denied fail-closed with reasons ["unknown_constraint"]; supply the attribute or run this example on a fresh stack. From v11.0.0 the deny's first reason is that code, followed by one naming each constraint it could not evaluate and the attribute it needed (getaxonflow/axonflow-enterprise#4247).
 
 ### 7. Typed Policy Authoring (`examples/typed-policies/`)
 
-Authoring policy as a typed document against a v11.0.0 platform. Run it from the repository root, since it reads `tests/fixtures/typed-policy-publish-body.json` (or the file `AXONFLOW_TYPED_POLICY_BODY` names):
+Authoring policy as a typed document against a v11.0.0 platform. It finds its default document, `tests/fixtures/typed-policy-publish-body.json`, from its own location, so it runs from any directory, unless `AXONFLOW_TYPED_POLICY_BODY` names another file:
 
 ```bash
 npx tsx examples/typed-policies/index.ts
@@ -108,6 +110,8 @@ Demonstrates:
 - Reading what the deployment may author
 - Validating a document and reading every finding
 - Publishing and activating it, only with `AXONFLOW_TYPED_POLICY_PUBLISH=1`, since that changes the organization's active policy
+- Printing, before it activates, which of the organization template's controls the document omits: activating a document that omits them removes them for the organization
+- Failing the run, with the platform's reason, when a publication or activation it asked for is refused
 - Reading a refusal's status, reason and findings
 - The document in force, as the exact signed text
 

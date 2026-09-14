@@ -436,8 +436,8 @@ export class LegacyPolicyWriteFrozenError extends APIError {
  *
  * `statusCode` is the HTTP status and `reason` the platform's reason, for
  * example `publication_refused` or `document_refused` (422),
- * `activation_refused` (409), `tier_limit` (402, with `code` naming the limit)
- * or `artifact_cap` (429). `findings` holds the declared findings a refused
+ * `activation_refused` (409), `tier_limit` (402, with `code` naming the limit
+ * and `policy` the policy that crossed it) or `artifact_cap` (429). `findings` holds the declared findings a refused
  * document carries, and `retryAfter` the seconds from `Retry-After` when the
  * refusal is retryable. `message` is the platform's own explanation. It extends
  * {@link APIError}, so code that already catches `APIError` keeps working.
@@ -445,6 +445,7 @@ export class LegacyPolicyWriteFrozenError extends APIError {
 export class TypedPolicyRefusal extends APIError {
   public readonly reason?: string;
   public readonly code?: string;
+  public readonly policy?: string;
   public readonly findings: AuthoringFinding[];
   public readonly retryAfter?: number;
 
@@ -456,6 +457,7 @@ export class TypedPolicyRefusal extends APIError {
     details: {
       reason?: string;
       code?: string;
+      policy?: string;
       findings?: AuthoringFinding[];
       retryAfter?: number;
     } = {}
@@ -465,6 +467,7 @@ export class TypedPolicyRefusal extends APIError {
     this.message = message;
     this.reason = details.reason;
     this.code = details.code;
+    this.policy = details.policy;
     this.findings = details.findings ?? [];
     this.retryAfter = details.retryAfter;
     Object.setPrototypeOf(this, TypedPolicyRefusal.prototype);

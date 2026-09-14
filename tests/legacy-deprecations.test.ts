@@ -3,15 +3,16 @@
  *
  * A v11 platform stamps every response from its deprecated policy surface, and the
  * client reports each stamped route ONCE per client through
- * `PlatformRouteDeprecationWarning`, keyed by method and path without the query, and
- * shared with clients derived through `asUser`. The stamps below are exactly what the
+ * `PlatformRouteDeprecationWarning`, keyed by method and route (for a path that carries
+ * an id, the route template it was built from; otherwise the path without the query),
+ * and shared with clients derived through `asUser`. The stamps below are exactly what the
  * platform's `policypath.StampDeprecation` writes at 857455033 (`X-AxonFlow-Removed-In`
  * and the successor `Link`, `Deprecation` omitted until release prep sets the tag
  * date), and what it writes from the v11.0.0 tag (`Deprecation: @<unix seconds>`).
  * The simulation routes are registered only on an Evaluation+ licence.
  */
 
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import * as ts from 'typescript';
 import { AxonFlow } from '../src/client';
@@ -95,6 +96,159 @@ describe('each route is reported once per client', () => {
       'GET /api/v1/static-policies',
       'GET /api/v1/static-policies/effective',
     ]);
+  });
+});
+
+// The route templates of the eleven methods that reach a deprecated route with an
+// id, in the order the test below calls them, with the method each sends.
+const ID_BEARING_CALLS: Array<[string, string]> = [
+  ['GET', '/api/v1/static-policies/{id}'],
+  ['PUT', '/api/v1/static-policies/{id}'],
+  ['DELETE', '/api/v1/static-policies/{id}'],
+  ['PATCH', '/api/v1/static-policies/{id}'],
+  ['GET', '/api/v1/static-policies/{id}/versions'],
+  ['POST', '/api/v1/static-policies/{id}/override'],
+  ['DELETE', '/api/v1/static-policies/{id}/override'],
+  ['GET', '/api/v1/dynamic-policies/{id}'],
+  ['PUT', '/api/v1/dynamic-policies/{id}'],
+  ['DELETE', '/api/v1/dynamic-policies/{id}'],
+  ['PUT', '/api/v1/dynamic-policies/{id}'],
+];
+
+// The platform's deprecated families (policypath.DeprecatedFamilies at 857455033).
+const FAMILIES = [
+  'static-policies',
+  'system-policies',
+  'dynamic-policies',
+  'tenant-policies',
+  'policies',
+  'templates',
+  'policy-overrides',
+];
+const FAMILY = `(${FAMILIES.join('|')})`;
+// A path on a family built with a value as a path segment after the family: a
+// template literal's interpolation right after a `/`, or a string that ends in `/`
+// concatenated with a value. A query string built onto a fixed route (the
+// effective routes) is not a path segment, and its route is already keyed on the
+// path without the query.
+const BUILT = [
+  new RegExp('`[^`]*/api/v1/' + FAMILY + '(/[^`?$]*)?/\\$\\{'),
+  new RegExp('[\'"]/api/v1/' + FAMILY + '/([^\'"?]*/)?[\'"]\\s*\\+'),
+];
+const TEMPLATE = new RegExp("'/api/v1/" + FAMILY + '/\\{id\\}', 'g');
+
+describe('a route that carries an id is reported once, by its template', () => {
+  it('two ids on one route are one report', async () => {
+    const client = newClient();
+    for (let i = 0; i < 2; i++) {
+      mockFetch.mockReturnValueOnce(mockResponse({ error: 'not found' }, 404, STAMPED_TODAY));
+      mockFetch.mockReturnValueOnce(mockResponse(undefined, 204, STAMPED_TODAY));
+    }
+    for (const id of ['pol_1', 'pol_2']) {
+      await expect(client.getStaticPolicy(id)).rejects.toBeDefined();
+      await client.deletePolicyOverride(id);
+    }
+    expect(emitted().map(w => w.route)).toEqual([
+      'GET /api/v1/static-policies/{id}',
+      'DELETE /api/v1/static-policies/{id}/override',
+    ]);
+  });
+
+  it('every id-bearing method sends its own request and reports its template once', async () => {
+    // Each method is called with two ids. The server must receive each call's
+    // own request, with the id in its path, so a method that shares its
+    // template with another (toggleDynamicPolicy and updateDynamicPolicy are
+    // both PUT /api/v1/dynamic-policies/{id}) is seen to send; and the ten
+    // templates are each reported once.
+    const served: Array<[string, string]> = [];
+    mockFetch.mockImplementation((input: unknown, init?: RequestInit) => {
+      served.push([String(init?.method), new URL(String(input)).pathname]);
+      return mockResponse({ error: 'not found' }, 404, STAMPED_TODAY);
+    });
+    const client = newClient();
+    for (const id of ['x', 'y']) {
+      const calls: Array<() => Promise<unknown>> = [
+        () => client.getStaticPolicy(id),
+        () => client.updateStaticPolicy(id, {}),
+        () => client.deleteStaticPolicy(id),
+        () => client.toggleStaticPolicy(id, true),
+        () => client.getStaticPolicyVersions(id),
+        () =>
+          client.createPolicyOverride(id, {
+            action_override: 'warn',
+            override_reason: 'migration',
+          }),
+        () => client.deletePolicyOverride(id),
+        () => client.getDynamicPolicy(id),
+        () => client.updateDynamicPolicy(id, {}),
+        () => client.deleteDynamicPolicy(id),
+        () => client.toggleDynamicPolicy(id, true),
+      ];
+      for (const call of calls) {
+        // The 404 is refused; what is asserted is what was sent and reported.
+        await call().catch(() => undefined);
+      }
+    }
+    expect(served).toEqual(
+      ['x', 'y'].flatMap(id =>
+        ID_BEARING_CALLS.map(([method, template]) => [method, template.replace('{id}', id)])
+      )
+    );
+    expect(
+      emitted()
+        .map(w => w.route)
+        .sort()
+    ).toEqual(
+      [...new Set(ID_BEARING_CALLS.map(([method, template]) => `${method} ${template}`))].sort()
+    );
+  });
+
+  it('no id-bearing path is built outside its template', () => {
+    // A source census over the platform's seven deprecated families: no path on
+    // them is built with a value as a path segment after the family, so every
+    // id-bearing call names its {id} template and the client builds the path from
+    // it. A new call site therefore cannot report once per id. Its blind spots,
+    // none of which occurs today: a value inside a segment (`/pol_${id}`), a path
+    // whose family comes from a variable (`${base}/${id}`), and a path assembled
+    // another way (an array join, URL()).
+    for (const family of FAMILIES) {
+      for (const planted of [
+        '`/api/v1/' + family + '/${policyId}`',
+        '`/api/v1/' + family + '/${policyId}/versions`',
+        "'/api/v1/" + family + "/' + policyId",
+      ]) {
+        expect(BUILT.some(r => r.test(planted))).toBe(true);
+      }
+    }
+    for (const unbuilt of [
+      "'/api/v1/static-policies'",
+      "'/api/v1/static-policies/{id}', id",
+      "`/api/v1/static-policies/effective${query ? `?${query}` : ''}`",
+      "'/api/v1/dynamic-policies/effective?' + query",
+    ]) {
+      expect(BUILT.some(r => r.test(unbuilt))).toBe(false);
+    }
+    const sources: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (entry.name.endsWith('.ts')) sources.push(full);
+      }
+    };
+    walk(join(__dirname, '..', 'src'));
+    const built: string[] = [];
+    let templates = 0;
+    for (const file of sources) {
+      readFileSync(file, 'utf8')
+        .split('\n')
+        .forEach((line, index) => {
+          if (BUILT.some(r => r.test(line))) built.push(`${file}:${index + 1}`);
+          templates += (line.match(TEMPLATE) ?? []).length;
+        });
+    }
+    expect(built).toEqual([]);
+    expect(templates).toBe(ID_BEARING_CALLS.length);
   });
 });
 
