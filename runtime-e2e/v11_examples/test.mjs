@@ -65,11 +65,11 @@ for (const name of [
   delete env[name];
 }
 
-function curl(path, out) {
+function curl(path, out, maxTime = 10) {
   try {
     return execFileSync(
       'curl',
-      ['-s', '--max-time', '10', '-o', out, '-w', '%{http_code}', `${ENDPOINT}${path}`],
+      ['-s', '--max-time', String(maxTime), '-o', out, '-w', '%{http_code}', `${ENDPOINT}${path}`],
       { encoding: 'utf8' }
     );
   } catch {
@@ -90,9 +90,12 @@ if (!sdk.startsWith(join(ROOT, 'dist') + '/') || !existsSync(sdk)) {
 }
 
 console.log('=== precondition: the agent answers, and no typed document is active');
+// A deadline, not an attempt count: an agent that accepts the connection and
+// never answers must not hold the loop past 60 seconds.
+const deadline = Date.now() + 60_000;
 let healthy = false;
-for (let i = 0; i < 60 && !healthy; i++) {
-  healthy = curl('/health', join(OUT, 'health.json')) === '200';
+while (!healthy && Date.now() < deadline) {
+  healthy = curl('/health', join(OUT, 'health.json'), 5) === '200';
   if (!healthy) await new Promise(resolve => setTimeout(resolve, 1000));
 }
 if (!healthy) {

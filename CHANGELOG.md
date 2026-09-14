@@ -66,8 +66,8 @@ works unchanged.
   `/api/v1/typed-policies`. Every refusal throws `TypedPolicyRefusal`, an
   `APIError` carrying the platform's `reason`, the `policy` a tier refusal
   names, any findings and `retryAfter`; a 401 throws `AuthenticationError`. A
-  JSON `null` for a collection reads as empty. The typed answers carry every
-  member the platform sends: `TypedAuthoringEdition`'s `catalog_digest`,
+  JSON `null` for a collection reads as empty. The typed answers carry
+  `TypedAuthoringEdition`'s `catalog_digest`,
   `registry_version` and `catalog_fixture`; a `TemplateOmissionReport`
   (`template_omissions` and `template_omissions_unavailable` on the publication
   and the activation), naming the organization template's controls a document
@@ -75,9 +75,9 @@ works unchanged.
   `name` and `mandatory`, a plain `boolean` that is `false` when the platform
   omits it. `active()` returns `null` only for the platform's `nothing_active`;
   any other 404, from a platform before v11.0.0 or an endpoint that is not an
-  agent, throws `TypedPolicyRefusal` with status 404. The platform currently
-  also answers `nothing_active` for a store read failure
-  (getaxonflow/axonflow-enterprise#4255). `activate()` promotes a published digest; rollback and withdraw are
+  agent, throws `TypedPolicyRefusal` with status 404, and a v11.0.0 platform
+  answers a document store it cannot read with 503 `storage_unavailable`,
+  which throws it too (getaxonflow/axonflow-enterprise#4255). `activate()` promotes a published digest; rollback and withdraw are
   customer portal operations that the agent does not proxy, so the SDK has no
   method for them.
 - **Examples for the v11.0.0 platform.** `examples/pep-handshake` declares an

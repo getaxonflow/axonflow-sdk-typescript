@@ -5313,9 +5313,6 @@ export class AxonFlow {
   }
 
   /**
-   * Generic HTTP request helper for APIs (routes through single endpoint per ADR-026)
-   */
-  /**
    * {@link orchestratorRequest} for a route that carries an id, built from its
    * template as {@link policyRequestAt} builds it (for example
    * `/api/v1/dynamic-policies/{id}`).
@@ -5335,6 +5332,9 @@ export class AxonFlow {
     );
   }
 
+  /**
+   * Generic HTTP request helper for APIs (routes through single endpoint per ADR-026)
+   */
   private async orchestratorRequest<T>(
     method: string,
     path: string,
@@ -6950,8 +6950,9 @@ export class AxonFlow {
    *   `null` only when the platform answers that nothing is active (a 404 whose
    *   reason is `nothing_active`). Any other 404, from a platform before v11.0.0
    *   or an endpoint that is not an agent, throws {@link TypedPolicyRefusal} with
-   *   status 404. The platform currently also answers `nothing_active` when its
-   *   document store cannot be read (getaxonflow/axonflow-enterprise#4255).
+   *   status 404. A v11.0.0 platform answers a document store it cannot read
+   *   with 503 `storage_unavailable`, which also throws {@link TypedPolicyRefusal}
+   *   (getaxonflow/axonflow-enterprise#4255).
    * - `system()`: the platform's own controls, read-only.
    *
    * The agent stamps the organization and the author, and neither can be named in
@@ -7249,8 +7250,10 @@ export class AxonFlow {
     return body;
   }
 
-  /** Throw the typed refusal for a non-2xx answer: 401 as AuthenticationError. */
-  /** `text` is the body when the caller has already read it. */
+  /**
+   * Throw the typed refusal for a non-2xx answer: 401 as AuthenticationError.
+   * `text` is the body when the caller has already read it.
+   */
   private async throwTypedPolicyRefusal(
     response: Response,
     route: string,

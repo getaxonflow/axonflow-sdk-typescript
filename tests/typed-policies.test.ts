@@ -453,6 +453,15 @@ describe('the refusals', () => {
     ['activate 409', 'activate', 409, refusal('activation_refused'), {}],
     ['validate 503', 'validate', 503, refusal('catalog_not_configured'), {}],
     ['edition 404', 'edition', 404, refusal('no_such_endpoint'), {}],
+    // A v11.0.0 platform answers a document store it cannot read with 503
+    // storage_unavailable, not with nothing_active (getaxonflow/axonflow-enterprise#4255).
+    [
+      'active 503, a document store that cannot be read',
+      'active',
+      503,
+      refusal('storage_unavailable'),
+      {},
+    ],
   ])('%s is a typed refusal', async (_label, operation, status, body, headers) => {
     answerJSON(body, status, headers);
     const caught = await call(operation).catch((e: unknown) => e);
