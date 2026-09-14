@@ -207,8 +207,10 @@ describe('a route that carries an id is reported once, by its template', () => {
     // A source census over the platform's seven deprecated families: no path on
     // them is built with a value as a path segment after the family, so every
     // id-bearing call names its {id} template and the client builds the path from
-    // it. A new call site therefore cannot report once per id. Its blind spot: a
-    // path assembled another way (an array join, URL()) is not seen.
+    // it. A new call site therefore cannot report once per id. Its blind spots,
+    // none of which occurs today: a value inside a segment (`/pol_${id}`), a path
+    // whose family comes from a variable (`${base}/${id}`), and a path assembled
+    // another way (an array join, URL()).
     for (const family of FAMILIES) {
       for (const planted of [
         '`/api/v1/' + family + '/${policyId}`',

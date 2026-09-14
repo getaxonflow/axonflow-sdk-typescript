@@ -4,7 +4,7 @@ Real-stack proof that the two v11 examples run as the README says. `test.mjs` ru
 
 ## Precondition
 
-Before any run, `curl` asks `GET /api/v1/typed-policies/active` and requires `404` with reason `nothing_active`: no typed document is active. Otherwise the leg stops with exit 2, because it changes the organization's active policy and needs a fresh stack. The check is made outside the SDK, so an SDK regression is never reported as a stale stack. Exit 2 means only that; every other failure is exit 1.
+Before any run, `curl` waits up to 60 seconds for the agent's `/health` to answer `200`, then asks `GET /api/v1/typed-policies/active` and requires `404` with reason `nothing_active`: no typed document is active. Otherwise the leg stops with exit 2, because it needs a live agent, and it changes the organization's active policy, so it needs a fresh stack. The check is made outside the SDK, so an SDK regression is never reported as a stale stack. Exit 2 means only that; every other failure is exit 1.
 
 ## What it proves
 
@@ -41,4 +41,4 @@ npm run build
 AXONFLOW_AGENT_URL=http://localhost:8080 node runtime-e2e/v11_examples/test.mjs
 ```
 
-It leaves `AXONFLOW_CLIENT_ID` and `AXONFLOW_CLIENT_SECRET` unset, so the examples present the client id `community`, and on Community the organization is the deployment's (`ORG_ID`). `TSX` names the `tsx` package it runs the examples with (default `tsx@4.21.0`, fetched by `npx` when absent). It exits 0 when every assertion passes, 1 when one fails, and 2 when a typed document is already active. It changes the organization's active policy.
+It leaves `AXONFLOW_CLIENT_ID` and `AXONFLOW_CLIENT_SECRET` unset, so the examples present the client id `community`, and on Community the organization is the deployment's (`ORG_ID`). It ignores any `AXONFLOW_TYPED_POLICY_PUBLISH` or `AXONFLOW_TYPED_POLICY_BODY` it was started with: each run sets its own. `TSX` names the `tsx` package it runs the examples with (default `tsx@4.21.0`, fetched by `npx` when absent). It exits 0 when every assertion passes, 1 when one fails, and 2 when the precondition does not hold (the agent does not answer, or a typed document is already active). It changes the organization's active policy.

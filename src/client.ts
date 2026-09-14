@@ -7061,13 +7061,14 @@ export class AxonFlow {
     const response = await this.typedPolicySend('GET', '/active');
     // Nothing is active only when the platform says so: a 404 whose reason is
     // nothing_active. Any other 404, from a platform before v11.0.0 or an
-    // endpoint that is not an agent, is a refusal. The clone leaves the body for
-    // the refusal to read.
-    if (
-      response.status === 404 &&
-      (await this.typedReason(response.clone())) === 'nothing_active'
-    ) {
-      return null;
+    // endpoint that is not an agent, is a refusal. The body is read once, and
+    // the refusal is built from that text.
+    if (response.status === 404) {
+      const text = await response.text();
+      if (this.typedReason(text) === 'nothing_active') {
+        return null;
+      }
+      return this.throwTypedPolicyRefusal(response, '/active', text);
     }
     if (!response.ok) {
       return this.throwTypedPolicyRefusal(response, '/active');
@@ -7151,10 +7152,10 @@ export class AxonFlow {
     };
   }
 
-  /** The platform's `reason` in a JSON answer, or undefined. */
-  private async typedReason(response: Response): Promise<string | undefined> {
+  /** The platform's `reason` in a JSON answer's text, or undefined. */
+  private typedReason(text: string): string | undefined {
     try {
-      const body: unknown = JSON.parse(await response.text());
+      const body: unknown = JSON.parse(text);
       return this.isTypedRecord(body) ? this.typedString(body.reason) : undefined;
     } catch {
       return undefined;
@@ -7249,8 +7250,13 @@ export class AxonFlow {
   }
 
   /** Throw the typed refusal for a non-2xx answer: 401 as AuthenticationError. */
-  private async throwTypedPolicyRefusal(response: Response, route: string): Promise<never> {
-    const text = await response.text();
+  /** `text` is the body when the caller has already read it. */
+  private async throwTypedPolicyRefusal(
+    response: Response,
+    route: string,
+    text?: string
+  ): Promise<never> {
+    text ??= await response.text();
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);

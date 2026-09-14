@@ -5,11 +5,12 @@
 // temporary directory, outside the tree, with no body file: typed-policies finds
 // its default document from its own location.
 //
-// Precondition, checked with curl rather than the SDK: no typed document is
-// active (GET /api/v1/typed-policies/active answers 404 nothing_active).
-// Otherwise the leg stops with exit 2: it changes the organization's active
-// policy, so it needs a fresh stack. Exit 2 means only that; every other failure
-// is exit 1.
+// Precondition, checked with curl rather than the SDK: the agent answers /health
+// within 60 seconds, and no typed document is active (GET
+// /api/v1/typed-policies/active answers 404 nothing_active). Otherwise the leg
+// stops with exit 2: it needs a live agent, and it changes the organization's
+// active policy, so it needs a fresh stack. Exit 2 means only that; every other
+// failure is exit 1.
 //
 //   1. pep-handshake: exits 0, the first decide is allowed, and the declaration
 //      the platform would refuse fails in the client at /pep_id, before
@@ -53,8 +54,16 @@ const ROOT = realpathSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.
 const ENDPOINT = process.env.AXONFLOW_AGENT_URL ?? 'http://localhost:8080';
 const TSX = process.env.TSX ?? 'tsx@4.21.0';
 const env = { ...process.env, AXONFLOW_AGENT_URL: ENDPOINT, AXONFLOW_TELEMETRY: 'off' };
-delete env.AXONFLOW_CLIENT_ID;
-delete env.AXONFLOW_CLIENT_SECRET;
+// The credentials and the examples' own switches come only from the runs below,
+// never from the environment the leg was started in.
+for (const name of [
+  'AXONFLOW_CLIENT_ID',
+  'AXONFLOW_CLIENT_SECRET',
+  'AXONFLOW_TYPED_POLICY_PUBLISH',
+  'AXONFLOW_TYPED_POLICY_BODY',
+]) {
+  delete env[name];
+}
 
 function curl(path, out) {
   try {
@@ -80,7 +89,16 @@ if (!sdk.startsWith(join(ROOT, 'dist') + '/') || !existsSync(sdk)) {
   process.exit(1);
 }
 
-console.log('=== precondition: no typed document is active');
+console.log('=== precondition: the agent answers, and no typed document is active');
+let healthy = false;
+for (let i = 0; i < 60 && !healthy; i++) {
+  healthy = curl('/health', join(OUT, 'health.json')) === '200';
+  if (!healthy) await new Promise(resolve => setTimeout(resolve, 1000));
+}
+if (!healthy) {
+  console.log(`FAIL: ${ENDPOINT}/health did not answer 200 within 60 seconds: start the stack first`);
+  process.exit(2);
+}
 const code = curl('/api/v1/typed-policies/active', join(OUT, 'active.json'));
 let reason = '';
 try {
