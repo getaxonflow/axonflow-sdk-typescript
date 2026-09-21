@@ -2965,9 +2965,9 @@ export class AxonFlow {
    * Evaluation tier and above.
    *
    * @deprecated The platform deprecates `POST /api/v1/policies/simulate` in v11.0.0 and
-   * removes it in v11.1. It stamps `X-AxonFlow-Removed-In: v11.1` and a `Link` to
+   * removes it in v12.0. It stamps `X-AxonFlow-Removed-In: v12.0` and a `Link` to
    * `/api/v1/typed-policies` on every response, and this client reports the route once
-   * through {@link PlatformRouteDeprecationWarning}. It keeps answering until v11.1; on a
+   * through {@link PlatformRouteDeprecationWarning}. It keeps answering until v12.0; on a
    * v11.0.0 platform its result comes from the legacy engine, which no longer decides, so
    * it does not predict what the platform enforces. Policy is authored and tested through
    * the typed policy methods (see `client.typedPolicies.validate`).
@@ -3009,9 +3009,9 @@ export class AxonFlow {
    * before deploying to production.
    *
    * @deprecated The platform deprecates `POST /api/v1/policies/impact-report` in v11.0.0
-   * and removes it in v11.1. It stamps `X-AxonFlow-Removed-In: v11.1` and a `Link` to
+   * and removes it in v12.0. It stamps `X-AxonFlow-Removed-In: v12.0` and a `Link` to
    * `/api/v1/typed-policies` on every response, and this client reports the route once
-   * through {@link PlatformRouteDeprecationWarning}. It keeps answering until v11.1; on a
+   * through {@link PlatformRouteDeprecationWarning}. It keeps answering until v12.0; on a
    * v11.0.0 platform its result comes from the legacy engine, which no longer decides, so
    * it does not predict what the platform enforces. Policy is authored and tested through
    * the typed policy methods (see `client.typedPolicies.validate`).
@@ -3052,9 +3052,9 @@ export class AxonFlow {
    * other conflict patterns. Optionally scoped to a specific policy.
    *
    * @deprecated The platform deprecates `POST /api/v1/policies/conflicts` in v11.0.0 and
-   * removes it in v11.1. It stamps `X-AxonFlow-Removed-In: v11.1` and a `Link` to
+   * removes it in v12.0. It stamps `X-AxonFlow-Removed-In: v12.0` and a `Link` to
    * `/api/v1/typed-policies` on every response, and this client reports the route once
-   * through {@link PlatformRouteDeprecationWarning}. It keeps answering until v11.1; on a
+   * through {@link PlatformRouteDeprecationWarning}. It keeps answering until v12.0; on a
    * v11.0.0 platform its result comes from the legacy engine, which no longer decides, so
    * it does not predict what the platform enforces. Policy is authored and tested through
    * the typed policy methods (see `client.typedPolicies.validate`).
