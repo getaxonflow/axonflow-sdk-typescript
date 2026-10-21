@@ -3484,6 +3484,8 @@ export class AxonFlow {
       policy_identities: data?.policy_identities,
       policy_packs: data?.policy_packs,
       document_version: data?.document_version,
+      pending_approval: data?.pending_approval,
+      approval_id: data?.approval_id,
     };
   }
 

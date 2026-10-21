@@ -142,6 +142,8 @@ export {
 export type {
   DecideRequest,
   DecideResponse,
+  DecisionApprovalRetry,
+  DecisionPendingApproval,
   Obligation,
   ObligationFulfillment,
   DecisionCallerIdentity,
