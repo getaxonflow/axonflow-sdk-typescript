@@ -35,7 +35,7 @@ const FROZEN_BODY = {
 };
 
 const STAMP_BEFORE_TAG = {
-  'X-AxonFlow-Removed-In': 'v11.1',
+  'X-AxonFlow-Removed-In': 'v12.0',
   Link: '</api/v1/typed-policies>; rel="successor-version"',
 };
 
@@ -234,7 +234,7 @@ describe('deprecated routes', () => {
     expect(warning.code).toBe('AXONFLOW_PLATFORM_ROUTE_DEPRECATED');
     expect(warning.route).toBe('GET /api/v1/static-policies');
     expect(warning.successor).toBe('/api/v1/typed-policies');
-    expect(warning.removedIn).toBe('v11.1');
+    expect(warning.removedIn).toBe('v12.0');
     expect(warning.deprecation).toBeUndefined();
   });
 

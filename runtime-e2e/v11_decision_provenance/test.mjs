@@ -10,7 +10,7 @@
 //      and the same provenance.
 //   3. MCP check-output carries the provenance.
 //   4. A legacy static-policy read emits PlatformRouteDeprecationWarning naming
-//      /api/v1/typed-policies as the successor and v11.1 as the removal release.
+//      /api/v1/typed-policies as the successor and v12.0 as the removal release.
 //   5. A valid legacy static-policy write and a valid dynamic-policy write each
 //      throw LegacyPolicyWriteFrozenError.
 //
@@ -104,7 +104,7 @@ async function deprecatedReadLeg() {
   check(stamped.length === 1, 'a legacy static-policy read emits one PlatformRouteDeprecationWarning');
   if (stamped.length > 0) {
     check(stamped[0].successor === '/api/v1/typed-policies', 'the warning names the typed route as the successor');
-    check(stamped[0].removedIn === 'v11.1', 'the warning names v11.1 as the removal release');
+    check(stamped[0].removedIn === 'v12.0', 'the warning names v12.0 as the removal release');
   }
 }
 

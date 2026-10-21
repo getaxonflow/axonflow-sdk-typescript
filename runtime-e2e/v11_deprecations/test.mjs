@@ -80,8 +80,8 @@ async function run(client) {
   const stamps = await measure();
   for (const route of ROUTES) {
     check(
-      stamps[route]['X-AxonFlow-Removed-In'] === 'v11.1',
-      `the platform stamps ${route} with X-AxonFlow-Removed-In: v11.1`
+      stamps[route]['X-AxonFlow-Removed-In'] === 'v12.0',
+      `the platform stamps ${route} with X-AxonFlow-Removed-In: v12.0`
     );
     check(
       (stamps[route].Link ?? '').includes(SUCCESSOR),
@@ -98,7 +98,7 @@ async function run(client) {
   check(first.length === 1, 'two calls to one stamped route report it once');
   if (first.length > 0) {
     check(first[0].route === 'GET /api/v1/static-policies', 'the report names the route');
-    check(first[0].removedIn === 'v11.1', "the report carries the platform's removal release");
+    check(first[0].removedIn === 'v12.0', "the report carries the platform's removal release");
     check(first[0].successor === SUCCESSOR, "the report carries the platform's successor");
   }
 

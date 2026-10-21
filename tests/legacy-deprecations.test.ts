@@ -5,10 +5,12 @@
  * client reports each stamped route ONCE per client through
  * `PlatformRouteDeprecationWarning`, keyed by method and route (for a path that carries
  * an id, the route template it was built from; otherwise the path without the query),
- * and shared with clients derived through `asUser`. The stamps below are exactly what the
- * platform's `policypath.StampDeprecation` writes at 857455033 (`X-AxonFlow-Removed-In`
+ * and shared with clients derived through `asUser`. The stamps below are what the
+ * platform's `policypath.StampDeprecation` writes from v11.1.0 (`X-AxonFlow-Removed-In`
  * and the successor `Link`, `Deprecation` omitted until release prep sets the tag
- * date), and what it writes from the v11.0.0 tag (`Deprecation: @<unix seconds>`).
+ * date), and what it writes from the v11.0.0 tag (`Deprecation: @<unix seconds>`). At
+ * 857455033, a v11.0.0-era build, the removal release it wrote was `v11.1`; it moved to
+ * v12.0 in v11.1.0.
  * The simulation routes are registered only on an Evaluation+ licence.
  */
 
@@ -23,7 +25,7 @@ global.fetch = mockFetch as unknown as typeof fetch;
 
 const ENDPOINT = 'http://localhost:8080';
 const STAMPED_TODAY = {
-  'X-Axonflow-Removed-In': 'v11.1',
+  'X-Axonflow-Removed-In': 'v12.0',
   Link: '</api/v1/typed-policies>; rel="successor-version"',
 };
 const STAMPED_AT_THE_TAG = { ...STAMPED_TODAY, Deprecation: '@1788220800' };
@@ -286,7 +288,7 @@ describe('the simulation family', () => {
     expect(emitted().map(w => [w.route, w.removedIn, w.successor, w.deprecation])).toEqual(
       ['simulate', 'conflicts', 'impact-report'].map(route => [
         `POST /api/v1/policies/${route}`,
-        'v11.1',
+        'v12.0',
         '/api/v1/typed-policies',
         deprecation,
       ])
@@ -343,7 +345,7 @@ describe('the documented deprecations', () => {
     expect(deprecated).toHaveLength(1);
     const text = tagText(deprecated[0]);
     expect(text).toContain(
-      `The platform deprecates \`${route}\` in v11.0.0 and removes it in v11.1`
+      `The platform deprecates \`${route}\` in v11.0.0 and removes it in v12.0`
     );
     expect(text).toContain('`/api/v1/typed-policies`');
     expect(text).toContain('PlatformRouteDeprecationWarning');

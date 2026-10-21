@@ -2,11 +2,13 @@
 
 `test.mjs` drives the BUILT SDK (`dist/`) against a real AxonFlow agent, and asserts how it reports the platform's deprecation of its legacy policy routes.
 
+Requires a v11.1.0 or later platform: a v11.0.0 platform stamps `X-AxonFlow-Removed-In: v11.1`, and this leg reds against it.
+
 ## What it proves
 
 | Step | Expected |
 |---|---|
-| The platform's own stamps on `GET /api/v1/static-policies` and `GET /api/v1/static-policies/effective`, read raw and printed | `X-AxonFlow-Removed-In: v11.1`, and a `Link` naming `/api/v1/typed-policies` as the successor |
+| The platform's own stamps on `GET /api/v1/static-policies` and `GET /api/v1/static-policies/effective`, read raw and printed | `X-AxonFlow-Removed-In: v12.0`, and a `Link` naming `/api/v1/typed-policies` as the successor |
 | `listStaticPolicies()` twice on one client | one `PlatformRouteDeprecationWarning`, naming the route, the removal release and the successor |
 | The same call from a client derived with `asUser` | nothing new: a derived client shares its parent's memory |
 | `getEffectiveStaticPolicies()` twice | one report for that route, and nothing new on the second call |
