@@ -196,6 +196,27 @@ describe('AxonFlow.decide', () => {
     expect('context' in body).toBe(false);
   });
 
+  it('carries a payment target, pending hold, and approved retry', async () => {
+    mockFetch.mockReturnValueOnce(mockResponse({
+      verdict: 'needs_approval',
+      pending_approval: { approval_id: 'hold-1', status: 'pending', plane: 'decide',
+        retry: { header: 'X-Axonflow-Approval-Id', body_field: 'approval_id' } },
+    }));
+    mockFetch.mockReturnValueOnce(mockResponse({ verdict: 'allow', approval_id: 'hold-1' }));
+    const request = { stage: 'tool', query: 'Retry failed disbursement',
+      target: { type: 'tool', server: 'payment-ops', tool: 'payment-ops.retry_disbursement' } };
+    const held = await client.decide(request);
+    expect(held.verdict).toBe('needs_approval');
+    expect(held.pending_approval?.approval_id).toBe('hold-1');
+    expect(held.pending_approval?.retry.body_field).toBe('approval_id');
+    expect((fetchBody(0).target as Record<string, unknown>).server).toBe('payment-ops');
+    expect('approval_id' in fetchBody(0)).toBe(false);
+    const allowed = await client.decide({ ...request, approval_id: held.pending_approval?.approval_id });
+    expect(fetchBody(1).approval_id).toBe('hold-1');
+    expect(allowed.verdict).toBe('allow');
+    expect(allowed.approval_id).toBe('hold-1');
+  });
+
   it('returns a deny verdict in the body (not an error)', async () => {
     mockFetch.mockReturnValueOnce(
       mockResponse({ verdict: 'deny', decision_id: 'd2', obligations: [], reasons: ['blocked'] })

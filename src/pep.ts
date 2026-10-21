@@ -130,6 +130,8 @@ export interface DecisionTarget {
   /** When type=llm. */
   provider?: string;
   /** When type=tool. */
+  server?: string;
+  /** When type=tool. */
   tool?: string;
 }
 
@@ -148,6 +150,24 @@ export interface DecideRequest {
   target?: DecisionTarget;
   user_token?: string;
   context?: Record<string, unknown>;
+  /** Approved hold spent by an exact retry. */
+  approval_id?: string;
+}
+
+/** How a held Decision API call names its approval on retry. */
+export interface DecisionApprovalRetry {
+  header: string;
+  argument?: string;
+  body_field?: string;
+}
+
+/** A held call is never an allow verdict. */
+export interface DecisionPendingApproval {
+  approval_id: string;
+  status: string;
+  plane: string;
+  expires_at?: string;
+  retry: DecisionApprovalRetry;
 }
 
 /**
@@ -182,6 +202,8 @@ export interface DecideResponse {
   policy_packs?: string[];
   /** Published version of the organization's active typed document (v11.0.0). */
   document_version?: number;
+  pending_approval?: DecisionPendingApproval;
+  approval_id?: string;
 }
 
 /**
