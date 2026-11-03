@@ -69,22 +69,18 @@ Concurrent executions applies to MAP and WCP executions per tenant. Pending exec
 
 [Get a free Evaluation license](https://getaxonflow.com/evaluation-license?utm_source=readme_sdk_typescript_eval) · [Run a paid production program](https://getaxonflow.com/design-partner?utm_source=readme_sdk_typescript_eval) · [Full feature matrix](https://docs.getaxonflow.com/docs/features/community-vs-enterprise?utm_source=readme_sdk_typescript_eval)
 
-## Try Without Installing
+## Hosted without installing the platform
 
-Skip local setup entirely — try AxonFlow instantly at [**try.getaxonflow.com**](https://docs.getaxonflow.com/docs/deployment/community-saas):
+Start at the [verified Hosted Portal](https://portal.try.getaxonflow.com/hosted/start). Verify your email, activate a plan, then download the Hosted API link command from the Portal. Run it locally and approve its device code from your signed-in owner session. It writes a revocable API credential to the protected `~/.config/axonflow/hosted-api.json` file. The file's `endpoint`, `clientId`, and `clientSecret` are the values to configure in this SDK; do not put the client secret in source control or prompts. A newly registered unpaid account cannot link an API client until it activates a plan.
 
 ```bash
-# 1. Register (30 seconds)
-curl -X POST https://try.getaxonflow.com/api/v1/register \
-  -H "Content-Type: application/json" -d '{"label":"my-trial"}'
-
-# 2. Set credentials and auto-connect
+# Set values from the Portal-linked file in your secret manager or environment.
 export AXONFLOW_TRY=1
-export AXONFLOW_CLIENT_ID=cs_your-tenant-id
-export AXONFLOW_CLIENT_SECRET=your-secret
+export AXONFLOW_CLIENT_ID='<clientId>'
+export AXONFLOW_CLIENT_SECRET='<clientSecret>'
 ```
 
-No Docker, no license, no installation. Rate-limited to 20 req/min. [Learn more](https://docs.getaxonflow.com/docs/deployment/community-saas).
+Construct `new AxonFlow({ clientId: process.env.AXONFLOW_CLIENT_ID, clientSecret: process.env.AXONFLOW_CLIENT_SECRET })` to use the Hosted Agent at `https://try.getaxonflow.com`. You can instead pass the file's `endpoint` explicitly. An explicit endpoint takes precedence over `AXONFLOW_TRY=1`, preserving configured self-hosted Community clients. The legacy `registerTry()` helper now directs default Hosted signup to the Portal; an explicit custom self-hosted Community endpoint still supports registration. An answered Hosted 402 payment refusal or 429 allowance refusal is an error, so resolve the plan or allowance before retrying. [Learn more](https://docs.getaxonflow.com/docs/deployment/community-saas).
 
 ## Quick Start
 

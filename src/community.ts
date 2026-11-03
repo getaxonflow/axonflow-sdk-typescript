@@ -1,8 +1,9 @@
 /**
- * Community SaaS registration helper for try.getaxonflow.com.
+ * Legacy registration helper for self-hosted Community servers.
  */
 
 const TRY_ENDPOINT = 'https://try.getaxonflow.com';
+const HOSTED_START_URL = 'https://portal.try.getaxonflow.com/hosted/start';
 
 export interface TryRegistration {
   tenant_id: string;
@@ -14,13 +15,19 @@ export interface TryRegistration {
 }
 
 /**
- * Register for a free evaluation tenant on try.getaxonflow.com.
- * Store the secret securely — it is shown only once.
+ * Direct new Hosted users to verified Portal signup. Registration remains
+ * available when an explicit self-hosted Community endpoint is supplied.
  */
 export async function registerTry(
   label?: string,
   endpoint: string = TRY_ENDPOINT
 ): Promise<TryRegistration> {
+  const hostname = new URL(endpoint).hostname.toLowerCase();
+  if (hostname === 'try.getaxonflow.com' || hostname === 'try-staging.getaxonflow.com') {
+    throw new Error(
+      `New Hosted accounts start at ${HOSTED_START_URL}: verify your email, activate a plan, and link an API client in the Portal. Configure its clientId and clientSecret in AxonFlow.`
+    );
+  }
   const response = await fetch(`${endpoint}/api/v1/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
