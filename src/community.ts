@@ -22,7 +22,7 @@ export async function registerTry(
   label?: string,
   endpoint: string = TRY_ENDPOINT
 ): Promise<TryRegistration> {
-  const hostname = new URL(endpoint).hostname.toLowerCase();
+  const hostname = new URL(endpoint).hostname.toLowerCase().replace(/\.+$/, '');
   if (hostname === 'try.getaxonflow.com' || hostname === 'try-staging.getaxonflow.com') {
     throw new Error(
       `New Hosted accounts start at ${HOSTED_START_URL}: verify your email, activate a plan, and link an API client in the Portal. Configure its clientId and clientSecret in AxonFlow.`

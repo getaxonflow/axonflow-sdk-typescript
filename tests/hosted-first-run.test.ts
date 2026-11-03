@@ -17,6 +17,12 @@ it('sends new Hosted signup to the verified Portal without a registration reques
   await expect(registerTry('trial', 'https://try-staging.getaxonflow.com')).rejects.toThrow(
     'https://portal.try.getaxonflow.com/hosted/start'
   );
+  await expect(registerTry('trial', 'https://try.getaxonflow.com.')).rejects.toThrow(
+    'https://portal.try.getaxonflow.com/hosted/start'
+  );
+  await expect(registerTry('trial', 'https://try-staging.getaxonflow.com.:443')).rejects.toThrow(
+    'https://portal.try.getaxonflow.com/hosted/start'
+  );
   expect(mockFetch).not.toHaveBeenCalled();
 });
 
