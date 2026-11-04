@@ -5,6 +5,12 @@ All notable changes to the AxonFlow TypeScript SDK will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- Hosted first-run guidance now starts at the verified Portal and maps the linked credential file's `endpoint`, `clientId`, and `clientSecret` keys to SDK configuration. `registerTry()` no longer calls anonymous registration on the Hosted endpoints; custom self-hosted Community registration remains available. An explicit endpoint takes precedence over `AXONFLOW_TRY=1`.
+
 ## [9.5.0] - 2026-10-21: Decision API approval retry fields
 
 ### Added

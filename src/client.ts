@@ -536,8 +536,9 @@ export class AxonFlow {
       );
     }
 
-    // Try mode: when AXONFLOW_TRY=1 is set, override endpoint and require clientId
-    if (process.env['AXONFLOW_TRY'] === '1') {
+    // The legacy convenience switch chooses Hosted only when no endpoint was
+    // supplied. An explicit self-hosted endpoint must retain its authority.
+    if (process.env['AXONFLOW_TRY'] === '1' && !config.endpoint) {
       if (!config.clientId) {
         throw new ConfigurationError('clientId is required in try mode (AXONFLOW_TRY=1)');
       }
